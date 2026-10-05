@@ -1,22 +1,19 @@
-/* ================= AUTH ================= */
+/* ================= AUTH =================
+   Sign-in uses Supabase Auth (passwords are checked and stored, hashed, by Supabase — never in
+   the erp_data JSON). An account can only open the app if:
+     1. its username + password are accepted by Supabase Auth,
+     2. it has a role in its Auth app_metadata (set only by the server, api/users.js), and
+     3. its ERP user profile in db.users is not deactivated.
+   The RLS policies (supabase/setup.sql) apply the same role check on the database side, so the
+   data cannot be read without signing in. */
 const SESSION_KEY='hrms_session_v1';
 let currentUser=null;
-// 4-digit passcode/OTP login-verification state (see attemptLogin() / attemptOtpVerify()) —
-// holds the user record that already passed the Username+Password check and the OTP it must
-// still enter before currentUser is actually set / the LoginLog record is created. Cleared the
-// moment verification succeeds, is retried, or the person clicks "← Back".
-let pendingOtpUser=null;
-let pendingOtpCode='';
 // The LoginLog record ("session") id for the currently signed-in user, so logout() knows
-// exactly which row to close out with a Logout Time + Session Duration. Also persisted inside
-// the sessionStorage session (see attemptOtpVerify() / the DOMContentLoaded restore below) so a
-// page reload can still find and close the right row later, without re-prompting for the OTP.
+// exactly which row to close out with a Logout Time + Session Duration. Also persisted in
+// sessionStorage (see startSession()) so a page reload can still find and close the right row.
 let currentLoginLogId=null;
+let loginBusy=false;
 
-function findUser(username,password){
-  if(!Array.isArray(db.users)) return null;
-  return db.users.find(u=>u.username.toLowerCase()===String(username||'').toLowerCase() && u.password===password) || null;
-}
 // "Xh Ym" session-duration formatter used by the LoginLog — given two ISO timestamps, returns
 // the elapsed wall-clock time between them (never negative; a logout somehow recorded before
 // its login simply reads "0m").
@@ -27,82 +24,87 @@ function fmtSessionDuration(loginIso, logoutIso){
   const h=Math.floor(mins/60), m=mins%60;
   return h>0 ? `${h}h ${m}m` : `${m}m`;
 }
-function attemptLogin(){
+async function attemptLogin(){
   const u=document.getElementById('loginUser').value.trim();
   const p=document.getElementById('loginPass').value;
   const err=document.getElementById('loginErr');
-  const user=findUser(u,p);
-  if(!user){ err.textContent='Invalid username or password.'; return; }
-  if(user.active===false){ err.textContent='This account has been deactivated. Contact your Administrator.'; return; }
-  // Username + Password are correct, but the dashboard is NOT granted yet — a 4-digit
-  // passcode/OTP must also be entered correctly first (see attemptOtpVerify() below).
-  err.textContent='';
-  pendingOtpUser=user;
-  goToOtpStep();
-}
-// Generates a fresh random 4-digit code (1000–9999, so it's always exactly 4 digits) and shows
-// the OTP entry step. Since this app has no SMS/Email gateway configured to actually deliver a
-// code, the generated code is surfaced directly on-screen so the feature is fully usable
-// end-to-end rather than silently blocking sign-in on an undeliverable code.
-function goToOtpStep(){
-  pendingOtpCode=String(Math.floor(1000+Math.random()*9000));
-  document.getElementById('loginStepCreds').style.display='none';
-  document.getElementById('loginStepOtp').style.display='block';
-  document.getElementById('otpForUser').textContent=pendingOtpUser.name||pendingOtpUser.username;
-  document.getElementById('otpDemoNote').textContent=`Demo Mode — no SMS/Email gateway configured. Your code: ${pendingOtpCode}`;
-  const otpErr=document.getElementById('otpErr'); if(otpErr) otpErr.textContent='';
-  const otpEl=document.getElementById('loginOtp');
-  if(otpEl){ otpEl.value=''; otpEl.focus(); }
-}
-// Re-generates and re-shows a new 4-digit code for the same pendingOtpUser, without going back
-// to re-checking Username/Password.
-function resendOtp(){
-  if(!pendingOtpUser) return;
-  goToOtpStep();
-}
-// Returns to the Username/Password step, discarding whatever code was generated — the person
-// must re-enter valid credentials to get a new one.
-function backToCredentialsStep(){
-  pendingOtpUser=null;
-  pendingOtpCode='';
-  const stepOtp=document.getElementById('loginStepOtp'); if(stepOtp) stepOtp.style.display='none';
-  const stepCreds=document.getElementById('loginStepCreds'); if(stepCreds) stepCreds.style.display='block';
-  const otpErr=document.getElementById('otpErr'); if(otpErr) otpErr.textContent='';
-  const uEl=document.getElementById('loginUser'); if(uEl) uEl.focus();
-}
-// Final gate: only once the 4-digit code entered here matches pendingOtpCode does currentUser
-// actually get set and the dashboard become reachable. This is also the single point where a
-// LoginLog "session" row is created — login_time is recorded exactly when access is granted,
-// never earlier (so a wrong/abandoned OTP attempt never creates a stray log entry).
-function attemptOtpVerify(){
-  const otpEl=document.getElementById('loginOtp');
-  const otpErr=document.getElementById('otpErr');
-  const entered=(otpEl.value||'').trim();
-  if(!pendingOtpUser || !pendingOtpCode){ backToCredentialsStep(); return; }
-  if(entered.length!==4 || !/^\d{4}$/.test(entered)){
-    otpErr.textContent='Please enter the 4-digit code.';
-    return;
+  if(!u || !p){ err.textContent='Enter your username and password.'; return; }
+  if(loginBusy) return;
+  loginBusy=true;
+  err.textContent='Signing in…';
+  try{
+    const {data, error}=await sb.auth.signInWithPassword({ email: usernameToEmail(u), password: p });
+    if(error && (error.code==='user_banned' || /banned/i.test(error.message||''))){ err.textContent='This account has been deactivated. Contact your Administrator.'; return; }
+    if(error || !data || !data.user){ err.textContent='Invalid username or password.'; return; }
+    await startSession(data.user, true);
+  }catch(e){
+    err.textContent='Could not reach the login server. Check your internet connection.';
+  }finally{
+    loginBusy=false;
   }
-  if(entered!==pendingOtpCode){
-    otpErr.textContent='Incorrect code. Please try again.';
-    otpEl.value=''; otpEl.focus();
-    return;
+}
+// Shows a reason on the login screen and drops the Supabase session.
+async function rejectSession(message){
+  try{ await sb.auth.signOut(); }catch(e){}
+  currentUser=null;
+  currentLoginLogId=null;
+  sessionStorage.removeItem(SESSION_KEY);
+  db=defaultDB();
+  const err=document.getElementById('loginErr');
+  if(err) err.textContent=message;
+  return false;
+}
+// Runs after Supabase Auth accepted the account — either a fresh sign-in (isNewLogin) or a
+// session restored on page reload. Loads the data, matches the ERP user profile and opens the app.
+async function startSession(authUser, isNewLogin){
+  const meta=(authUser && authUser.app_metadata) || {};
+  if(!meta.role) return rejectSession('This account is not set up for VIPL Payroll. Contact your Software Admin.');
+  try{
+    await initDB();
+  }catch(e){
+    return rejectSession('Could not load data: '+(e && e.message ? e.message : e));
   }
-  otpErr.textContent='';
-  currentUser=pendingOtpUser;
-  // Create this session's LoginLog row — login_time is "now", logout_time/session_duration are
-  // filled in only later by logout() when the person actually signs out.
-  const logRow={ id:'LL'+Date.now()+Math.floor(Math.random()*1000), userId:currentUser.username, name:currentUser.name||currentUser.username,
-    loginTime:new Date().toISOString(), logoutTime:'', sessionDuration:'' };
-  if(!Array.isArray(db.loginLogs)) db.loginLogs=[];
-  db.loginLogs.push(logRow);
-  currentLoginLogId=logRow.id;
-  saveDB(db);
-  sessionStorage.setItem(SESSION_KEY, JSON.stringify({username:currentUser.username, loginLogId:logRow.id}));
-  pendingOtpUser=null;
-  pendingOtpCode='';
-  otpEl.value='';
+  const username=(meta.username || String(authUser.email||'').split('@')[0]).toLowerCase();
+  if(!Array.isArray(db.users)) db.users=[];
+  let user=db.users.find(x=>String(x.username).toLowerCase()===username);
+  if(!user){
+    // The account was created directly in Supabase (e.g. the first Software Admin) and has no
+    // ERP profile yet — create one from its server-assigned role.
+    user={username, name:username, role:meta.role, active:true};
+    ensureUserPermissions(user);
+    db.users.push(user);
+    await saveDB(db);
+  }
+  if(user.active===false) return rejectSession('This account has been deactivated. Contact your Administrator.');
+  // The role in Supabase Auth (changeable only through api/users.js) is authoritative.
+  if(user.role!==meta.role){
+    user.role=meta.role;
+    ensureUserPermissions(user);
+    await saveDB(db);
+  }
+  currentUser=user;
+  if(isNewLogin){
+    // Create this session's LoginLog row — login_time is "now", logout_time/session_duration are
+    // filled in only later by logout() when the person actually signs out.
+    const logRow={ id:'LL'+Date.now()+Math.floor(Math.random()*1000), userId:currentUser.username, name:currentUser.name||currentUser.username,
+      loginTime:new Date().toISOString(), logoutTime:'', sessionDuration:'' };
+    if(!Array.isArray(db.loginLogs)) db.loginLogs=[];
+    db.loginLogs.push(logRow);
+    currentLoginLogId=logRow.id;
+    saveDB(db);
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({username:currentUser.username, loginLogId:logRow.id}));
+  }else{
+    // Page reload inside the same tab: reattach to the SAME LoginLog row so logout() still
+    // closes out the correct session later.
+    try{
+      const sess=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');
+      currentLoginLogId=(sess && sess.username===currentUser.username && sess.loginLogId) || null;
+    }catch(e){ currentLoginLogId=null; }
+  }
+  const err=document.getElementById('loginErr'); if(err) err.textContent='';
+  const pf=document.getElementById('loginPass'); if(pf) pf.value='';
   showApp();
+  return true;
 }
 function showApp(){
   document.getElementById('loginScreen').style.display='none';
@@ -116,25 +118,28 @@ function showApp(){
 function showLogin(){
   document.getElementById('app').style.display='none';
   document.getElementById('loginScreen').style.display='flex';
-  backToCredentialsStep();
   const pf=document.getElementById('loginPass'); if(pf) pf.value='';
   const ef=document.getElementById('loginErr'); if(ef) ef.textContent='';
+  const uEl=document.getElementById('loginUser'); if(uEl) uEl.focus();
 }
-function logout(){
+async function logout(){
   // Close out this session's LoginLog row — stamp logout_time and compute/store
-  // session_duration ("Xh Ym") — before clearing currentUser, so the record this person just
-  // finished is captured exactly once, right here.
+  // session_duration ("Xh Ym") — before signing out, so the record this person just
+  // finished is captured exactly once, right here (the save must finish while still signed in).
   if(currentLoginLogId){
     const row=(db.loginLogs||[]).find(x=>x.id===currentLoginLogId);
     if(row && !row.logoutTime){
       row.logoutTime=new Date().toISOString();
       row.sessionDuration=fmtSessionDuration(row.loginTime, row.logoutTime);
-      saveDB(db);
+      await saveDB(db);
     }
   }
+  try{ await sb.auth.signOut(); }catch(e){}
   currentLoginLogId=null;
   currentUser=null;
   sessionStorage.removeItem(SESSION_KEY);
+  db=defaultDB(); // don't keep the company's data in memory after signing out
+  closeModal();
   showLogin();
 }
 window.addEventListener('DOMContentLoaded',()=>{
@@ -144,29 +149,23 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key==='Enter') attemptLogin(); });
   document.getElementById('loginUser').addEventListener('keydown',e=>{ if(e.key==='Enter') attemptLogin(); });
-  document.getElementById('loginOtp').addEventListener('keydown',e=>{ if(e.key==='Enter') attemptOtpVerify(); });
 
-  // Show a lightweight "loading" state on the login screen while Supabase data is fetched.
+  // Show a lightweight "loading" state on the login screen while an existing session is checked.
   const loginErr=document.getElementById('loginErr');
   if(loginErr) loginErr.textContent='Connecting to database…';
 
-  dbReady.then(()=>{
-    if(loginErr) loginErr.textContent='';
-    const raw=sessionStorage.getItem(SESSION_KEY);
-    if(raw){
-      try{
-        const sess=JSON.parse(raw);
-        const user=(db.users||[]).find(u=>u.username===sess.username);
-        if(user && user.active===false){ sessionStorage.removeItem(SESSION_KEY); showLogin(); return; }
-        // A valid sessionStorage session means Username+Password AND the 4-digit OTP were
-        // already verified earlier in this browser tab — restoring it on reload does not ask
-        // for the OTP again, it just reattaches to the SAME LoginLog row (sess.loginLogId) so
-        // logout() still closes out the correct session later.
-        if(user){ currentUser=user; currentLoginLogId=sess.loginLogId||null; showApp(); return; }
-      }catch(e){}
+  (async()=>{
+    let session=null;
+    try{ ({ data:{ session } } = await sb.auth.getSession()); }catch(e){ session=null; }
+    if(session && session.user){
+      // A Supabase session already exists in this browser tab (page reload) — reopen the app
+      // without asking for the password again.
+      const ok=await startSession(session.user, false);
+      if(!ok) document.getElementById('loginScreen').style.display='flex';
+      return;
     }
     showLogin();
-  });
+  })();
 });
 
 function toggleTheme(){

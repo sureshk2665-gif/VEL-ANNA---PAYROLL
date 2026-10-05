@@ -16,15 +16,43 @@ npm run build     # production build in dist/ — upload that folder to any stat
 npm run preview   # serve the built dist/ locally
 ```
 
+`npm run dev` does not run the `api/` server function, so adding/editing users only works on
+Vercel (or locally with `npx vercel dev`). Signing in and everything else works with `npm run dev`.
+
+## Security setup (Supabase + Vercel)
+
+Logins are Supabase Auth accounts (passwords are hashed by Supabase and never stored in the ERP
+data). The database rules only let signed-in staff accounts read or write data.
+
+1. **Supabase → SQL Editor:** run `supabase/setup.sql` (creates the table and the rules).
+2. **Supabase → Authentication → Sign In / Providers:** turn **off** "Allow new users to sign up".
+3. **First Software Admin:** Authentication → Users → Add user → Create new user with email
+   `swadmin@users.vipl-payroll.app`, a strong password and **Auto Confirm User** ticked. Then run
+   the `update auth.users ...` statement at the end of `supabase/setup.sql`.
+4. **Vercel → Settings → Environment Variables** (Production and Preview):
+   - `SUPABASE_URL` = your project URL
+   - `SUPABASE_SERVICE_ROLE_KEY` = the **secret / service_role** key (Supabase → Project
+     Settings → API Keys). Never put this key in the browser code or share it.
+5. Redeploy. Sign in as `swadmin` and create everyone else from **User Management**.
+
+Usernames map to `<username>@users.vipl-payroll.app` in Supabase Auth (no email is ever sent).
+Each account's role is stored in its Auth `app_metadata`, which only `api/users.js` can change.
+
+Limits to know: the whole ERP database is still one JSON row, so any signed-in staff account
+can technically read and change all of it (the per-module permissions are enforced by the app's
+screens, not by the database). Splitting the data into separate tables is needed to go further.
+
 ## Project structure
 
 ```
 index.html                     Entry page: React root + ordered <script> tags for the modules
+api/users.js                   Vercel server function: creates/updates/deletes login accounts
+supabase/setup.sql             Database table + security rules (RLS) + first-admin statement
 src/
   main.jsx                     Renders the React shell, loads the CSS
   App.jsx                      Login screen + app shell + modal
   components/
-    LoginScreen.jsx            Username/password and 4-digit code steps
+    LoginScreen.jsx            Username/password sign-in
     AppShell.jsx               Sidebar + topbar + #pageBody page area
     Sidebar.jsx                Logo and navigation menu
     Topbar.jsx                 Page title, colour theme picker, dark/light, logout
@@ -51,7 +79,7 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 | 01-supabase-db.js | Supabase config, load/save database, startup data migration |
 | 02-permissions.js | Roles and per-module user rights |
 | 03-company-logo-status.js | Company logo upload, attendance status constants |
-| 04-auth-theme.js | Login, 4-digit code, logout, dark mode and colour theme |
+| 04-auth-theme.js | Supabase Auth login/logout, session restore, dark mode and colour theme |
 | 05-navigation.js | Sidebar click handling and `render(page)` page router |
 | 06-helpers.js | Formatting, dates, salary helpers, amount in words |
 | 07-dashboard.js | Dashboard |
@@ -83,6 +111,6 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 - To convert a page to React later: build it as a component, mount it into `#pageBody` from
   `render(page)` for that page, and move that page's functions out of `public/legacy/`.
 
-Only one line of logic changed in the split: the auto-backup start check in
+Only one line of logic changed in the original split: the auto-backup start check in
 `28-user-rights-backup.js`, because deferred scripts run when `document.readyState` is already
 `'interactive'`. Without the change the watcher would start twice.
