@@ -1,0 +1,10 @@
+/* Order matters — same order as the original single-file <style> block. */
+@import './legacy/01-theme.css';
+@import './legacy/02-login.css';
+@import './legacy/03-layout.css';
+@import './legacy/04-components.css';
+@import './legacy/05-time-entry.css';
+@import './legacy/06-attendance.css';
+@import './legacy/07-salary-advance.css';
+@import './legacy/08-salary-slip-print.css';
+@import './shell.css';

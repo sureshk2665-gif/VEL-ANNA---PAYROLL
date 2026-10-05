@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>VIPL Payroll</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" type="image/png" href="assets/vipl-logo.png">
+</head>
+<body>
+<!-- React shell (login, sidebar, topbar, modal) is rendered here by src/main.jsx -->
+<div id="root"></div>
+
+<script type="module" src="/src/main.jsx"></script>
+
+<!-- Supabase client, then the ERP modules (public/legacy/). All are deferred, so they run in this
+     order right after the React shell has rendered and before DOMContentLoaded. Keep the order. -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script defer src="legacy/01-supabase-db.js"></script>
+<script defer src="legacy/02-permissions.js"></script>
+<script defer src="legacy/03-company-logo-status.js"></script>
+<script defer src="legacy/04-auth-theme.js"></script>
+<script defer src="legacy/05-navigation.js"></script>
+<script defer src="legacy/06-helpers.js"></script>
+<script defer src="legacy/07-dashboard.js"></script>
+<script defer src="legacy/08-employees.js"></script>
+<script defer src="legacy/09-departments.js"></script>
+<script defer src="legacy/10-attendance.js"></script>
+<script defer src="legacy/11-salary-advance.js"></script>
+<script defer src="legacy/12-payroll-calc.js"></script>
+<script defer src="legacy/13-time-entry.js"></script>
+<script defer src="legacy/14-time-entry-grid.js"></script>
+<script defer src="legacy/15-payroll.js"></script>
+<script defer src="legacy/16-payroll-process.js"></script>
+<script defer src="legacy/17-annual-increment.js"></script>
+<script defer src="legacy/18-salary-slip.js"></script>
+<script defer src="legacy/19-reports.js"></script>
+<script defer src="legacy/20-acquittance-register.js"></script>
+<script defer src="legacy/21-bonus-report.js"></script>
+<script defer src="legacy/22-experience-report.js"></script>
+<script defer src="legacy/23-esi-report.js"></script>
+<script defer src="legacy/24-pf-report.js"></script>
+<script defer src="legacy/25-print-reports.js"></script>
+<script defer src="legacy/26-settings.js"></script>
+<script defer src="legacy/27-software-admin.js"></script>
+<script defer src="legacy/28-user-rights-backup.js"></script>
+<script defer src="legacy/29-user-management.js"></script>
+<script defer src="legacy/30-modal.js"></script>
+</body>
+</html>
