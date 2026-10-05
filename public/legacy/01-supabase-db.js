@@ -2,8 +2,8 @@
    Fill these in with your project's values (Supabase Dashboard -> Project Settings -> API).
    The anon/public key is safe to expose in client-side code as long as Row Level Security
    (RLS) policies on the `erp_data` table are configured correctly. */
-const SUPABASE_URL = 'https://jvzmwqlezubiwbsougnc.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_frk8eNXcYraeqFTfu0iLeA_LsRTaoPn';
+const SUPABASE_URL = 'https://fhpfxpibqvreymhzhdxt.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_IwJC0VtOf1WXbTJj6yCc4g_RaUbAsWH';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* ================= DATA LAYER (Supabase) =================
