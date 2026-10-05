@@ -1,0 +1,163 @@
+/* Attendance — Completion Tracking */
+.attCompletionCard{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:6px;box-shadow:0 1px 3px rgba(16,24,40,.04);}
+.attCompletionCard.future{padding:7px 12px;}
+.accHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;}
+.accHead h4{margin:0;font-size:12.5px;}
+.accSub{font-weight:400;color:var(--muted);font-size:10.5px;}
+.accPct{font-weight:700;font-size:11.5px;padding:2px 10px;border-radius:20px;background:var(--accent-soft);color:var(--accent);}
+.accPct.ok{background:var(--st-present-bg);color:var(--st-present-text);}
+.accPct.mid{background:var(--st-half-bg);color:var(--st-half-text);}
+.accPct.low{background:var(--st-lop-bg);color:var(--st-lop-text);}
+.accBarTrack{margin-top:5px;height:5px;border-radius:5px;background:var(--paper);border:1px solid var(--line);overflow:hidden;}
+.accBarFill{height:100%;background:var(--accent);border-radius:5px;transition:width .2s ease;}
+.accBarFill.ok{background:#16a34a;}
+.accBarFill.mid{background:#d97706;}
+.accBarFill.low{background:#dc2626;}
+.accChips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;}
+.accChips .chip{padding:2px 9px;border-radius:20px;font-size:10.5px;font-weight:600;background:var(--accent-soft);color:var(--ink);}
+.accChips .chip.ok{background:var(--st-present-bg);color:var(--st-present-text);}
+.accChips .chip.warn{background:var(--st-half-bg);color:var(--st-half-text);}
+.accChips .chip.danger{background:var(--st-lop-bg);color:var(--st-lop-text);}
+.accMissingList{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;max-height:52px;overflow-y:auto;padding-top:1px;}
+.accMissingPill{display:flex;align-items:center;gap:4px;padding:2px 9px;border-radius:20px;border:1px solid var(--st-lop-border);background:var(--st-lop-bg);color:var(--st-lop-text);font-size:10.5px;cursor:pointer;font-family:inherit;line-height:1.6;}
+.accMissingPill:hover{filter:brightness(0.96);}
+.accMissingPill b{font-weight:700;}
+.accMissingPill span{opacity:.75;}
+
+/* Attendance grid */
+.attRow{display:grid;grid-template-columns:70px 1fr 220px;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);}
+.attRow select{padding:6px 8px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);}
+
+.attLegend{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;font-size:11px;}
+.attLegend span{padding:2px 8px;border-radius:10px;}
+.attGridWrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;box-shadow:0 1px 3px rgba(16,24,40,.04);}
+table.attGrid{border-collapse:collapse;font-size:11px;white-space:nowrap;width:100%;table-layout:fixed;}
+table.attGrid.compact{font-size:9px;}
+table.attGrid th,table.attGrid td{border:1px solid var(--line);padding:0;text-align:center;}
+table.attGrid thead th{background:var(--accent-soft);padding:5px 1px;font-weight:700;position:sticky;top:0;z-index:2;width:22px;text-transform:none;letter-spacing:0;}
+table.attGrid thead th.sun{background:var(--st-sunday-bg);}
+table.attGrid thead th.holiday{background:var(--st-noph-bg);}
+table.attGrid tbody tr:hover td:not(.empCell){background:var(--accent-soft);}
+table.attGrid tbody tr:nth-child(even) td.empCell{background:var(--card);}
+table.attGrid td.empCell,table.attGrid th.empHead{position:sticky;left:0;background:var(--card);z-index:3;text-align:left;padding:5px 6px;width:150px;min-width:150px;max-width:150px;box-shadow:1px 0 0 var(--line);white-space:normal;}
+table.attGrid thead th.empHead{z-index:4;background:var(--accent-soft);}
+table.attGrid th.sumHead{width:34px;}
+table.attGrid .empName{font-weight:600;font-size:11px;overflow:hidden;text-overflow:ellipsis;}
+table.attGrid .empSub{color:var(--muted);font-size:9px;overflow:hidden;text-overflow:ellipsis;}
+table.attGrid select.cellSel{width:100%;height:24px;border:none;background:transparent;font-size:9px;text-align:center;cursor:pointer;color:var(--ink);padding:0;}
+table.attGrid select.daySel{width:100%;height:22px;border:none;background:transparent;font-size:8px;padding:0;}
+.attViewToggle{display:flex;gap:6px;align-items:center;margin-bottom:8px;font-size:12px;color:var(--muted);}
+table.attGrid td.cellStatus-Present{background:var(--st-present-bg);border-left:3px solid var(--st-present-border);}
+table.attGrid td.cellStatus-Absent,table.attGrid td.cellStatus-LossOfPay{background:var(--st-lop-bg);border-left:3px solid var(--st-lop-border);}
+table.attGrid td.cellStatus-HalfDay{background:var(--st-half-bg);border-left:3px solid var(--st-half-border);}
+table.attGrid td.cellStatus-PaidLeave{background:var(--st-nopl-bg);border-left:3px solid var(--st-nopl-border);}
+table.attGrid td.cellStatus-NOPH{background:var(--st-noph-bg);border-left:3px solid var(--st-noph-border);}
+table.attGrid td.sumCell{font-weight:600;background:var(--card);}
+table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);border-radius:4px;text-align:center;font-size:11px;background:var(--paper);color:var(--ink);}
+.attToolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:12px;}
+.attToolbar input[type="search"]{padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);}
+.syncNote{font-size:12px;color:var(--muted);margin:6px 0 0;}
+
+/* Attendance - Quick Mark (Day view) */
+.attTabsInline{display:flex;gap:6px;flex-shrink:0;}
+.attTabDivider{width:1px;align-self:stretch;background:var(--line);margin:2px 2px;}
+.attTab{padding:8px 16px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;}
+.attTab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+.attDateBar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px;}
+.attDateBar .navBtn{width:34px;height:34px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.attDateBar input[type="date"]{padding:7px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-weight:600;}
+.attTodayBtn{padding:7px 12px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:12px;cursor:pointer;font-weight:600;}
+.attDayLabel{font-size:14px;font-weight:700;margin-right:4px;}
+.attDaySumBar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.attDaySumBar .chip{padding:6px 12px;border-radius:20px;font-size:12px;font-weight:600;background:var(--accent-soft);}
+.attDaySumBar .chip.warn{background:#fee2e2;color:#991b1b;}
+.attBulkBar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px;}
+.attQuickList{display:flex;flex-direction:column;gap:8px;}
+.attQuickRow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);}
+.attQuickRow.attSun{background:var(--st-sunday-bg);}
+.attQuickRow.unmarked{border-color:#f59e0b;background:#fffbeb;}
+.attQuickEmp{min-width:170px;flex:1 1 170px;}
+.attQuickEmp .empName{font-weight:700;font-size:13px;}
+.attQuickEmp .empSub{color:var(--muted);font-size:11px;}
+.attQuickBtns{display:flex;flex-wrap:wrap;gap:6px;flex:2 1 320px;}
+.attQBtn{padding:7px 11px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap;}
+.attQBtn.sel-Present{background:var(--st-present-bg);border-color:var(--st-present-border);color:var(--st-present-text);}
+.attQBtn.sel-LossOfPay{background:var(--st-lop-bg);border-color:var(--st-lop-border);color:var(--st-lop-text);}
+.attQBtn.sel-HalfDay{background:var(--st-half-bg);border-color:var(--st-half-border);color:var(--st-half-text);}
+.attQBtn.sel-PaidLeave{background:var(--st-nopl-bg);border-color:var(--st-nopl-border);color:var(--st-nopl-text);}
+.attQBtn.active{outline:2px solid var(--ink);outline-offset:-2px;}
+.attQuickOT{width:56px;height:30px;border:1px solid var(--line);border-radius:6px;text-align:center;font-size:11px;background:var(--paper);color:var(--ink);}
+.attQuickOTWrap{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);}
+@media (max-width:640px){ .attQuickRow{flex-direction:column;align-items:stretch;} .attQuickEmp{flex:none;} }
+
+/* ===== Attendance — full-screen stage (no scroll) =====
+   Layout: a slim top bar (employee / month / actions — the controls used every
+   time) spans the full width for one-glance access, then the stage body splits
+   into a narrow left column holding everything auto-calculated/system-derived
+   (completion tracker, live summary totals, NOPL/advance/canteen figures) and a
+   wide right column holding the actual data-entry surface (calendar + the few
+   editable monthly figures), so the whole workflow fits one viewport. */
+.attStage{display:flex;flex-direction:column;height:100%;min-height:0;gap:6px;}
+.attStageTop{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:6px 10px;flex-shrink:0;}
+.attStageTop .grp{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.attStageTop .sep{width:1px;align-self:stretch;background:var(--line);margin:0 2px;flex-shrink:0;}
+.attStageTop select.empPicker{min-width:190px;max-width:260px;font-weight:600;}
+.attStageTop select,.attStageTop input[type="month"]{padding:5px 8px;font-size:12.5px;border-radius:6px;border:1px solid var(--line);background:var(--paper);color:var(--ink);}
+.attStageTop .navBtn{width:24px;height:24px;padding:0;border-radius:5px;border:1px solid var(--line);background:var(--paper);color:var(--ink);font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;line-height:1;cursor:pointer;}
+.attStageTop .attDayLabel{font-size:12.5px;font-weight:700;white-space:nowrap;}
+.attStageTop .btn{padding:6px 13px;font-size:12.5px;}
+.attStageTop .btn.tiny,.attStageTop button.btn.secondary{padding:6px 10px;font-size:11.5px;}
+.attStageTop .attRightActions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-left:auto;}
+.attStageEditNote{flex-shrink:0;font-size:11.5px;color:var(--warn);background:var(--st-half-bg);border:1px solid var(--st-half-border);border-radius:7px;padding:3px 10px;}
+.attStageBody{display:flex;flex:1;min-height:0;gap:10px;}
+.attAutoCol{flex:0 0 235px;max-width:235px;display:flex;flex-direction:column;gap:6px;min-height:0;}
+.attAutoCol .attCompletionCard{flex:0 1 auto;max-height:40%;display:flex;flex-direction:column;min-height:0;margin-bottom:0;}
+.attAutoCol .accMissingList{flex:1;max-height:none;min-height:0;overflow-y:auto;align-content:flex-start;}
+.attAutoCol .accMissingPill{width:100%;box-sizing:border-box;}
+.attAutoCol .accChips{gap:4px;}
+.attAutoCol .accHead{flex-direction:column;align-items:flex-start;gap:2px;}
+.attAutoCol .accHead h4{font-size:12px;line-height:1.3;}
+.attAutoCol .accSub{display:block;font-size:9.5px;}
+.autoCard{background:var(--card);border:1px solid var(--line);border-radius:9px;padding:8px 10px;flex-shrink:0;}
+.autoCard h4{margin:0 0 6px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;display:flex;align-items:center;gap:4px;}
+.autoCard.grow{flex:1;min-height:0;overflow-y:auto;}
+.attSumGrid{display:grid;grid-template-columns:1fr auto;gap:3px 8px;font-size:12px;}
+.attSumGrid .sk{color:var(--ink);}
+.attSumGrid .sv{font-weight:700;text-align:right;}
+.attSumGrid .totalRow .sk,.attSumGrid .totalRow .sv{color:var(--accent);font-size:13px;padding-top:3px;border-top:1px solid var(--line);margin-top:1px;}
+.autoRow{display:flex;justify-content:space-between;align-items:baseline;gap:6px;font-size:12px;padding:3px 0;border-bottom:1px dashed var(--line);}
+.autoRow:last-child{border-bottom:none;}
+.autoRow span{color:var(--muted);font-size:11px;}
+.autoRow b{font-weight:700;}
+.attEntryCol{flex:1;display:flex;flex-direction:column;min-width:0;gap:6px;min-height:0;}
+.attCalPanel{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:7px;overflow:hidden;}
+.attCalGrid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;flex:1;min-height:0;}
+.attCalDow{text-align:center;font-size:10px;font-weight:700;color:var(--muted);padding:1px 0;}
+.attCalCell{border:1px solid var(--line);border-radius:5px;padding:2px 4px;display:flex;flex-direction:column;gap:1px;min-height:0;overflow:hidden;border-left-width:3px;}
+.attCalCell.sun{background:var(--st-sunday-bg);}
+.attCalCell.st-Present{border-left-color:var(--st-present-border);background:var(--st-present-bg);}
+.attCalCell.st-LossOfPay{border-left-color:var(--st-lop-border);background:var(--st-lop-bg);}
+.attCalCell.st-HalfDay{border-left-color:var(--st-half-border);background:var(--st-half-bg);}
+.attCalCell.st-PaidLeave{border-left-color:var(--st-nopl-border);background:var(--st-nopl-bg);}
+.attCalCell.st-NOPH{border-left-color:var(--st-noph-border);background:var(--st-noph-bg);}
+.attCalCell.blank{border:none;background:transparent;}
+.attCalCell .dNum{font-size:10.5px;font-weight:700;line-height:1.1;}
+.attCalCell select{width:100%;border:1px solid var(--line);border-radius:4px;font-size:10px;padding:1px;background:var(--paper);color:var(--ink);flex-shrink:0;}
+.attCalCell.st-Present select{background:var(--st-present-bg);color:var(--st-present-text);}
+.attCalCell.st-LossOfPay select{background:var(--st-lop-bg);color:var(--st-lop-text);}
+.attCalCell.st-HalfDay select{background:var(--st-half-bg);color:var(--st-half-text);}
+.attCalCell.st-PaidLeave select{background:var(--st-nopl-bg);color:var(--st-nopl-text);}
+.attCalCell.st-NOPH select{background:var(--st-noph-bg);color:var(--st-noph-text);}
+.attEntryRow{flex-shrink:0;display:flex;flex-wrap:wrap;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px 10px;}
+.attEntryField{display:flex;flex-direction:column;gap:1px;flex:1 1 130px;min-width:110px;}
+.attEntryField label{font-size:12.5px;color:#0b5d1e;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+.attEntryField input{padding:5px 7px;border-radius:6px;border:1px solid #e0c200;background:#c9a400;color:#0b5d1e;font-weight:700;font-size:12.5px;width:100%;box-sizing:border-box;}
+.attEntryField input:disabled{opacity:.65;}
+@media (max-width:1150px){
+  .attStageBody{flex-direction:column;}
+  .attAutoCol{flex:0 0 auto;max-width:none;flex-direction:row;flex-wrap:wrap;max-height:none;}
+  .attAutoCol>*{flex:1 1 220px;}
+  .attAutoCol .attCompletionCard{max-height:none;}
+  .attCalGrid{grid-auto-rows:56px;}
+}
+

@@ -1,0 +1,44 @@
+:root{
+  --ink:#1c2430; --paper:#f6f5f1; --card:#ffffff; --line:#e2e0d8;
+  --accent:#0f6b5c; --accent-soft:#e4f2ee; --warn:#b45309; --danger:#b3261e;
+  --muted:#6b7280; --radius:10px;
+  /* ===== Attendance status palette — single source of truth =====
+     Each status gets its own soft, professional, clearly-distinguishable hue,
+     used consistently everywhere it's displayed (tags, grid, quick-mark
+     buttons, monthly calendar). NOPH is a 5th, auto/locked status driven by
+     the Holiday Calendar, kept visually distinct from the other four. */
+  --st-present-bg:#d7f5e3; --st-present-text:#166534; --st-present-border:#6ee7a4;
+  --st-half-bg:#fdedc8;    --st-half-text:#92400e;    --st-half-border:#f5c451;
+  --st-lop-bg:#fbdbdb;     --st-lop-text:#991b1b;     --st-lop-border:#f0938d;
+  --st-nopl-bg:#dbe8fd;    --st-nopl-text:#1e40af;    --st-nopl-border:#8fb4f5;
+  --st-noph-bg:#ecdcf7;    --st-noph-text:#6b21a8;    --st-noph-border:#c79aeb;
+  /* A neutral, non-clashing tint for Sundays / non-working-day structure,
+     kept visually distinct from the LOP/red status color above. */
+  --st-sunday-bg:#eceff3;  --st-sunday-border:#c7cede;
+  /* Time Entry grid — subtle, distinct tint for In Time vs Out Time input columns so the
+     two are easy to tell apart at a glance while doing fast manual entry. Kept separate
+     from the attendance-status palette above (different purpose: input, not status). */
+  --te-in-bg:#eaf6ff;   --te-in-border:#8fc7ec;
+  --te-out-bg:#fff3e6;  --te-out-border:#f0b985;
+  font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--paper);color:var(--ink);}
+body.dark{--paper:#12161c;--card:#1a2029;--ink:#eef0f2;--line:#2a323d;--muted:#8b93a1;--accent-soft:#173229;--te-in-bg:#132433;--te-in-border:#3a6b8f;--te-out-bg:#2e2113;--te-out-border:#8a6330;}
+/* Color themes — change the accent, keep light/dark handled above */
+body.theme-ocean{--accent:#1d4ed8;--accent-soft:#e0e7ff;}
+body.dark.theme-ocean{--accent-soft:#1c2541;}
+body.theme-slate{--accent:#334155;--accent-soft:#e2e8f0;}
+body.dark.theme-slate{--accent-soft:#232c38;}
+body.theme-sunset{--accent:#c2410c;--accent-soft:#ffedd5;}
+body.dark.theme-sunset{--accent-soft:#3a2414;}
+body.theme-forest{--accent:#166534;--accent-soft:#dcfce7;}
+body.dark.theme-forest{--accent-soft:#16321f;}
+body.theme-purple{--accent:#6d28d9;--accent-soft:#ede9fe;}
+body.dark.theme-purple{--accent-soft:#271f3d;}
+body.theme-rose{--accent:#be185d;--accent-soft:#fce7f3;}
+body.dark.theme-rose{--accent-soft:#391a2a;}
+.themeSelect{padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:14px;}
+button{font-family:inherit;cursor:pointer;}
+input,select{font-family:inherit;}
+

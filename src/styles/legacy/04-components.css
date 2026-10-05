@@ -1,0 +1,110 @@
+/* Cards / grid */
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:26px;}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px 18px 16px;position:relative;overflow:hidden;box-shadow:0 1px 3px rgba(16,24,40,.04);transition:box-shadow .15s ease,transform .15s ease;}
+.stat:hover{box-shadow:0 8px 22px rgba(16,24,40,.09);transform:translateY(-1px);}
+.stat::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--stat-color,var(--accent));}
+.stat .statTop{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+.stat .statIcon{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--stat-color,var(--accent));color:#fff;opacity:.92;}
+.stat .n{font-size:25px;font-weight:800;letter-spacing:-.3px;line-height:1.1;}
+.stat .l{font-size:12.5px;color:var(--muted);margin-top:4px;font-weight:500;}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:22px;box-shadow:0 1px 3px rgba(16,24,40,.04);}
+.panel h3{margin:0 0 14px;font-size:15.5px;font-weight:700;display:flex;align-items:center;gap:8px;}
+.panelHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px;}
+.panelHead h3{margin:0;}
+/* Wide data tables (Payroll, Reports, etc.) scroll within their own panel instead of
+   pushing the whole page — and never make the sidebar or toolbar disappear off-screen. */
+.tableScrollWrap{overflow-x:auto;border-radius:10px;position:relative;}
+.tableScrollWrap table{min-width:1180px;}
+@media (max-width:1180px){ .tableScrollWrap{box-shadow:inset -14px 0 10px -10px rgba(16,24,40,.10);} }
+
+/* Increment History — Previous vs Current (Revised) year colour coding */
+.incHistTable{min-width:1520px;}
+.incHistTable thead tr.groupRow th{position:sticky;top:0;z-index:2;text-align:center;font-size:11px;letter-spacing:.6px;border-bottom:2px solid var(--line);}
+.incHistTable thead tr.colRow th{position:sticky;top:33px;z-index:1;}
+.incHistTable td.prevYearCol,.incHistTable th.prevYearCol{background:#fff7e6;}
+.incHistTable td.currYearCol,.incHistTable th.currYearCol{background:#e8f7ee;}
+body.dark .incHistTable td.prevYearCol,body.dark .incHistTable th.prevYearCol{background:#3a2f14;}
+body.dark .incHistTable td.currYearCol,body.dark .incHistTable th.currYearCol{background:#123524;}
+.incHistTable th.prevYearGroup{background:#f4c95d;color:#5c4400;}
+.incHistTable th.currYearGroup{background:#4caf7d;color:#08321e;}
+.incHistTable th.deltaGroup{background:var(--accent-soft);color:var(--muted);}
+.incHistTable td.deltaCol{font-weight:700;color:var(--accent);}
+.legendSwatch{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-right:16px;}
+.legendSwatch .dot{width:11px;height:11px;border-radius:3px;display:inline-block;}
+.legendSwatch .dot.prev{background:#f4c95d;}
+.legendSwatch .dot.curr{background:#4caf7d;}
+
+/* Tables */
+table{width:100%;border-collapse:collapse;font-size:13.5px;}
+th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap;}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;}
+th{color:var(--muted);font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.5px;background:var(--accent-soft);position:sticky;top:0;z-index:1;}
+th:first-child{border-top-left-radius:8px;}
+th:last-child{border-top-right-radius:8px;}
+tbody tr{transition:background .1s ease;}
+tbody tr:nth-child(even){background:rgba(127,127,127,.035);}
+tr:hover td{background:var(--accent-soft);}
+td b{font-weight:700;}
+.tag{padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.2px;display:inline-block;border:1px solid transparent;}
+.tag.Present,.tag.Active{background:var(--st-present-bg);color:var(--st-present-text);border-color:var(--st-present-border);}
+.tag.Absent,.tag.Inactive,.tag.Resigned,.tag.LossOfPay{background:var(--st-lop-bg);color:var(--st-lop-text);border-color:var(--st-lop-border);}
+.tag.HalfDay{background:var(--st-half-bg);color:var(--st-half-text);border-color:var(--st-half-border);}
+.tag.PaidLeave{background:var(--st-nopl-bg);color:var(--st-nopl-text);border-color:var(--st-nopl-border);}
+.tag.NOPH{background:var(--st-noph-bg);color:var(--st-noph-text);border-color:var(--st-noph-border);}
+
+.toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}
+.toolbar input,.toolbar select{padding:9px 12px;border:1px solid var(--line);border-radius:9px;background:var(--card);color:var(--ink);font-size:13.5px;}
+.toolbar input:focus,.toolbar select:focus,.formGrid input:focus,.formGrid select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}
+.searchWrap{position:relative;flex:1 1 220px;max-width:320px;}
+.searchWrap input{width:100%;padding-left:32px;}
+.searchWrap .sIcon{position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;pointer-events:none;}
+.rowActions button{background:none;border:none;color:var(--accent);font-size:12px;font-weight:700;margin-right:10px;padding:0;cursor:pointer;}
+.rowActions button:hover{text-decoration:underline;}
+.rowActions button.del{color:var(--danger);}
+.empty{color:var(--muted);font-size:14px;text-align:center;padding:36px;}
+.reportGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px;}
+.reportCard{display:flex;align-items:center;gap:14px;padding:16px 18px;border:1px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer;transition:transform .1s ease,box-shadow .15s ease,border-color .15s ease;}
+.reportCard:hover{border-color:var(--accent);box-shadow:0 4px 12px rgba(16,24,40,.08);transform:translateY(-1px);}
+.reportCardIcon{font-size:24px;line-height:1;flex:none;}
+.reportCardBody{flex:1;min-width:0;}
+.reportCardTitle{font-size:14.5px;font-weight:700;margin-bottom:3px;}
+.reportCardDesc{font-size:12px;color:var(--muted);line-height:1.4;}
+.reportCardArrow{font-size:20px;color:var(--muted);flex:none;}
+.reportDetailHead{display:flex;align-items:center;gap:14px;margin-bottom:16px;flex-wrap:wrap;}
+/* Reports — Subheading (th) and the data (td) below it are center-aligned and kept
+   in line with each other, across every report preview in the Reports section. */
+.reportPreview th,.reportPreview td{text-align:center;white-space:normal;}
+.reportPreview td.num,.reportPreview th.num{text-align:center;}
+/* Payroll table — full grid borders, centered numeric columns, clickable rows */
+table.payrollTable{border:1px solid var(--line);}
+table.payrollTable th,table.payrollTable td{border:1px solid var(--line);padding:9px 12px;}
+table.payrollTable th.num,table.payrollTable td.num{text-align:center;}
+table.payrollTable th:first-child,table.payrollTable td:first-child,
+table.payrollTable th:nth-child(2),table.payrollTable td:nth-child(2){text-align:left;}
+table.payrollTable tbody tr{cursor:pointer;}
+table.payrollTable tbody tr:nth-child(odd) td{background:var(--card);}
+table.payrollTable tbody tr:nth-child(even) td{background:var(--paper);}
+table.payrollTable tbody tr:hover td{background:var(--accent-soft) !important;}
+table.payrollTable tbody tr:last-child{cursor:default;}
+.reportPreview .empNameCell{display:flex;align-items:center;justify-content:center;}
+.reportPreview tr.subtotal td{text-align:center;}
+.reportPreview tr.subtotal td:first-child{text-align:center;}
+.avatarChip{width:30px;height:30px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:inline-flex;align-items:center;justify-content:center;font-size:11.5px;font-weight:700;margin-right:8px;flex-shrink:0;vertical-align:middle;}
+.empNameCell{display:flex;align-items:center;}
+
+/* Modal */
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-start;justify-content:center;z-index:50;overflow:auto;padding:40px 16px;}
+.overlay.show{display:flex;}
+.modal{background:var(--card);border-radius:var(--radius);padding:24px;width:100%;max-width:780px;}
+.modal.modal-wide{max-width:1280px;}
+.modal.modal-wide table{font-size:14px;}
+.modal.modal-wide th,.modal.modal-wide td{padding:8px 8px;}
+.modal.modal-wide input{padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:14px;}
+.modal.modal-wide .adjWrap{max-height:60vh;overflow:auto;border:1px solid var(--line);border-radius:8px;}
+.modal.modal-wide thead th{position:sticky;top:0;background:var(--accent-soft);z-index:1;}
+.modal h3{margin:0 0 16px;}
+.formGrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.formGrid label{font-size:12px;color:var(--muted);display:block;margin-bottom:4px;}
+.formGrid input,.formGrid select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:14px;}
+.formGrid .full{grid-column:1/-1;}
+
