@@ -18,7 +18,7 @@ function renderEmployees(){
       ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
     </select>
     <span style="font-size:12.5px;color:var(--muted);">${list.length} of ${activeEmps.length} active employee(s)</span>
-    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openEmployeeModal()">+ Add Employee</button>` : ''}
+    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openAddEmployeeChooser()">+ Add Employee</button>` : ''}
   </div>
   <div class="panel">
     ${list.length? `<table><thead><tr>
@@ -101,6 +101,81 @@ function confirmRejoin(code){
 function nextEmpCode(){
   const n=db.nextEmpNum; db.nextEmpNum++; saveDB(db);
   return 'EMP'+String(n).padStart(3,'0');
+}
+/* ---- "+ Add Employee" choice: Add Manually (the form below) or Bulk Import (Excel) ----
+   The Bulk Import dialog is a React component (src/features/employee-import/BulkImportDialog.jsx);
+   it is opened with the 'vipl:open-bulk-import' event and uses the two functions below. */
+function openAddEmployeeChooser(){
+  if(!hasPerm('employees','add')){ alert('You do not have permission to do this.'); return; }
+  document.getElementById('modalContent').innerHTML = `
+    <h3>Add Employee</h3>
+    <p style="color:var(--muted);font-size:13px;margin:-4px 0 16px;">How would you like to add employees?</p>
+    <div class="addEmpChoices">
+      <button type="button" class="addEmpChoice" onclick="openEmployeeModal()">
+        <span class="addEmpChoiceIcon">✍️</span>
+        <span><b>Add Manually</b><small>Fill in the form for one employee</small></span>
+      </button>
+      <button type="button" class="addEmpChoice" onclick="openBulkImport()">
+        <span class="addEmpChoiceIcon">📥</span>
+        <span><b>Bulk Import</b><small>Upload an Excel file with one or more employees</small></span>
+      </button>
+    </div>
+    <div class="modalActions"><button type="button" class="btn secondary" onclick="closeModal()">Cancel</button></div>`;
+  showModal();
+}
+function openBulkImport(){
+  closeModal();
+  window.dispatchEvent(new CustomEvent('vipl:open-bulk-import'));
+}
+// What the Bulk Import dialog needs to build the template and check uploaded rows.
+function employeeImportContext(){
+  return {
+    canAdd: hasPerm('employees','add'),
+    departments: (db.departments||[]).slice(),
+    unit1Name: db.unit1Name||'Unit-1',
+    unit2Name: db.unit2Name||'Unit-2',
+    employees: (db.employees||[]).map(e=>({code:e.code, name:e.name, aadhaar:e.aadhaar||'', pan:e.pan||'', accNo:e.accNo||''}))
+  };
+}
+// Adds already-validated employees (fields as produced by the import) exactly like saving the
+// Add Employee form once per employee, but with a single save at the end.
+async function importEmployees(list){
+  if(!hasPerm('employees','add')){ alert('You do not have permission to add employees.'); return null; }
+  if(!Array.isArray(list) || !list.length) return null;
+  const codes=[];
+  const now=new Date().toISOString();
+  list.forEach(f=>{
+    const code='EMP'+String(db.nextEmpNum).padStart(3,'0');
+    db.nextEmpNum++;
+    db.employees.push({
+      code,
+      name:f.name,
+      status:f.status==='Resigned'?'Resigned':'Active',
+      resignationDate:f.status==='Resigned'?(f.resignationDate||''):'',
+      resignReason:f.status==='Resigned'?(f.resignReason||''):'',
+      employmentHistory:[],
+      originalJoining:f.joining||'',
+      rejoinDate:'',
+      gender:f.gender, dob:f.dob, relative:f.relative, mobile:f.mobile, email:f.email, address:f.address,
+      joining:f.joining, department:f.department, designation:f.designation, empType:f.empType, unit:f.unit,
+      bankName:f.bankName, branch:f.branch, accNo:f.accNo, ifsc:f.ifsc, pan:f.pan, aadhaar:f.aadhaar,
+      pfNo:f.pfNo, esiNo:f.esiNo, uan:f.uan,
+      basic:+f.basic||0, hra:+f.hra||0, da:+f.da||0, special:+f.special||0, medical:+f.medical||0,
+      conveyance:+f.conveyance||0, washing:+f.washing||0, other:+f.other||0,
+      otRate:0,
+      mode:f.mode,
+      pfDeduction:f.pfDeduction,
+      pfApplicable:f.pfDeduction==='yes',
+      esiApplicable:f.esiApplicable!==false,
+      pt:+f.pt||0, canteenRate:0, rent:+f.rent||0, otherDed:+f.otherDed||0,
+      clBalance:+f.clBalance||0, noplBalance:+f.noplBalance||0,
+      createdAt:now
+    });
+    codes.push(code);
+  });
+  const saved=await saveDB(db);
+  render('employees');
+  return { saved, codes };
 }
 function openEmployeeModal(code){
   if(code ? !hasPerm('employees','edit') : !hasPerm('employees','add')){ alert('You do not have permission to do this.'); return; }

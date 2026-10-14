@@ -62,6 +62,10 @@ src/
     themes.js                  Colour theme list
     brand.js                   App name and logo path
   legacyBridge.js              Lets React call the module functions safely
+  features/employee-import/    Employee Bulk Import (Excel)
+    BulkImportDialog.jsx       Download template / upload / review / import dialog
+    employeeColumns.js         Template columns (mirror the Add Employee form) + row checks
+    excel.js                   Builds the locked template and reads uploaded files (ExcelJS)
   styles/
     index.css                  Imports all CSS in the correct order
     shell.css                  Styles of the React shell components
@@ -83,7 +87,7 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 | 05-navigation.js | Sidebar click handling and `render(page)` page router |
 | 06-helpers.js | Formatting, dates, salary helpers, amount in words |
 | 07-dashboard.js | Dashboard |
-| 08-employees.js | Employees, resigned employees, rejoin, employee form |
+| 08-employees.js | Employees, resigned employees, rejoin, employee form, Add Employee choice (manual / bulk import) |
 | 09-departments.js | Departments |
 | 10-attendance.js | Attendance (day view, employee-wise monthly, holidays) |
 | 11-salary-advance.js | Salary advance and recovery schedule |
@@ -114,3 +118,15 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 Only one line of logic changed in the original split: the auto-backup start check in
 `28-user-rights-backup.js`, because deferred scripts run when `document.readyState` is already
 `'interactive'`. Without the change the watcher would start twice.
+
+## Employee Bulk Import
+
+**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import**. Bulk Import offers
+**Download Template** — an Excel sheet with every Add Employee field as a column (A1 = S.No, header
+row locked, dropdowns for the fixed choices) — and **Upload Excel**. Every uploaded row is checked
+and shown before anything is added; rows with problems are skipped. Imported employees get the
+next employee codes and are edited later like any other employee.
+
+When you add a field to the Add Employee form, also add it to `EMPLOYEE_COLUMNS` in
+`src/features/employee-import/employeeColumns.js` and to `importEmployees()` in
+`public/legacy/08-employees.js`.

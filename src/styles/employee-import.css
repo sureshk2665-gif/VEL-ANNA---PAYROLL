@@ -1,0 +1,42 @@
+/* "+ Add Employee" choice popup (legacy modal) */
+.addEmpChoices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px;}
+.addEmpChoice{display:flex;align-items:center;gap:12px;text-align:left;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer;font:inherit;transition:border-color .15s,background .15s;}
+.addEmpChoice:hover{border-color:var(--accent);background:var(--accent-soft);}
+.addEmpChoice b{display:block;font-size:14px;}
+.addEmpChoice small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}
+.addEmpChoiceIcon{font-size:26px;line-height:1;}
+@media (max-width:560px){ .addEmpChoices{grid-template-columns:1fr;} }
+
+/* Bulk Import dialog (React) */
+.modal.bulkImportModal{max-width:900px;width:100%;}
+.bulkImportHead{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+.bulkImportHead h3{margin:0;}
+.bulkImportClose{background:none;border:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;padding:4px 8px;}
+.bulkImportClose:hover{color:var(--ink);}
+.bulkImportSteps{list-style:none;counter-reset:bstep;padding:0;margin:16px 0 4px;}
+.bulkImportSteps li{counter-increment:bstep;display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);}
+.bulkImportSteps li:last-child{border-bottom:none;}
+.bulkImportSteps li::before{content:counter(bstep);flex:none;width:28px;height:28px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;display:flex;align-items:center;justify-content:center;}
+.bulkImportSteps li > div{flex:1;}
+.bulkImportSteps b{display:block;font-size:14px;}
+.bulkImportSteps small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}
+.bulkImportSteps .btn{flex:none;white-space:nowrap;}
+@media (max-width:560px){ .bulkImportSteps li{flex-wrap:wrap;} .bulkImportSteps .btn{margin-left:42px;} }
+.bulkImportSummary{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:14px 0 8px;}
+.bulkChip{background:var(--accent-soft);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:12px;}
+.bulkChip.ok{color:var(--st-present-text);background:var(--st-present-bg);}
+.bulkChip.bad{color:var(--danger);background:var(--st-lop-bg);}
+.bulkImportFilter{margin-left:auto;font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;}
+.bulkImportNote{font-size:12px;color:var(--muted);margin:0 0 8px;}
+.bulkImportTableWrap{max-height:50vh;overflow:auto;border:1px solid var(--line);border-radius:10px;}
+table.bulkImportTable{width:100%;border-collapse:collapse;font-size:12.5px;}
+table.bulkImportTable th{position:sticky;top:0;background:var(--accent-soft);text-align:left;padding:7px 9px;font-weight:600;}
+table.bulkImportTable td{padding:7px 9px;border-top:1px solid var(--line);vertical-align:top;}
+table.bulkImportTable tr.bad td{background:var(--st-lop-bg);}
+table.bulkImportTable ul{margin:0;padding-left:16px;color:var(--danger);}
+.bulkOk{color:var(--st-present-text);font-weight:600;}
+.bulkImportDone{text-align:center;padding:24px 8px 8px;}
+.bulkImportDoneIcon{font-size:40px;}
+.bulkImportDone small{color:var(--muted);}
+.bulkImportBusy{color:var(--muted);font-size:13px;margin:10px 0 0;}
+.bulkImportError{color:var(--danger);font-size:13px;margin:10px 0 0;}
