@@ -35,6 +35,11 @@ data). The database rules only let signed-in staff accounts read or write data.
      Settings → API Keys). Never put this key in the browser code or share it.
 5. Redeploy. Sign in as `swadmin` and create everyone else from **User Management**.
 
+   **Or use the default accounts:** instead of step 3, run `supabase/default-users.sql`. It creates
+   (or resets) swadmin / SoftAdmin@123, admin / admin123, hr.manager / hr@1234,
+   accounts / acc@1234 and viewer / view@1234 — publicly known passwords, so change them after
+   the first login.
+
 Usernames map to `<username>@users.vipl-payroll.app` in Supabase Auth (no email is ever sent).
 Each account's role is stored in its Auth `app_metadata`, which only `api/users.js` can change.
 
@@ -48,6 +53,7 @@ screens, not by the database). Splitting the data into separate tables is needed
 index.html                     Entry page: React root + ordered <script> tags for the modules
 api/users.js                   Vercel server function: creates/updates/deletes login accounts
 supabase/setup.sql             Database table + security rules (RLS) + first-admin statement
+supabase/default-users.sql     Creates / resets the five default login accounts
 src/
   main.jsx                     Renders the React shell, loads the CSS
   App.jsx                      Login screen + app shell + modal
