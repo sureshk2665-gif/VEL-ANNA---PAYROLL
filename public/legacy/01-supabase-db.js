@@ -1,10 +1,23 @@
 /* ================= SUPABASE CONFIG =================
    Fill these in with your project's values (Supabase Dashboard -> Project Settings -> API).
    The anon/public key is safe to expose in client-side code as long as Row Level Security
-   (RLS) policies on the `erp_data` table are configured correctly. */
+   (RLS) policies on the `erp_data` table are configured correctly — see supabase/setup.sql,
+   which only lets signed-in staff accounts read or write. */
 const SUPABASE_URL = 'https://fhpfxpibqvreymhzhdxt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_IwJC0VtOf1WXbTJj6yCc4g_RaUbAsWH';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// The Supabase Auth session is kept in sessionStorage, so (as before) a login lasts for this
+// browser tab only and closing the tab signs the person out.
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { storage: window.sessionStorage, persistSession: true, autoRefreshToken: true }
+});
+
+/* ================= LOGIN ACCOUNTS (Supabase Auth) =================
+   Usernames are mapped to Supabase Auth emails on this internal domain (no mail is ever sent).
+   Passwords live only in Supabase Auth (hashed) — never in the erp_data JSON. Each account's
+   role is stored in its Auth app_metadata, which only the server (api/users.js) can change.
+   Keep USER_EMAIL_DOMAIN identical to the one in api/users.js. */
+const USER_EMAIL_DOMAIN='users.vipl-payroll.app';
+function usernameToEmail(username){ return String(username||'').trim().toLowerCase()+'@'+USER_EMAIL_DOMAIN; }
 
 /* ================= DATA LAYER (Supabase) =================
    The entire application database is a single JSON object (same shape as before), now
@@ -24,13 +37,10 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const DB_KEY='hrms_db_v1'; // used as the row id in the erp_data table
 function defaultDB(){
   return {
-    admin:{username:'admin',password:'admin123'},
+    // User profiles (name, role, active, module permissions). NO passwords — the matching login
+    // accounts are in Supabase Auth and are created/changed from User Management (api/users.js).
     users:[
-      {username:'admin',password:'admin123',name:'Administrator',role:'Admin'},
-      {username:'swadmin',password:'SoftAdmin@123',name:'Software Administrator',role:'Software Admin'},
-      {username:'hr.manager',password:'hr@1234',name:'HR Manager',role:'HR'},
-      {username:'accounts',password:'acc@1234',name:'Accounts User',role:'Accounts'},
-      {username:'viewer',password:'view@1234',name:'Viewer',role:'Viewer'}
+      {username:'swadmin',name:'Software Administrator',role:'Software Admin'}
     ],
     departments:['Accounts','HR','Admin','Sales','Marketing','Production','Design','Stores','Purchase','Management'],
     employees:[],
@@ -52,7 +62,7 @@ function defaultDB(){
     timeHolidays:[], // [{date:'YYYY-MM-DD', remarks:''}] — booking calendar for this module only
     timeLeaves:[], // [{date:'YYYY-MM-DD', empCode, type, remarks}] — Employee Leave log for this module only
     loginLogs:[] // Login/Logout audit trail — {id, userId (username), name, loginTime (ISO string,
-                 // recorded the moment 4-digit OTP verification succeeds), logoutTime (ISO string,
+                 // recorded the moment sign-in succeeds), logoutTime (ISO string,
                  // recorded on Logout — '' while the session is still open), sessionDuration
                  // (formatted "Xh Ym", computed and stored once at logout, '' while still open)}
   };
@@ -60,12 +70,13 @@ function defaultDB(){
 async function loadDB(){
   try{
     const {data, error} = await sb.from('erp_data').select('data').eq('id', DB_KEY).maybeSingle();
-    if(error){ console.error('Supabase load error:', error); alert('Could not load data from Supabase. Check your SUPABASE_URL / SUPABASE_ANON_KEY and RLS policies. Falling back to a blank database for this session.'); return defaultDB(); }
+    if(error){ console.error('Supabase load error:', error); throw new Error('Could not load data from Supabase ('+error.message+'). Check SUPABASE_URL / SUPABASE_ANON_KEY and the RLS policies (supabase/setup.sql).'); }
     if(data && data.data) return data.data;
   }catch(e){
     console.error('Supabase load exception:', e);
-    alert('Could not reach Supabase. Check your internet connection and SUPABASE_URL. Falling back to a blank database for this session.');
-    return defaultDB();
+    // Never fall back to a blank database here: the startup code below saves the db, which would
+    // overwrite the real data in Supabase with that blank copy.
+    throw e;
   }
   // No row yet for this app — seed Supabase with the default database.
   const fresh = defaultDB();
@@ -91,8 +102,14 @@ async function saveDB(dbToSave){
     return false;
   }
 }
-let db = defaultDB(); // placeholder shown only until Supabase data has loaded
-let dbReady = (async()=>{
+let db = defaultDB(); // placeholder shown only until Supabase data has loaded (after sign-in)
+// dbReady resolves the first time the real data has been loaded — which now happens only after a
+// successful sign-in, because the RLS policies refuse to return any data to signed-out visitors.
+let _dbReadyResolve;
+let dbReady = new Promise(resolve=>{ _dbReadyResolve=resolve; });
+// Loads the database for the signed-in account and runs the one-time defaulting / migration
+// steps. Throws if the data cannot be loaded (nothing is saved in that case).
+async function initDB(){
   db = await loadDB();
   // ---------------------------------------------------------------------------------
   // IMPORTANT — ROOT-CAUSE FIX for "imported/saved data disappears after logout+reload":
@@ -129,53 +146,22 @@ let dbReady = (async()=>{
   if(!db.timeEntries || typeof db.timeEntries!=='object') db.timeEntries={};
   if(!Array.isArray(db.timeHolidays)) db.timeHolidays=[];
   if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
-  if(!Array.isArray(db.users) || db.users.length===0){
-    db.users=[
-      {username:'admin',password:(db.admin&&db.admin.password)||'admin123',name:'Administrator',role:'Admin'},
-      {username:'swadmin',password:'SoftAdmin@123',name:'Software Administrator',role:'Software Admin'},
-      {username:'hr.manager',password:'hr@1234',name:'HR Manager',role:'HR'},
-      {username:'accounts',password:'acc@1234',name:'Accounts User',role:'Accounts'},
-      {username:'viewer',password:'view@1234',name:'Viewer',role:'Viewer'}
-    ];
-  }
-  /* ---- SELF-HEALING LOGIN MIGRATION ----
-     Runs on every load, against whatever db.users already exists in this browser's saved data
-     (including older/pre-existing databases saved before Software Admin existed as a role).
-     The two known default accounts ('admin' and 'swadmin') are force-reset below to guarantee
-     they always work. No other username, and no other field on any other user, is ever touched. */
   if(!Array.isArray(db.users)) db.users=[];
-  // HARD RESET for the two known default accounts: whatever is currently stored for the
-  // usernames 'admin' and 'swadmin' — correct, corrupted, mistyped, or deactivated — is forced
-  // back to the known-good password/role/active state below on every load. This guarantees these
-  // two logins always work. No other username, and no other field on these two accounts (name,
-  // permissions, etc.), is touched.
-  (function forceResetKnownAccounts(){
-    let adminUser = db.users.find(u=>u && u.username==='admin');
-    if(adminUser){
-      adminUser.password='admin123';
-      adminUser.role='Admin';
-      adminUser.active=true;
-    } else {
-      db.users.push({username:'admin', password:'admin123', name:'Administrator', role:'Admin', active:true});
-    }
-    if(db.admin) db.admin.password='admin123'; else db.admin={username:'admin',password:'admin123'};
-
-    let swAdminUser = db.users.find(u=>u && u.username==='swadmin');
-    if(swAdminUser){
-      swAdminUser.password='SoftAdmin@123';
-      swAdminUser.role='Software Admin';
-      swAdminUser.active=true;
-    } else {
-      db.users.push({username:'swadmin', password:'SoftAdmin@123', name:'Software Administrator', role:'Software Admin', active:true});
-    }
-  })();
-  // Every user must have a password and username string, and must not be left accidentally
-  // deactivated in a way nobody can undo (the built-in 'admin' account can never be inactive).
+  /* ---- PASSWORD CLEAN-UP ----
+     Passwords used to be stored in plain text inside this JSON (and the 'admin' / 'swadmin'
+     accounts were force-reset to fixed passwords on every load). Logins are now Supabase Auth
+     accounts, so strip any stored passwords — including ones brought back by restoring an old
+     backup — and never write them again. */
+  delete db.admin;
+  db.users.forEach(u=>{ if(u) delete u.password; });
+  db.users = db.users.filter(u=>u && u.username);
+  // Every profile needs an active flag; the built-in 'admin' profile (if present) can never be
+  // left inactive.
   db.users.forEach(u=>{
-    if(!u.username) return;
     if(typeof u.active!=='boolean') u.active=true;
     if(u.username==='admin') u.active=true;
   });
   await saveDB(db);
-})();
+  _dbReadyResolve();
+}
 

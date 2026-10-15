@@ -46,7 +46,7 @@ function renderUserRightsPanel(){
     <div class="formGrid">
       <div><label>Full Name</label><input id="u_name" placeholder="e.g. Priya Sharma"></div>
       <div><label>Username</label><input id="u_username" placeholder="e.g. priya.s"></div>
-      <div><label>Password</label><input type="password" id="u_password" placeholder="Min. 4 characters"></div>
+      <div><label>Password</label><input type="password" id="u_password" placeholder="Min. 6 characters"></div>
       <div><label>Role</label><select id="u_role">${roleOptions.map(r=>`<option>${r}</option>`).join('')}</select></div>
     </div>
     <p style="font-size:12px;color:var(--muted);">
@@ -165,7 +165,7 @@ function backupData(){
 function restoreData(file){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can restore data.'); return; }
   if(!file) return;
-  if(!confirm('Restoring will REPLACE all current data with the contents of this backup file. Continue?')) return;
+  if(!confirm('Restoring will REPLACE all current data with the contents of this backup file (user accounts are kept as they are). Continue?')) return;
   const reader=new FileReader();
   reader.onload=async function(e){
     try{
@@ -175,6 +175,10 @@ function restoreData(file){
         alert('This file does not look like a valid VIPL Payroll backup.');
         return;
       }
+      // Keep the current user profiles — login accounts live in Supabase Auth, not in backups —
+      // and never bring back the plain-text passwords that older backups contain.
+      incoming.users = db.users;
+      delete incoming.admin;
       const ok = await saveDB(incoming);
       if(!ok){
         // saveDB() already alerted with the specific reason. Do NOT swap `db` over
@@ -323,14 +327,19 @@ function saveCompanySettings(){
   saveDB(db);
   alert('Saved.');
 }
-function changePassword(){
+async function changePassword(){
   const cur=document.getElementById('s_curPass').value;
   const nw=document.getElementById('s_newPass').value;
-  if(!currentUser || cur!==currentUser.password){ alert('Current password incorrect.'); return; }
-  if(!nw || nw.length<4){ alert('New password too short.'); return; }
-  currentUser.password=nw;
-  if(currentUser.username==='admin' && db.admin) db.admin.password=nw;
-  saveDB(db);
+  if(!currentUser) return;
+  if(!nw || nw.length<6){ alert('New password must be at least 6 characters.'); return; }
+  // Passwords are held by Supabase Auth: confirm the current one by signing in with it, then
+  // change it on the signed-in account.
+  const check=await sb.auth.signInWithPassword({ email: usernameToEmail(currentUser.username), password: cur });
+  if(check.error){ alert('Current password incorrect.'); return; }
+  const { error }=await sb.auth.updateUser({ password: nw });
+  if(error){ alert('Could not update the password: '+error.message); return; }
+  document.getElementById('s_curPass').value='';
+  document.getElementById('s_newPass').value='';
   alert('Password updated.');
 }
 

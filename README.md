@@ -16,15 +16,49 @@ npm run build     # production build in dist/ — upload that folder to any stat
 npm run preview   # serve the built dist/ locally
 ```
 
+`npm run dev` does not run the `api/` server function, so adding/editing users only works on
+Vercel (or locally with `npx vercel dev`). Signing in and everything else works with `npm run dev`.
+
+## Security setup (Supabase + Vercel)
+
+Logins are Supabase Auth accounts (passwords are hashed by Supabase and never stored in the ERP
+data). The database rules only let signed-in staff accounts read or write data.
+
+1. **Supabase → SQL Editor:** run `supabase/setup.sql` (creates the table and the rules).
+2. **Supabase → Authentication → Sign In / Providers:** turn **off** "Allow new users to sign up".
+3. **First Software Admin:** Authentication → Users → Add user → Create new user with email
+   `swadmin@users.vipl-payroll.app`, a strong password and **Auto Confirm User** ticked. Then run
+   the `update auth.users ...` statement at the end of `supabase/setup.sql`.
+4. **Vercel → Settings → Environment Variables** (Production and Preview):
+   - `SUPABASE_URL` = your project URL
+   - `SUPABASE_SERVICE_ROLE_KEY` = the **secret / service_role** key (Supabase → Project
+     Settings → API Keys). Never put this key in the browser code or share it.
+5. Redeploy. Sign in as `swadmin` and create everyone else from **User Management**.
+
+   **Or use the default accounts:** instead of step 3, run `supabase/default-users.sql`. It creates
+   (or resets) swadmin / SoftAdmin@123, admin / admin123, hr.manager / hr@1234,
+   accounts / acc@1234 and viewer / view@1234 — publicly known passwords, so change them after
+   the first login.
+
+Usernames map to `<username>@users.vipl-payroll.app` in Supabase Auth (no email is ever sent).
+Each account's role is stored in its Auth `app_metadata`, which only `api/users.js` can change.
+
+Limits to know: the whole ERP database is still one JSON row, so any signed-in staff account
+can technically read and change all of it (the per-module permissions are enforced by the app's
+screens, not by the database). Splitting the data into separate tables is needed to go further.
+
 ## Project structure
 
 ```
 index.html                     Entry page: React root + ordered <script> tags for the modules
+api/users.js                   Vercel server function: creates/updates/deletes login accounts
+supabase/setup.sql             Database table + security rules (RLS) + first-admin statement
+supabase/default-users.sql     Creates / resets the five default login accounts
 src/
   main.jsx                     Renders the React shell, loads the CSS
   App.jsx                      Login screen + app shell + modal
   components/
-    LoginScreen.jsx            Username/password and 4-digit code steps
+    LoginScreen.jsx            Username/password sign-in
     AppShell.jsx               Sidebar + topbar + #pageBody page area
     Sidebar.jsx                Logo and navigation menu
     Topbar.jsx                 Page title, colour theme picker, dark/light, logout
@@ -34,6 +68,10 @@ src/
     themes.js                  Colour theme list
     brand.js                   App name and logo path
   legacyBridge.js              Lets React call the module functions safely
+  features/employee-import/    Employee Bulk Import (Excel)
+    BulkImportDialog.jsx       Download template / upload / review / import dialog
+    employeeColumns.js         Template columns (mirror the Add Employee form) + row checks
+    excel.js                   Builds the locked template and reads uploaded files (ExcelJS)
   styles/
     index.css                  Imports all CSS in the correct order
     shell.css                  Styles of the React shell components
@@ -51,11 +89,11 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 | 01-supabase-db.js | Supabase config, load/save database, startup data migration |
 | 02-permissions.js | Roles and per-module user rights |
 | 03-company-logo-status.js | Company logo upload, attendance status constants |
-| 04-auth-theme.js | Login, 4-digit code, logout, dark mode and colour theme |
+| 04-auth-theme.js | Supabase Auth login/logout, session restore, dark mode and colour theme |
 | 05-navigation.js | Sidebar click handling and `render(page)` page router |
 | 06-helpers.js | Formatting, dates, salary helpers, amount in words |
 | 07-dashboard.js | Dashboard |
-| 08-employees.js | Employees, resigned employees, rejoin, employee form |
+| 08-employees.js | Employees, resigned employees, rejoin, employee form, Add Employee choice (manual / bulk import) |
 | 09-departments.js | Departments |
 | 10-attendance.js | Attendance (day view, employee-wise monthly, holidays) |
 | 11-salary-advance.js | Salary advance and recovery schedule |
@@ -83,6 +121,18 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 - To convert a page to React later: build it as a component, mount it into `#pageBody` from
   `render(page)` for that page, and move that page's functions out of `public/legacy/`.
 
-Only one line of logic changed in the split: the auto-backup start check in
+Only one line of logic changed in the original split: the auto-backup start check in
 `28-user-rights-backup.js`, because deferred scripts run when `document.readyState` is already
 `'interactive'`. Without the change the watcher would start twice.
+
+## Employee Bulk Import
+
+**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import**. Bulk Import offers
+**Download Template** — an Excel sheet with every Add Employee field as a column (A1 = S.No, header
+row locked, dropdowns for the fixed choices) — and **Upload Excel**. Every uploaded row is checked
+and shown before anything is added; rows with problems are skipped. Imported employees get the
+next employee codes and are edited later like any other employee.
+
+When you add a field to the Add Employee form, also add it to `EMPLOYEE_COLUMNS` in
+`src/features/employee-import/employeeColumns.js` and to `importEmployees()` in
+`public/legacy/08-employees.js`.
