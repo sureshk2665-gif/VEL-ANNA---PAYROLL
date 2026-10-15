@@ -13,7 +13,9 @@ const columnLetter = (n) => {
 };
 
 // Builds the empty template: header row (A1 = "S.No") locked, data rows open for typing, with
-// dropdowns for the fixed-choice columns and an Instructions sheet.
+// dropdowns for the fixed-choice columns and an Instructions sheet. Columns the Add Employee form
+// fills automatically (Employee Code, OT Rate, Canteen Rate) are greyed out and ignored on import —
+// they are left unlocked so pasting whole rows from another sheet still works.
 export async function buildTemplate(ctx) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
@@ -28,6 +30,7 @@ export async function buildTemplate(ctx) {
     width: col.width || 14,
     style: {
       protection: { locked: false },
+      ...(col.auto ? { fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE5E7EB' } }, font: { color: { argb: 'FF6B7280' }, italic: true } } : {}),
       // Text columns are stored as text so mobile / Aadhaar / account numbers keep every digit.
       numFmt: col.type === 'text' ? '@' : col.type === 'date' ? 'dd-mm-yyyy' : col.type === 'number' && !col.serial ? '0.00' : 'General',
     },
@@ -35,10 +38,11 @@ export async function buildTemplate(ctx) {
 
   const header = ws.getRow(1);
   header.height = 30;
-  header.eachCell((cell) => {
+  header.eachCell((cell, colNumber) => {
+    const auto = EMPLOYEE_COLUMNS[colNumber - 1].auto;
     cell.protection = { locked: true };
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F6B5C' } };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: auto ? 'FF6B7280' : 'FF0F6B5C' } };
     cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true };
     cell.border = { bottom: { style: 'thin', color: { argb: 'FF0B4F44' } } };
     cell.numFmt = 'General';
@@ -48,6 +52,7 @@ export async function buildTemplate(ctx) {
   EMPLOYEE_COLUMNS.forEach((col, i) => {
     const letter = columnLetter(i + 1);
     const range = `${letter}2:${letter}${DATA_ROWS + 1}`;
+    if (col.auto) return;
     if (col.type === 'list') {
       const options = optionsOf(col, ctx);
       if (!options.length) return;
@@ -105,9 +110,9 @@ export async function buildTemplate(ctx) {
     ['How to use', 'Fill one employee per row on the "Employees" sheet, starting from row 2. Do not change the header row (it is locked).'],
     ['S.No', 'Serial number (1, 2, 3…). Only used to point you to a row if something needs fixing.'],
     ['Required', 'Only "Full Name" is required. Empty dropdown cells use the same default as the Add Employee form.'],
-    ['Employee Code', 'Not in the sheet — codes are created automatically when the employees are imported.'],
+    ['Grey columns', 'Employee Code, OT Rate and Canteen Rate are filled automatically, exactly as in the Add Employee form. Leave them empty — anything typed there is ignored.'],
+    ['Resignation', 'Resignation Date and Reason are only used when Status is "Resigned" (the form shows them only then). Resignation Date is required for Resigned employees.'],
     ['Dates', 'Use DD-MM-YYYY (e.g. 25-04-2024).'],
-    ['Resigned', 'If Status is "Resigned", Resignation Date is required.'],
     ['Amounts', 'Monthly amounts in ₹, numbers only.'],
     ['Department', 'Must be one of the departments already set up in the app: ' + (ctx.departments || []).join(', ')],
     ['After import', 'Every imported employee can be edited later from the Employees page (✏️ Edit).'],
@@ -151,9 +156,9 @@ export async function readEmployeeRows(arrayBuffer) {
   const columnOf = {};
   const missingHeaders = [];
   for (const col of EMPLOYEE_COLUMNS) {
-    const n = headerIndex[norm(col.header)];
+    const n = [col.header, ...(col.aliases || [])].map((h) => headerIndex[norm(h)]).find(Boolean);
     if (n) columnOf[col.key] = n;
-    else if (!col.serial) missingHeaders.push(col.header);
+    else if (!col.serial && !col.auto) missingHeaders.push(col.header);
   }
 
   const rows = [];
@@ -166,7 +171,7 @@ export async function readEmployeeRows(arrayBuffer) {
       if (!n) continue;
       const v = cellValue(row.getCell(n).value);
       values[col.key] = v;
-      if (!col.serial && v !== '' && v !== null) hasData = true;
+      if (!col.serial && !col.auto && v !== '' && v !== null) hasData = true;
     }
     if (hasData) rows.push({ rowNumber, values });
   });

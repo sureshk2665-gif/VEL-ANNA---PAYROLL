@@ -1,9 +1,13 @@
-// Columns of the bulk-import Excel template, in order. They mirror the "Add Employee" form
-// (openEmployeeModal in public/legacy/08-employees.js) — keep the two in step when adding fields.
-// Employee Code is generated automatically, and OT Rate / Canteen Rate are not editable in the
-// form either, so they are not in the template.
+// Columns of the bulk-import Excel template, in order. They are the same fields, in the same
+// order and with the same labels, as the "Add Employee" form (openEmployeeModal in
+// public/legacy/08-employees.js) — keep the two in step when changing fields. S.No comes first.
+// Fields the form shows but does not let you type in (Employee Code, OT Rate, Canteen Rate) are
+// greyed-out `auto` columns that the import ignores. Resignation Date / Reason only show in
+// the form when Status is Resigned; in the sheet they are always there and used only for Resigned.
 //
 // type:    'text' | 'date' | 'number' | 'list'
+// auto:    shown for reference only — greyed out in the template and ignored on import
+// aliases: older header texts still accepted on upload
 // options: allowed values for 'list' columns (a function gets the import context)
 // toValue: maps the chosen option to the stored value
 
@@ -18,10 +22,11 @@ const unitOptions = (ctx) => [ctx.unit1Name || 'Unit-1', ctx.unit2Name || 'Unit-
 
 export const EMPLOYEE_COLUMNS = [
   { key: 'serial', header: 'S.No', type: 'number', width: 7, serial: true },
-  { key: 'name', header: 'Full Name *', type: 'text', width: 26, required: true },
+  { key: 'code', header: 'Employee Code', type: 'text', width: 14, auto: true },
   { key: 'status', header: 'Status', type: 'list', width: 11, options: STATUS_OPTIONS, default: 'Active' },
   { key: 'resignationDate', header: 'Resignation Date', type: 'date', width: 16 },
-  { key: 'resignReason', header: 'Reason for Resignation', type: 'text', width: 24 },
+  { key: 'resignReason', header: 'Reason for Resignation (Optional)', aliases: ['Reason for Resignation'], type: 'text', width: 24 },
+  { key: 'name', header: 'Full Name *', type: 'text', width: 26, required: true },
   { key: 'gender', header: 'Gender', type: 'list', width: 10, options: GENDER_OPTIONS, default: 'Male' },
   { key: 'dob', header: 'Date of Birth', type: 'date', width: 14 },
   { key: 'relative', header: 'Father / Husband Name', type: 'text', width: 22 },
@@ -56,10 +61,12 @@ export const EMPLOYEE_COLUMNS = [
   { key: 'conveyance', header: 'Conveyance', type: 'number', width: 12 },
   { key: 'washing', header: 'Washing Allowance', type: 'number', width: 12 },
   { key: 'other', header: 'Other Allowance', type: 'number', width: 12 },
+  { key: 'otRate', header: 'OT Rate (auto: Basic ÷ 26 ÷ 8 hrs × 2)', type: 'number', width: 16, auto: true },
   { key: 'mode', header: 'Payment Mode', type: 'list', width: 13, options: PAY_MODE_OPTIONS, default: 'NEFT' },
   { key: 'pfDeduction', header: 'PF Deduction', type: 'list', width: 13, options: Object.keys(PF_OPTIONS), default: 'Yes', toValue: (v) => PF_OPTIONS[v] },
   { key: 'esiApplicable', header: 'ESI Deduction', type: 'list', width: 13, options: Object.keys(ESI_OPTIONS), default: 'Yes', toValue: (v) => ESI_OPTIONS[v] },
   { key: 'pt', header: 'Professional Tax / Income Tax', type: 'number', width: 14 },
+  { key: 'canteenRate', header: 'Canteen Rate (per day ₹) — not used in payroll', type: 'number', width: 16, auto: true },
   { key: 'rent', header: 'Rent Deduction (monthly)', type: 'number', width: 13 },
   { key: 'otherDed', header: 'Other Deductions (fixed)', type: 'number', width: 13 },
   { key: 'clBalance', header: 'CL Balance', type: 'number', width: 10 },
@@ -103,7 +110,7 @@ export function validateRow(raw, ctx) {
   const errors = [];
   const out = {};
   for (const col of EMPLOYEE_COLUMNS) {
-    if (col.serial) continue;
+    if (col.serial || col.auto) continue;
     let v = raw[col.key];
     if (typeof v === 'string') v = v.trim();
     const blank = v === undefined || v === null || v === '';
