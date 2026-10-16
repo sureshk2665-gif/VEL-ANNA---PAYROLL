@@ -117,7 +117,7 @@ function openAddEmployeeChooser(){
       </button>
       <button type="button" class="addEmpChoice" onclick="openBulkImport()">
         <span class="addEmpChoiceIcon">📥</span>
-        <span><b>Bulk Import</b><small>Upload an Excel file with one or more employees</small></span>
+        <span><b>Bulk Import</b><small>Fill many new employees in Google Sheets, then sync</small></span>
       </button>
     </div>
     <div class="modalActions"><button type="button" class="btn secondary" onclick="closeModal()">Cancel</button></div>`;
@@ -131,6 +131,7 @@ function openBulkImport(){
 function employeeImportContext(){
   return {
     canAdd: hasPerm('employees','add'),
+    username: currentUser ? currentUser.username : '',
     departments: (db.departments||[]).slice(),
     unit1Name: db.unit1Name||'Unit-1',
     unit2Name: db.unit2Name||'Unit-2',

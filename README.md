@@ -69,9 +69,10 @@ src/
     brand.js                   App name and logo path
   legacyBridge.js              Lets React call the module functions safely
   features/employee-import/    Employee Bulk Import (Excel)
-    BulkImportDialog.jsx       Download template / upload / review / import dialog
-    employeeColumns.js         Template columns (mirror the Add Employee form) + row checks
-    excel.js                   Builds the locked template and reads uploaded files (ExcelJS)
+    BulkImportDialog.jsx       Fill in Google Sheets / Sync now / review / import dialog
+    employeeColumns.js         Sheet columns (mirror the Add Employee form) + row checks
+    googleSheets.js            Google sign-in, create the import sheet, read it, write codes back
+    excel.js                   Reads an uploaded .xlsx (ExcelJS)
   styles/
     index.css                  Imports all CSS in the correct order
     shell.css                  Styles of the React shell components
@@ -125,13 +126,33 @@ Only one line of logic changed in the original split: the auto-backup start chec
 `28-user-rights-backup.js`, because deferred scripts run when `document.readyState` is already
 `'interactive'`. Without the change the watcher would start twice.
 
-## Employee Bulk Import
+## Employee Bulk Import (Google Sheets)
 
-**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import**. Bulk Import offers
-**Download Template** — an Excel sheet with every Add Employee field as a column (A1 = S.No, header
-row locked, dropdowns for the fixed choices) — and **Upload Excel**. Every uploaded row is checked
-and shown before anything is added; rows with problems are skipped. Imported employees get the
-next employee codes and are edited later like any other employee.
+**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import**, which is for NEW
+employees only:
+
+1. **Fill in Google Sheets** creates a new, empty sheet in the signed-in person's Google Drive with
+   the same columns as the Add Employee form (dropdowns, calendar on date cells, protected header).
+2. Enter or paste the new employees.
+3. **Sync now** reads the sheet, shows every row checked, imports the ready rows and writes their
+   Employee Code back into the sheet, so a row is never imported twice. Existing employees are
+   never changed from the sheet — only through ✏️ Edit.
+
+A filled `.xlsx` (same headers) can also be uploaded instead.
+
+### One-time Google setup
+
+1. https://console.cloud.google.com → create a project (e.g. "VIPL Payroll").
+2. APIs & Services → Library → enable **Google Sheets API**.
+3. APIs & Services → OAuth consent screen → External → app name, your email → Scopes: add
+   `.../auth/drive.file` → Test users: add the Google accounts that will use it (or Publish app).
+4. APIs & Services → Credentials → Create credentials → OAuth client ID → Web application →
+   Authorized JavaScript origins: `https://vel-anna-payroll.vercel.app` (and
+   `http://localhost:5173` for local use).
+5. Vercel → Settings → Environment Variables: `VITE_GOOGLE_CLIENT_ID` = that Client ID
+   (Production and Preview), then redeploy.
+
+The `drive.file` permission only lets the site see spreadsheets it created itself.
 
 When you add a field to the Add Employee form, also add it to `EMPLOYEE_COLUMNS` in
 `src/features/employee-import/employeeColumns.js` and to `importEmployees()` in

@@ -40,3 +40,10 @@ table.bulkImportTable ul{margin:0;padding-left:16px;color:var(--danger);}
 .bulkImportDone small{color:var(--muted);}
 .bulkImportBusy{color:var(--muted);font-size:13px;margin:10px 0 0;}
 .bulkImportError{color:var(--danger);font-size:13px;margin:10px 0 0;}
+.bulkSheetCard{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--accent-soft);font-size:12.5px;}
+.bulkSheetCard a{color:var(--accent);font-weight:600;text-decoration:none;}
+.bulkSheetCard a:hover{text-decoration:underline;}
+.bulkImportNotice{background:var(--st-half-bg,#fff4d6);border:1px solid var(--line);border-radius:8px;padding:10px 12px;font-size:12.5px;margin:14px 0 0;}
+.bulkImportAlt{font-size:12.5px;color:var(--muted);margin:10px 0 0;}
+.linkBtn{background:none;border:none;padding:0;color:var(--accent);font:inherit;font-weight:600;cursor:pointer;text-decoration:underline;}
+.linkBtn:disabled{opacity:.5;cursor:not-allowed;}

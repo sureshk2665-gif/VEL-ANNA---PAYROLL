@@ -173,3 +173,38 @@ export function validateRows(rows, ctx, existingEmployees = []) {
     return { rowNumber: r.rowNumber, serial: r.values.serial, raw: r.values, employee, errors };
   });
 }
+
+// Turns a grid of cells (row 0 = headers, as read from Google Sheets or Excel) into
+// { rows: [{rowNumber, values}], missingHeaders, columnIndex }. Columns are matched by header
+// text, so a moved column still works; a deleted (non-auto) column is reported as missing.
+// rowNumber is the 1-based sheet row; columnIndex maps column key -> 0-based column.
+export function rowsFromGrid(grid) {
+  const norm = (s) => String(s ?? '').replace(/\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+  const headerIndex = {};
+  (grid[0] || []).forEach((h, i) => {
+    const k = norm(h);
+    if (k && !(k in headerIndex)) headerIndex[k] = i;
+  });
+  const columnIndex = {};
+  const missingHeaders = [];
+  for (const col of EMPLOYEE_COLUMNS) {
+    const i = [col.header, ...(col.aliases || [])].map((h) => headerIndex[norm(h)]).find((x) => x !== undefined);
+    if (i !== undefined) columnIndex[col.key] = i;
+    else if (!col.serial && !col.auto) missingHeaders.push(col.header);
+  }
+  const rows = [];
+  for (let r = 1; r < grid.length; r++) {
+    const cells = grid[r] || [];
+    const values = {};
+    let hasData = false;
+    for (const col of EMPLOYEE_COLUMNS) {
+      const i = columnIndex[col.key];
+      if (i === undefined) continue;
+      const v = cells[i] ?? '';
+      values[col.key] = v;
+      if (!col.serial && !col.auto && v !== '' && v !== null) hasData = true;
+    }
+    if (hasData) rows.push({ rowNumber: r + 1, values });
+  }
+  return { rows, missingHeaders, columnIndex };
+}
