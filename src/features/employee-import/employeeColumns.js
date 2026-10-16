@@ -2,8 +2,9 @@
 // order and with the same labels, as the "Add Employee" form (openEmployeeModal in
 // public/legacy/08-employees.js) — keep the two in step when changing fields. S.No comes first.
 // Fields the form shows but does not let you type in (Employee Code, OT Rate, Canteen Rate) are
-// greyed-out `auto` columns that the import ignores. Resignation Date / Reason only show in
-// the form when Status is Resigned; in the sheet they are always there and used only for Resigned.
+// greyed-out `auto` columns that the import ignores. The template is for NEW employees, so the
+// form's Resignation Date / Reason (shown there only when Status is Resigned) are left out and
+// Status can only be Active.
 //
 // type:    'text' | 'date' | 'number' | 'list'
 // auto:    shown for reference only — greyed out in the template and ignored on import
@@ -11,7 +12,7 @@
 // options: allowed values for 'list' columns (a function gets the import context)
 // toValue: maps the chosen option to the stored value
 
-export const STATUS_OPTIONS = ['Active', 'Resigned'];
+export const STATUS_OPTIONS = ['Active']; // new employees only
 export const GENDER_OPTIONS = ['Male', 'Female', 'Other'];
 export const EMP_TYPE_OPTIONS = ['Full-Time', 'Part-Time', 'Contract'];
 export const PAY_MODE_OPTIONS = ['NEFT', 'TRANSFER', 'CASH', 'CHEQUE'];
@@ -24,8 +25,6 @@ export const EMPLOYEE_COLUMNS = [
   { key: 'serial', header: 'S.No', type: 'number', width: 7, serial: true },
   { key: 'code', header: 'Employee Code', type: 'text', width: 14, auto: true },
   { key: 'status', header: 'Status', type: 'list', width: 11, options: STATUS_OPTIONS, default: 'Active' },
-  { key: 'resignationDate', header: 'Resignation Date', type: 'date', width: 16 },
-  { key: 'resignReason', header: 'Reason for Resignation (Optional)', aliases: ['Reason for Resignation'], type: 'text', width: 24 },
   { key: 'name', header: 'Full Name *', type: 'text', width: 26, required: true },
   { key: 'gender', header: 'Gender', type: 'list', width: 10, options: GENDER_OPTIONS, default: 'Male' },
   { key: 'dob', header: 'Date of Birth', type: 'date', width: 14 },
@@ -149,8 +148,8 @@ export function validateRow(raw, ctx) {
       out[col.key] = col.toValue ? col.toValue(chosen, ctx) : chosen;
     }
   }
-  if (out.status === 'Resigned' && !out.resignationDate) errors.push('Resignation Date is required when Status is Resigned');
-  if (out.status !== 'Resigned') { out.resignationDate = ''; out.resignReason = ''; }
+  out.resignationDate = '';
+  out.resignReason = '';
   return { employee: out, errors };
 }
 

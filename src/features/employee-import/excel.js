@@ -22,7 +22,7 @@ export async function buildTemplate(ctx) {
   wb.creator = 'VIPL Payroll';
   const ws = wb.addWorksheet(SHEET_NAME, { views: [{ state: 'frozen', ySplit: 1 }] });
   // Hidden sheet holding the dropdown lists (department names can be long or many).
-  const lists = wb.addWorksheet('Lists', { state: 'veryHidden' });
+  const lists = wb.addWorksheet('Lists', { state: 'hidden' });
 
   ws.columns = EMPLOYEE_COLUMNS.map((col) => ({
     header: col.header,
@@ -56,13 +56,26 @@ export async function buildTemplate(ctx) {
     if (col.type === 'list') {
       const options = optionsOf(col, ctx);
       if (!options.length) return;
-      listCol += 1;
-      const lc = columnLetter(listCol);
-      options.forEach((o, r) => { lists.getCell(`${lc}${r + 1}`).value = o; });
+      // Write the choices straight into the dropdown ("A,B,C") — this shows an arrow in Excel,
+      // Google Sheets, WPS and LibreOffice alike. Excel limits that to 255 characters, so very
+      // long lists (e.g. many departments) fall back to a range on the hidden Lists sheet.
+      const inline = options.join(',');
+      let formula;
+      if (inline.length <= 250 && !options.some((o) => /[,"]/.test(o))) {
+        formula = `"${inline}"`;
+      } else {
+        listCol += 1;
+        const lc = columnLetter(listCol);
+        options.forEach((o, r) => { lists.getCell(`${lc}${r + 1}`).value = o; });
+        formula = `Lists!$${lc}$1:$${lc}$${options.length}`;
+      }
       ws.dataValidations.add(range, {
         type: 'list',
         allowBlank: true,
-        formulae: [`Lists!$${lc}$1:$${lc}$${options.length}`],
+        formulae: [formula],
+        showInputMessage: true,
+        promptTitle: col.header,
+        prompt: 'Choose from the list ▼',
         showErrorMessage: true,
         errorTitle: col.header,
         error: `Choose a value from the list: ${options.join(', ')}`,
@@ -110,8 +123,9 @@ export async function buildTemplate(ctx) {
     ['How to use', 'Fill one employee per row on the "Employees" sheet, starting from row 2. Do not change the header row (it is locked).'],
     ['S.No', 'Serial number (1, 2, 3…). Only used to point you to a row if something needs fixing.'],
     ['Required', 'Only "Full Name" is required. Empty dropdown cells use the same default as the Add Employee form.'],
+    ['Dropdowns', 'Status, Gender, Department, Employment Type, Working Unit, Payment Mode, PF Deduction and ESI Deduction have a dropdown in every row — click a cell and use the ▼ arrow.'],
     ['Grey columns', 'Employee Code, OT Rate and Canteen Rate are filled automatically, exactly as in the Add Employee form. Leave them empty — anything typed there is ignored.'],
-    ['Resignation', 'Resignation Date and Reason are only used when Status is "Resigned" (the form shows them only then). Resignation Date is required for Resigned employees.'],
+    ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
     ['Dates', 'Use DD-MM-YYYY (e.g. 25-04-2024).'],
     ['Amounts', 'Monthly amounts in ₹, numbers only.'],
     ['Department', 'Must be one of the departments already set up in the app: ' + (ctx.departments || []).join(', ')],
@@ -147,7 +161,7 @@ export async function readEmployeeRows(arrayBuffer) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(arrayBuffer);
-  const ws = wb.getWorksheet(SHEET_NAME) || wb.worksheets.find((s) => s.state !== 'veryHidden' && s.name !== 'Instructions');
+  const ws = wb.getWorksheet(SHEET_NAME) || wb.worksheets.find((s) => s.state === 'visible' && s.name !== 'Instructions' && s.name !== 'Lists');
   if (!ws) throw new Error('No "Employees" sheet found in this file.');
 
   const norm = (s) => String(s || '').replace(/\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
