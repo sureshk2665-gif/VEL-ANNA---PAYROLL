@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { callLegacy } from '../../legacyBridge.js';
-import { rowsFromGrid, validateRows } from './employeeColumns.js';
+import { buildColumns, rowsFromGrid, validateRows } from './employeeColumns.js';
 import { readEmployeeRows } from './excel.js';
 import {
   createImportSheet,
@@ -76,7 +76,7 @@ export default function BulkImportDialog() {
 
   const fillInSheets = () => run('Creating a new Google Sheet…', async () => {
     const ctx = callLegacy('employeeImportContext');
-    const created = await createImportSheet(ctx);
+    const created = await createImportSheet(buildColumns(ctx.fields));
     storeSheet(ctx.username, created);
     setSheet(created);
   });
@@ -84,8 +84,8 @@ export default function BulkImportDialog() {
   // Checks the rows (from the sheet or a file) and opens the review step.
   const review = (parsed, src) => {
     if (parsed.missingHeaders.length) {
-      throw new Error('These columns are missing: ' + parsed.missingHeaders.join(', ') +
-        '. Restore them (Undo in the sheet) or click "Fill in Google Sheets" for a fresh sheet.');
+      throw new Error('These columns do not match the Add Employee form: ' + parsed.missingHeaders.join(', ') +
+        '. A column was deleted or renamed, or the form changed after this sheet was made — click "New empty sheet" for a sheet that matches the form.');
     }
     const done = parsed.rows.filter((r) => !blank(r.values.code));
     const todo = parsed.rows.filter((r) => blank(r.values.code));
@@ -95,7 +95,7 @@ export default function BulkImportDialog() {
         : 'No employee rows found. Fill the sheet from row 2, then click Sync now.');
     }
     const ctx = callLegacy('employeeImportContext');
-    setResults(validateRows(todo, ctx, ctx.employees));
+    setResults(validateRows(todo, buildColumns(ctx.fields), ctx.employees));
     setAlreadyImported(done);
     setSource(src);
     setShowErrorsOnly(false);
@@ -105,7 +105,7 @@ export default function BulkImportDialog() {
   const syncNow = () => run('Reading the Google Sheet…', async () => {
     if (!sheet) throw new Error('Click "Fill in Google Sheets" first.');
     const grid = await readImportSheet(sheet.id);
-    const parsed = rowsFromGrid(grid);
+    const parsed = rowsFromGrid(grid, buildColumns(callLegacy('employeeImportContext').fields));
     review(parsed, { type: 'sheet', name: sheet.title, codeColumn: parsed.columnIndex.code });
   });
 
@@ -115,7 +115,7 @@ export default function BulkImportDialog() {
     if (!file) return;
     if (!/\.xlsx$/i.test(file.name)) { setError('Please upload an Excel .xlsx file.'); return; }
     run('Reading ' + file.name + '…', async () => {
-      review(await readEmployeeRows(await file.arrayBuffer()), { type: 'file', name: file.name });
+      review(await readEmployeeRows(await file.arrayBuffer(), buildColumns(callLegacy('employeeImportContext').fields)), { type: 'file', name: file.name });
     });
   };
 

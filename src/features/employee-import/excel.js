@@ -20,7 +20,7 @@ function cellValue(v) {
 }
 
 // Returns { rows: [{rowNumber, values}], missingHeaders } — same shape as the Google Sheet sync.
-export async function readEmployeeRows(arrayBuffer) {
+export async function readEmployeeRows(arrayBuffer, columns) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(arrayBuffer);
@@ -33,5 +33,5 @@ export async function readEmployeeRows(arrayBuffer) {
     grid[rowNumber - 1] = cells;
   });
   for (let i = 0; i < grid.length; i++) if (!grid[i]) grid[i] = [];
-  return rowsFromGrid(grid);
+  return rowsFromGrid(grid, columns);
 }

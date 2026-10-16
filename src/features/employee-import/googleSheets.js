@@ -2,10 +2,13 @@
 // in the signed-in person's Google Drive (same columns as the Add Employee form, dropdowns,
 // calendar date cells, protected header row) and "Sync now" reads it back.
 //
+// The columns come from the employee field list (columns = buildColumns(ctx.fields)), so the
+// sheet always matches the Add Employee form.
+//
 // Uses Google Identity Services for sign-in and the Sheets REST API directly. The OAuth scope is
 // drive.file: the site can only see spreadsheets it created itself, never other Drive files.
 // The OAuth Client ID comes from the VITE_GOOGLE_CLIENT_ID environment variable (Vercel).
-import { EMPLOYEE_COLUMNS, optionsOf } from './employeeColumns.js';
+import { optionsOf } from './employeeColumns.js';
 
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
 export const googleSheetsConfigured = () => !!GOOGLE_CLIENT_ID;
@@ -14,7 +17,6 @@ const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://sheets.googleapis.com/v4/spreadsheets';
 const SHEET_TITLE = 'Employees';
 const DATA_ROWS = 1000; // rows 2..1001 get dropdowns / formats
-const COLS = EMPLOYEE_COLUMNS.length;
 
 const columnLetter = (n) => {
   let s = '';
@@ -81,10 +83,11 @@ async function google(path, { method = 'GET', body } = {}) {
 }
 
 /* ---------------- Create a new, empty import sheet ---------------- */
-export async function createImportSheet(ctx) {
+export async function createImportSheet(columns) {
+  const COLS = columns.length;
   const now = new Date();
   const stamp = now.toLocaleDateString('en-GB').replace(/\//g, '-') + ' ' + now.toTimeString().slice(0, 5);
-  const headerCells = EMPLOYEE_COLUMNS.map((col) => ({
+  const headerCells = columns.map((col) => ({
     userEnteredValue: { stringValue: col.header },
     userEnteredFormat: {
       backgroundColor: rgb(col.auto ? '#6B7280' : '#0F6B5C'),
@@ -124,7 +127,7 @@ export async function createImportSheet(ctx) {
 
   const requests = [];
   const body = (c) => ({ sheetId: 0, startRowIndex: 1, endRowIndex: DATA_ROWS + 1, startColumnIndex: c, endColumnIndex: c + 1 });
-  EMPLOYEE_COLUMNS.forEach((col, c) => {
+  columns.forEach((col, c) => {
     requests.push({
       updateDimensionProperties: {
         range: { sheetId: 0, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 },
@@ -137,7 +140,7 @@ export async function createImportSheet(ctx) {
       return;
     }
     if (col.type === 'list') {
-      const options = optionsOf(col, ctx);
+      const options = optionsOf(col);
       if (options.length) {
         requests.push({
           setDataValidation: {
@@ -189,7 +192,7 @@ export async function createImportSheet(ctx) {
 /* ---------------- Read the sheet / write codes back ---------------- */
 // Returns the sheet as a grid (row 0 = headers). Dates come back as serial numbers.
 export async function readImportSheet(spreadsheetId) {
-  const range = encodeURIComponent(`${SHEET_TITLE}!A1:${columnLetter(Math.max(COLS + 10, 60))}${DATA_ROWS + 1}`);
+  const range = encodeURIComponent(`${SHEET_TITLE}!A1:${columnLetter(120)}${DATA_ROWS + 1}`);
   const res = await google(`/${spreadsheetId}/values/${range}?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER`);
   return res.values || [];
 }

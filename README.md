@@ -70,7 +70,7 @@ src/
   legacyBridge.js              Lets React call the module functions safely
   features/employee-import/    Employee Bulk Import (Excel)
     BulkImportDialog.jsx       Fill in Google Sheets / Sync now / review / import dialog
-    employeeColumns.js         Sheet columns (mirror the Add Employee form) + row checks
+    employeeColumns.js         Builds sheet columns from the employee field list + row checks
     googleSheets.js            Google sign-in, create the import sheet, read it, write codes back
     excel.js                   Reads an uploaded .xlsx (ExcelJS)
   styles/
@@ -94,6 +94,7 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 | 05-navigation.js | Sidebar click handling and `render(page)` page router |
 | 06-helpers.js | Formatting, dates, salary helpers, amount in words |
 | 07-dashboard.js | Dashboard |
+| 07b-employee-fields.js | The employee field list: draws the form and defines the bulk-import sheet columns |
 | 08-employees.js | Employees, resigned employees, rejoin, employee form, Add Employee choice (manual / bulk import) |
 | 09-departments.js | Departments |
 | 10-attendance.js | Attendance (day view, employee-wise monthly, holidays) |
@@ -154,6 +155,10 @@ A filled `.xlsx` (same headers) can also be uploaded instead.
 
 The `drive.file` permission only lets the site see spreadsheets it created itself.
 
-When you add a field to the Add Employee form, also add it to `EMPLOYEE_COLUMNS` in
-`src/features/employee-import/employeeColumns.js` and to `importEmployees()` in
-`public/legacy/08-employees.js`.
+### Changing employee fields
+
+All employee fields are defined once, in `employeeFields()` in
+`public/legacy/07b-employee-fields.js`. That one list draws the Add / Edit Employee form, saves it,
+and defines the Google Sheet columns, dropdowns and import. Add, rename, reorder or remove a field
+there and the form and the sheet change together. Sheets made before a change are refused by
+Sync now (the columns no longer match) — click **New empty sheet** for one that matches.
