@@ -188,7 +188,7 @@ function printPayrollReport(){
   <div class="reportTitle">Payroll / Salary Report<span>For the month of ${monthLabel(payMonth)}</span></div>
   </td></tr></thead>
   <tbody><tr><td>
-  ${unitSections.map(s=>unitTableHTML((s.u.name||s.u.code)+(s.u.address?(' — '+s.u.address):''), s.rows)).join('\n  ')}
+  ${unitSections.map(s=>unitTableHTML(unitDisplayName(s.u)+(s.u.address?(' — '+s.u.address):''), s.rows)).join('\n  ')}
   <div class="grandTotalBox">
     <span>Total Employees: <b>${allRows.length}</b></span>
     <span>Total Earnings: <b>${fmt(grandEarn)}</b></span>

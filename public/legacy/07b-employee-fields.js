@@ -55,7 +55,7 @@ function employeeFields(){
     {key:'designation', label:'Designation', section:'basic', input:'text', width:18},
     {key:'empType', label:'Employment Type', section:'basic', input:'select', options:opts(['Full-Time','Part-Time','Contract']), width:15},
     {key:'unit', label:'Working Unit', section:'basic', input:'select',
-      options:()=>getUnits().map(u=>({value:u.code, label:u.name||u.code})),
+      options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u)})),
       formValue:e=>unitCodeOf(e.unit), width:16},
     // ---- Bank & Statutory Details ----
     {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},
