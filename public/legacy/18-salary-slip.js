@@ -119,13 +119,13 @@ function printAllSlips(unit){
     if(e) existing[code]=computePayrollForEmployee(e, payMonth);
   });
   saveDB(db);
-  // Employee Pay Slip Unit 1 / Unit 2: filter the payroll records down to just the employees
+  // Employee Pay Slip per unit: filter the payroll records down to just the employees
   // who belong to the selected Working Unit (falls back to Unit-1 for records with no unit set,
   // matching unitLabel()'s own fallback elsewhere in the app).
   let records = Object.values(existing);
   if(unit) records = records.filter(r=>{
     const e=db.employees.find(x=>x.code===r.code);
-    return (e && e.unit || 'Unit-1') === unit;
+    return unitCodeOf(e && e.unit) === unit;
   });
   const unitTitle = unit ? ` — ${unitLabel(unit)}` : '';
   if(!records.length){ alert(unit ? `No payroll records to print for ${unitLabel(unit)}.` : 'No payroll records to print.'); return; }

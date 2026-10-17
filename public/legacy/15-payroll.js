@@ -18,8 +18,7 @@ function renderPayroll(){
     <input type="month" value="${payMonth}" onchange="payMonth=this.value;render('payroll')">
     ${hasPerm('payroll','add') || hasPerm('payroll','edit') ? `<button class="btn" onclick="generatePayroll()">⚙️ Generate / Regenerate Payroll</button>` : ''}
     <button class="btn secondary" onclick="render('attendance')">🗓️ Go to Attendance</button>
-    ${existing && hasPerm('payroll','print') ? `<button class="btn secondary" onclick="printAllSlips('Unit-1')">🖨️ Employee Pay Slip Unit 1</button>
-    <button class="btn secondary" onclick="printAllSlips('Unit-2')">🖨️ Employee Pay Slip Unit 2</button>` : ''}
+    ${existing && hasPerm('payroll','print') ? getUnits().map(u=>`<button class="btn secondary" onclick="printAllSlips('${u.code}')" title="${u.name||u.code}">🖨️ Employee Pay Slip ${u.code.replace('-',' ')}</button>`).join('\n    ') : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — see Payroll Process)</span>
   </div>
   <p class="syncNote">Working days, leave, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)}. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>

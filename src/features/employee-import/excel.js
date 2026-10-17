@@ -1,6 +1,7 @@
-// Excel template download + upload reading for the employee bulk import.
-// ExcelJS is large, so it is loaded only when one of these functions is first used.
-import { EMPLOYEE_COLUMNS, optionsOf } from './employeeColumns.js';
+// Excel template download + upload reading for the employee bulk import. The columns come from
+// the employee field list (buildColumns(ctx.fields)), so the template always matches the Add
+// Employee form. ExcelJS is large, so it is loaded only when one of these functions is used.
+import { optionsOf, rowsFromGrid } from './employeeColumns.js';
 
 const SHEET_NAME = 'Employees';
 const DATA_ROWS = 1000; // rows (2..1001) that get dropdowns / formats
@@ -16,7 +17,7 @@ const columnLetter = (n) => {
 // dropdowns for the fixed-choice columns and an Instructions sheet. Columns the Add Employee form
 // fills automatically (Employee Code, OT Rate, Canteen Rate) are greyed out and ignored on import —
 // they are left unlocked so pasting whole rows from another sheet still works.
-export async function buildTemplate(ctx) {
+export async function buildTemplate(columns, ctx = {}) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   wb.creator = 'VIPL Payroll';
@@ -24,7 +25,7 @@ export async function buildTemplate(ctx) {
   // Hidden sheet holding the dropdown lists (department names can be long or many).
   const lists = wb.addWorksheet('Lists', { state: 'hidden' });
 
-  ws.columns = EMPLOYEE_COLUMNS.map((col) => ({
+  ws.columns = columns.map((col) => ({
     header: col.header,
     key: col.key,
     width: col.width || 14,
@@ -39,7 +40,7 @@ export async function buildTemplate(ctx) {
   const header = ws.getRow(1);
   header.height = 30;
   header.eachCell((cell, colNumber) => {
-    const auto = EMPLOYEE_COLUMNS[colNumber - 1].auto;
+    const auto = columns[colNumber - 1].auto;
     cell.protection = { locked: true };
     cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: auto ? 'FF6B7280' : 'FF0F6B5C' } };
@@ -49,12 +50,12 @@ export async function buildTemplate(ctx) {
   });
 
   let listCol = 0;
-  EMPLOYEE_COLUMNS.forEach((col, i) => {
+  columns.forEach((col, i) => {
     const letter = columnLetter(i + 1);
     const range = `${letter}2:${letter}${DATA_ROWS + 1}`;
     if (col.auto) return;
     if (col.type === 'list') {
-      const options = optionsOf(col, ctx);
+      const options = optionsOf(col);
       if (!options.length) return;
       // Write the choices straight into the dropdown ("A,B,C") — this shows an arrow in Excel,
       // Google Sheets, WPS and LibreOffice alike. Excel limits that to 255 characters, so very
@@ -155,39 +156,19 @@ function cellValue(v) {
   return v;
 }
 
-// Reads an uploaded .xlsx file. Columns are matched by their header text, so the column order
-// may change. Returns { rows: [{rowNumber, values}], missingHeaders: [...] }.
-export async function readEmployeeRows(arrayBuffer) {
+// Returns { rows: [{rowNumber, values}], missingHeaders }.
+export async function readEmployeeRows(arrayBuffer, columns) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(arrayBuffer);
   const ws = wb.getWorksheet(SHEET_NAME) || wb.worksheets.find((s) => s.state === 'visible' && s.name !== 'Instructions' && s.name !== 'Lists');
   if (!ws) throw new Error('No "Employees" sheet found in this file.');
-
-  const norm = (s) => String(s || '').replace(/\*/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
-  const headerIndex = {};
-  ws.getRow(1).eachCell((cell, colNumber) => { headerIndex[norm(cellValue(cell.value))] = colNumber; });
-  const columnOf = {};
-  const missingHeaders = [];
-  for (const col of EMPLOYEE_COLUMNS) {
-    const n = [col.header, ...(col.aliases || [])].map((h) => headerIndex[norm(h)]).find(Boolean);
-    if (n) columnOf[col.key] = n;
-    else if (!col.serial && !col.auto) missingHeaders.push(col.header);
-  }
-
-  const rows = [];
-  ws.eachRow({ includeEmpty: false }, (row, rowNumber) => {
-    if (rowNumber === 1) return;
-    const values = {};
-    let hasData = false;
-    for (const col of EMPLOYEE_COLUMNS) {
-      const n = columnOf[col.key];
-      if (!n) continue;
-      const v = cellValue(row.getCell(n).value);
-      values[col.key] = v;
-      if (!col.serial && !col.auto && v !== '' && v !== null) hasData = true;
-    }
-    if (hasData) rows.push({ rowNumber, values });
+  const grid = [];
+  ws.eachRow({ includeEmpty: true }, (row, rowNumber) => {
+    const cells = [];
+    row.eachCell({ includeEmpty: true }, (cell, colNumber) => { cells[colNumber - 1] = cellValue(cell.value); });
+    grid[rowNumber - 1] = cells;
   });
-  return { rows, missingHeaders };
+  for (let i = 0; i < grid.length; i++) if (!grid[i]) grid[i] = [];
+  return rowsFromGrid(grid, columns);
 }

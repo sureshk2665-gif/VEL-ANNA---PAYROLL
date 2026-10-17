@@ -34,12 +34,10 @@ function renderSoftwareAdmin(){
     </div>
     <p style="font-size:12px;color:var(--muted);margin-top:10px;">Unit details — used for unit-wise report sections.</p>
     <div class="formGrid">
-      <div><label>Unit-1 Name</label><input id="s_unit1Name" value="${db.unit1Name||'Unit-1'}"></div>
-      <div><label>Unit-1 Address</label><input id="s_unit1Address" value="${db.unit1Address||''}"></div>
-      <div><label>Unit-2 Name</label><input id="s_unit2Name" value="${db.unit2Name||'Unit-2'}"></div>
-      <div><label>Unit-2 Address</label><input id="s_unit2Address" value="${db.unit2Address||''}"></div>
+      ${getUnits().map((u,i)=>`<div><label>${u.code} Name</label><input id="s_unitName_${i}" value="${String(u.name||'').replace(/"/g,'&quot;')}"></div>
+      <div><label>${u.code} Address</label><input id="s_unitAddress_${i}" value="${String(u.address||'').replace(/"/g,'&quot;')}"></div>`).join('')}
     </div>
-    <div class="modalActions"><button class="btn" onclick="saveCompanySettings()">Save</button></div>
+    <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">+ Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
   </div>
   ${renderUserRightsPanel()}
   <div class="panel"><h3>💾 Data Backup &amp; Restore</h3>

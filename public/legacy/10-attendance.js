@@ -5,7 +5,7 @@ let attCompact = true;
 let attViewMode = 'employee'; // 'day' (quick mark) or 'employee' (employee-wise monthly calendar)
 let attDate = todayStr();
 let attEmpCode = ''; // selected employee for the Employee-wise Monthly Attendance view
-let attUnitFilter = ''; // '' = all units, 'Unit-1' or 'Unit-2' — filters the Employee dropdown above
+let attUnitFilter = ''; // '' = all units, or a unit code ('Unit-1', 'Unit-2', …) — filters the Employee dropdown above
 let attEditMode = false; // Monthly Attendance screen: locked (view) until the user clicks Edit
 let attEditSnapshot = null; // used to restore data if edits are cancelled
 function getMonthAttendanceSnapshot(code, ym){
@@ -402,16 +402,15 @@ function setCanteenTokens(code, field, val){
 function attUnitOptionsHTML(){
   return `<select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttUnitFilter(this.value)" title="Select unit">
     <option value="" ${!attUnitFilter?'selected':''}>All Units</option>
-    <option value="Unit-1" ${attUnitFilter==='Unit-1'?'selected':''}>${db.unit1Name||'Unit-1'}</option>
-    <option value="Unit-2" ${attUnitFilter==='Unit-2'?'selected':''}>${db.unit2Name||'Unit-2'}</option>
+    ${unitOptionsHtml(attUnitFilter)}
   </select>`;
 }
 function renderAttendanceEmployee(){
   const allActiveAllUnits=db.employees.filter(e=>isEmpOnRollInMonth(e,attMonth)).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
   if(!allActiveAllUnits.length) return `<div class="panel"><div class="empty">No active employees. Add employees first.</div></div>`;
-  // Unit filter: '' shows every unit's employees; 'Unit-1' / 'Unit-2' narrows the list (and
+  // Unit filter: '' shows every unit's employees; a unit code narrows the list (and
   // therefore the Employee dropdown below) to just that unit's on-roll employees.
-  const active = attUnitFilter ? allActiveAllUnits.filter(e=>(e.unit||'Unit-1')===attUnitFilter) : allActiveAllUnits;
+  const active = attUnitFilter ? allActiveAllUnits.filter(e=>unitCodeOf(e.unit)===attUnitFilter) : allActiveAllUnits;
   if(!active.length){
     return `<div class="attStage"><div class="attStageTop">${attTabsInline()}
       <div class="grp">${attUnitOptionsHTML()}</div>

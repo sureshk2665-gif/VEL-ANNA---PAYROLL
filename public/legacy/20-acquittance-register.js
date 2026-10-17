@@ -20,7 +20,7 @@ function acquittanceUnitRows(ym, unitCode){
     const e=db.employees.find(x=>x.code===r.code)||{};
     return {
       code:r.code, name:r.name||e.name||'-',
-      unit:(e.unit==='Unit-2')?'Unit-2':'Unit-1',
+      unit:unitCodeOf(e.unit),
       designation:r.designation||e.designation||'',
       department:r.department||e.department||'',
       days:Number(r.daysWorking)||0,
@@ -33,10 +33,10 @@ function acquittanceUnitRows(ym, unitCode){
 }
 // [{unitCode, unitName, unitAddress, rows}] for the selected filter; units with no payroll rows are skipped.
 function acquittanceUnits(ym, filter){
-  const codes = filter==='All' ? ['Unit-1','Unit-2'] : [filter];
+  const codes = filter==='All' ? getUnits().map(u=>u.code) : [filter];
   return codes.map(c=>({
     unitCode:c, unitName:unitLabel(c),
-    unitAddress:(c==='Unit-2'?db.unit2Address:db.unit1Address)||'',
+    unitAddress:((getUnits().find(u=>u.code===c)||{}).address)||'',
     rows:acquittanceUnitRows(ym,c)
   })).filter(u=>u.rows.length);
 }

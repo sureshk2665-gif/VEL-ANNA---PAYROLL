@@ -311,6 +311,17 @@ function savePayrollConstants(){
   alert('Payroll constants saved.');
   render('payrollprocess');
 }
+// Adds the next working unit (Unit-5, Unit-6, …). Existing units are never removed or renumbered.
+function addWorkingUnit(){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can add units.'); return; }
+  const name=prompt('Name of the new working unit (save any other changes on this page first):');
+  if(name===null) return;
+  ensureUnits();
+  const next=Math.max(0,...db.units.map(u=>+((String(u.code).match(/(\d+)$/)||[0,0])[1])))+1;
+  db.units.push({code:'Unit-'+next, name:name.trim()||('Unit-'+next), address:''});
+  saveDB(db);
+  render('softwareadmin');
+}
 function saveCompanySettings(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can edit company details.'); return; }
   db.companyName=document.getElementById('s_companyName').value;
@@ -320,10 +331,13 @@ function saveCompanySettings(){
   db.companyCIN=document.getElementById('s_companyCIN').value;
   db.companyPhone=document.getElementById('s_companyPhone').value;
   db.companyEmail=document.getElementById('s_companyEmail').value;
-  db.unit1Name=document.getElementById('s_unit1Name').value||'Unit-1';
-  db.unit1Address=document.getElementById('s_unit1Address').value;
-  db.unit2Name=document.getElementById('s_unit2Name').value||'Unit-2';
-  db.unit2Address=document.getElementById('s_unit2Address').value;
+  ensureUnits();
+  db.units.forEach((u,i)=>{
+    const n=document.getElementById('s_unitName_'+i), a=document.getElementById('s_unitAddress_'+i);
+    if(n) u.name=n.value.trim()||u.code;
+    if(a) u.address=a.value;
+  });
+  syncLegacyUnitFields();
   saveDB(db);
   alert('Saved.');
 }

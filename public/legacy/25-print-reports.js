@@ -95,8 +95,8 @@ function printPayrollReport(){
   if(!rec){ alert('Generate payroll first.'); return; }
   const allRows=payrollReportRows();
   if(!allRows.length){ alert('No payroll records for this month.'); return; }
-  const unit1Rows=allRows.filter(r=>r.WorkingUnit===unitLabel('Unit-1'));
-  const unit2Rows=allRows.filter(r=>r.WorkingUnit===unitLabel('Unit-2'));
+  // One section per working unit (see getUnits() in 06b-units.js).
+  const unitSections=getUnits().map(u=>({u, rows:allRows.filter(r=>r.UnitCode ? r.UnitCode===u.code : r.WorkingUnit===unitLabel(u.code))}));
   const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(r[key]||0),0);
   const MODES=['NEFT','TRANSFER','CASH','CHEQUE'];
   const modeSummaryHTML=(rows)=>{
@@ -188,8 +188,7 @@ function printPayrollReport(){
   <div class="reportTitle">Payroll / Salary Report<span>For the month of ${monthLabel(payMonth)}</span></div>
   </td></tr></thead>
   <tbody><tr><td>
-  ${unitTableHTML((db.unit1Name||'Unit-1')+(db.unit1Address?(' — '+db.unit1Address):''), unit1Rows)}
-  ${unitTableHTML((db.unit2Name||'Unit-2')+(db.unit2Address?(' — '+db.unit2Address):''), unit2Rows)}
+  ${unitSections.map(s=>unitTableHTML((s.u.name||s.u.code)+(s.u.address?(' — '+s.u.address):''), s.rows)).join('\n  ')}
   <div class="grandTotalBox">
     <span>Total Employees: <b>${allRows.length}</b></span>
     <span>Total Earnings: <b>${fmt(grandEarn)}</b></span>

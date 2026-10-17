@@ -70,8 +70,8 @@ src/
   legacyBridge.js              Lets React call the module functions safely
   features/employee-import/    Employee Bulk Import (Excel)
     BulkImportDialog.jsx       Download template / upload / review / import dialog
-    employeeColumns.js         Template columns (mirror the Add Employee form) + row checks
-    excel.js                   Builds the locked template and reads uploaded files (ExcelJS)
+    employeeColumns.js         Builds sheet columns from the employee field list + row checks
+    excel.js                   Builds the template and reads uploaded files (ExcelJS)
   styles/
     index.css                  Imports all CSS in the correct order
     shell.css                  Styles of the React shell components
@@ -93,6 +93,8 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 | 05-navigation.js | Sidebar click handling and `render(page)` page router |
 | 06-helpers.js | Formatting, dates, salary helpers, amount in words |
 | 07-dashboard.js | Dashboard |
+| 06b-units.js | Working units list and helpers (unitLabel, unitAddress, …) |
+| 07b-employee-fields.js | The employee field list: draws the form and defines the bulk-import template columns |
 | 08-employees.js | Employees, resigned employees, rejoin, employee form, Add Employee choice (manual / bulk import) |
 | 09-departments.js | Departments |
 | 10-attendance.js | Attendance (day view, employee-wise monthly, holidays) |
@@ -127,12 +129,22 @@ Only one line of logic changed in the original split: the auto-backup start chec
 
 ## Employee Bulk Import
 
-**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import**. Bulk Import offers
-**Download Template** — an Excel sheet with every Add Employee field as a column (A1 = S.No, header
-row locked, dropdowns for the fixed choices) — and **Upload Excel**. Every uploaded row is checked
-and shown before anything is added; rows with problems are skipped. Imported employees get the
-next employee codes and are edited later like any other employee.
+**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import** (new employees only):
+**Download Template** gives an Excel sheet with the same columns as the form (A1 = S.No, header
+row locked, dropdowns, grey auto columns); **Upload Excel** checks every row and shows it before
+anything is added. Imported employees are edited later through ✏️ Edit.
 
-When you add a field to the Add Employee form, also add it to `EMPLOYEE_COLUMNS` in
-`src/features/employee-import/employeeColumns.js` and to `importEmployees()` in
-`public/legacy/08-employees.js`.
+### Changing employee fields
+
+All employee fields are defined once, in `employeeFields()` in
+`public/legacy/07b-employee-fields.js`. That one list draws the Add / Edit Employee form, saves it,
+and defines the Excel template columns, dropdowns and import. Add, rename, reorder or remove a field
+there and the form and the template change together. A template downloaded before a change is
+refused on upload (the columns no longer match) — download a new one.
+
+## Working units
+
+Units are one list, `db.units` (`public/legacy/06b-units.js`): Unit-1, Unit-2, Unit-3 (JOY SHREE),
+Unit-4 (SUN GROUP). The employee form, attendance filter, pay-slip buttons, acquittance register,
+payroll report and the import template all follow it. Names/addresses are edited, and new units
+added, in **Software Admin → Company Details**.

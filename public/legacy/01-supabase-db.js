@@ -52,6 +52,10 @@ function defaultDB(){
     companyAddress:'No S-48, Sidco Industrial Estate, Kakkalur, Thiruvallur-602003, TAMIL NADU',
     companyGSTIN:'', companyPAN:'', companyCIN:'', companyPhone:'', companyEmail:'', companyLogo:'',
     unit1Name:'Unit-1', unit1Address:'', unit2Name:'Unit-2', unit2Address:'',
+    units:[ // Working units — see public/legacy/06b-units.js
+      {code:'Unit-1', name:'Unit-1', address:''}, {code:'Unit-2', name:'Unit-2', address:''},
+      {code:'Unit-3', name:'JOY SHREE', address:''}, {code:'Unit-4', name:'SUN GROUP', address:''}
+    ],
     autoBackup:{enabled:false, frequency:'daily', time:'20:00', weekday:1, dayOfMonth:1, lastRun:null, nextRun:null},
     backupHistory:[],
     holidays:[], // Holiday Calendar — array of {date:'YYYY-MM-DD', type:'NOPH'}, deducted from NOWD like Sundays
@@ -142,6 +146,7 @@ async function initDB(){
   if(db.unit1Address===undefined) db.unit1Address='';
   if(!db.unit2Name) db.unit2Name='Unit-2';
   if(db.unit2Address===undefined) db.unit2Address='';
+  ensureUnits(); // db.units list (adds Unit-3 JOY SHREE / Unit-4 SUN GROUP to older data)
   if(!Array.isArray(db.increments)) db.increments=[];
   if(!db.timeEntries || typeof db.timeEntries!=='object') db.timeEntries={};
   if(!Array.isArray(db.timeHolidays)) db.timeHolidays=[];
