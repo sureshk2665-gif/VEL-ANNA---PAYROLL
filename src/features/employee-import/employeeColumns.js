@@ -16,10 +16,11 @@ export function buildColumns(fields) {
       col.type = 'list';
       col.options = opts.map((o) => o.label);
       // The sheet shows labels (e.g. "Exempted", unit names); the record stores values ('no', 'Unit-2').
-      col.accepts = [...new Set([...opts.map((o) => o.label), ...opts.map((o) => String(o.value))])];
+      col.accepts = [...new Set([...opts.map((o) => o.label), ...opts.map((o) => String(o.value)), ...opts.flatMap((o) => o.aliases || [])])];
       col.toValue = (v) => {
         const hit = opts.find((o) => String(o.label).toLowerCase() === String(v).toLowerCase())
-          || opts.find((o) => String(o.value).toLowerCase() === String(v).toLowerCase());
+          || opts.find((o) => String(o.value).toLowerCase() === String(v).toLowerCase())
+          || opts.find((o) => (o.aliases || []).some((a) => String(a).toLowerCase() === String(v).toLowerCase()));
         return hit ? hit.value : v;
       };
       col.default = opts.length ? opts[0].label : '';

@@ -55,7 +55,8 @@ function employeeFields(){
     {key:'designation', label:'Designation', section:'basic', input:'text', width:18},
     {key:'empType', label:'Employment Type', section:'basic', input:'select', options:opts(['Full-Time','Part-Time','Contract']), width:15},
     {key:'unit', label:'Working Unit', section:'basic', input:'select',
-      options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u)})),
+      // Import also accepts just the unit name ("SUN GROUP") or number ("Unit-1").
+      options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u), aliases:u.name?[u.name]:[]})),
       formValue:e=>unitCodeOf(e.unit), width:16},
     // ---- Bank & Statutory Details ----
     {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},
@@ -151,7 +152,7 @@ function employeeSheetFields(){
   return employeeFields().filter(f=>f.sheet!==false).map(f=>({
     key:f.key, label:f.label, input:f.input, auto:!!f.auto, required:!!f.required, width:f.width||14,
     options: f.input==='select'
-      ? employeeFieldOptions(f).filter(o=>!f.sheetOptions || f.sheetOptions.includes(o.value)).map(o=>({value:o.value, label:String(o.label)}))
+      ? employeeFieldOptions(f).filter(o=>!f.sheetOptions || f.sheetOptions.includes(o.value)).map(o=>({value:o.value, label:String(o.label), aliases:o.aliases||[]}))
       : undefined
   }));
 }
