@@ -144,7 +144,7 @@ refused on upload (the columns no longer match) — download a new one.
 
 ## Working units
 
-Units are one list, `db.units` (`public/legacy/06b-units.js`): Unit-1, Unit-2, Unit-3 (JOY SHREE),
-Unit-4 (SUN GROUP). The employee form, attendance filter, pay-slip buttons, acquittance register,
+Units are one list, `db.units` (`public/legacy/06b-units.js`): Unit-1 (SUN GROUP), Unit-2,
+Unit-3 (JOY SHREE ENTERPRISES), Unit-4 (S M S CONT). The employee form, attendance filter, pay-slip buttons, acquittance register,
 payroll report and the import template all follow it. Names/addresses are edited, and new units
 added, in **Software Admin → Company Details**.
