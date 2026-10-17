@@ -139,8 +139,7 @@ function renderReportDetail(key){
         <label style="font-size:12px;color:var(--muted);">Working Unit
           <select onchange="acqUnit=this.value;render('reports')">
             <option value="All" ${acqUnit==='All'?'selected':''}>All Units (each unit on its own pages)</option>
-            <option value="Unit-1" ${acqUnit==='Unit-1'?'selected':''}>${unitLabel('Unit-1')}</option>
-            <option value="Unit-2" ${acqUnit==='Unit-2'?'selected':''}>${unitLabel('Unit-2')}</option>
+            ${unitOptionsHtml(acqUnit)}
           </select>
         </label>` : ''}
       ${meta.needsDateRange ? `

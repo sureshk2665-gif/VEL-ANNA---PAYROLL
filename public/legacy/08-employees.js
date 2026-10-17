@@ -26,7 +26,7 @@ function renderEmployees(){
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
         <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
-        <td>${(e.unit==='Unit-2'?(db.unit2Name||'Unit-2'):(db.unit1Name||'Unit-1'))}</td>
+        <td>${unitLabel(e.unit)}</td>
         <td>${e.mobile||'-'}</td><td><b>${fmt(calcNet(e))}</b></td><td><span class="tag ${e.status}">${e.status}</span></td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">✏️ Edit</button>` : ''}
@@ -117,7 +117,7 @@ function openAddEmployeeChooser(){
       </button>
       <button type="button" class="addEmpChoice" onclick="openBulkImport()">
         <span class="addEmpChoiceIcon">📥</span>
-        <span><b>Bulk Import</b><small>Fill many new employees in Google Sheets, then sync</small></span>
+        <span><b>Bulk Import</b><small>Upload an Excel file with one or more new employees</small></span>
       </button>
     </div>
     <div class="modalActions"><button type="button" class="btn secondary" onclick="closeModal()">Cancel</button></div>`;
@@ -133,8 +133,6 @@ function employeeImportContext(){
     canAdd: hasPerm('employees','add'),
     username: currentUser ? currentUser.username : '',
     departments: (db.departments||[]).slice(),
-    unit1Name: db.unit1Name||'Unit-1',
-    unit2Name: db.unit2Name||'Unit-2',
     fields: employeeSheetFields(),
     employees: (db.employees||[]).map(e=>({code:e.code, name:e.name, aadhaar:e.aadhaar||'', pan:e.pan||'', accNo:e.accNo||''}))
   };

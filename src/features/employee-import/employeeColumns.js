@@ -1,6 +1,6 @@
-// Columns of the bulk-import Google Sheet. They are NOT defined here: they are built from the
+// Columns of the bulk-import Excel template. They are NOT defined here: they are built from the
 // employee field list in public/legacy/07b-employee-fields.js (employeeFields), the same list that
-// draws the Add Employee form. Changing a field there changes the form and the sheet together.
+// draws the Add Employee form. Changing a field there changes the form and the template together.
 // The legacy side passes the sheet fields in ctx.fields (employeeImportContext()).
 //
 // Column shape: { key, header, type: 'text'|'date'|'number'|'list', options (labels), toValue,
@@ -99,7 +99,7 @@ export function validateRow(raw, columns) {
 }
 
 // Validates all rows and flags duplicates (same Aadhaar / PAN / account number) against existing
-// employees and against earlier rows in the same sheet.
+// employees and against earlier rows in the same file.
 export function validateRows(rows, columns, existingEmployees = []) {
   const seen = { aadhaar: new Map(), pan: new Map(), accNo: new Map() };
   const labels = { aadhaar: 'Aadhaar Number', pan: 'PAN Number', accNo: 'Account Number' };
@@ -119,7 +119,7 @@ export function validateRows(rows, columns, existingEmployees = []) {
   });
 }
 
-// Turns a grid of cells (row 0 = headers, as read from Google Sheets or Excel) into
+// Turns a grid of cells (row 0 = headers, as read from Excel) into
 // { rows: [{rowNumber, values}], missingHeaders, columnIndex }. Columns are matched by header
 // text, so a moved column still works; a deleted (non-auto) column is reported as missing —
 // as is any column of a sheet made before the form changed, so form and sheet always match.

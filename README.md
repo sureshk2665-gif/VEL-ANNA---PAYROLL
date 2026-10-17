@@ -69,10 +69,9 @@ src/
     brand.js                   App name and logo path
   legacyBridge.js              Lets React call the module functions safely
   features/employee-import/    Employee Bulk Import (Excel)
-    BulkImportDialog.jsx       Fill in Google Sheets / Sync now / review / import dialog
+    BulkImportDialog.jsx       Download template / upload / review / import dialog
     employeeColumns.js         Builds sheet columns from the employee field list + row checks
-    googleSheets.js            Google sign-in, create the import sheet, read it, write codes back
-    excel.js                   Reads an uploaded .xlsx (ExcelJS)
+    excel.js                   Builds the template and reads uploaded files (ExcelJS)
   styles/
     index.css                  Imports all CSS in the correct order
     shell.css                  Styles of the React shell components
@@ -94,7 +93,8 @@ original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 | 05-navigation.js | Sidebar click handling and `render(page)` page router |
 | 06-helpers.js | Formatting, dates, salary helpers, amount in words |
 | 07-dashboard.js | Dashboard |
-| 07b-employee-fields.js | The employee field list: draws the form and defines the bulk-import sheet columns |
+| 06b-units.js | Working units list and helpers (unitLabel, unitAddress, …) |
+| 07b-employee-fields.js | The employee field list: draws the form and defines the bulk-import template columns |
 | 08-employees.js | Employees, resigned employees, rejoin, employee form, Add Employee choice (manual / bulk import) |
 | 09-departments.js | Departments |
 | 10-attendance.js | Attendance (day view, employee-wise monthly, holidays) |
@@ -127,38 +127,24 @@ Only one line of logic changed in the original split: the auto-backup start chec
 `28-user-rights-backup.js`, because deferred scripts run when `document.readyState` is already
 `'interactive'`. Without the change the watcher would start twice.
 
-## Employee Bulk Import (Google Sheets)
+## Employee Bulk Import
 
-**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import**, which is for NEW
-employees only:
-
-1. **Fill in Google Sheets** creates a new, empty sheet in the signed-in person's Google Drive with
-   the same columns as the Add Employee form (dropdowns, calendar on date cells, protected header).
-2. Enter or paste the new employees.
-3. **Sync now** reads the sheet, shows every row checked, imports the ready rows and writes their
-   Employee Code back into the sheet, so a row is never imported twice. Existing employees are
-   never changed from the sheet — only through ✏️ Edit.
-
-A filled `.xlsx` (same headers) can also be uploaded instead.
-
-### One-time Google setup
-
-1. https://console.cloud.google.com → create a project (e.g. "VIPL Payroll").
-2. APIs & Services → Library → enable **Google Sheets API**.
-3. APIs & Services → OAuth consent screen → External → app name, your email → Scopes: add
-   `.../auth/drive.file` → Test users: add the Google accounts that will use it (or Publish app).
-4. APIs & Services → Credentials → Create credentials → OAuth client ID → Web application →
-   Authorized JavaScript origins: `https://vel-anna-payroll.vercel.app` (and
-   `http://localhost:5173` for local use).
-5. Vercel → Settings → Environment Variables: `VITE_GOOGLE_CLIENT_ID` = that Client ID
-   (Production and Preview), then redeploy.
-
-The `drive.file` permission only lets the site see spreadsheets it created itself.
+**+ Add Employee** asks **Add Manually** (the usual form) or **Bulk Import** (new employees only):
+**Download Template** gives an Excel sheet with the same columns as the form (A1 = S.No, header
+row locked, dropdowns, grey auto columns); **Upload Excel** checks every row and shows it before
+anything is added. Imported employees are edited later through ✏️ Edit.
 
 ### Changing employee fields
 
 All employee fields are defined once, in `employeeFields()` in
 `public/legacy/07b-employee-fields.js`. That one list draws the Add / Edit Employee form, saves it,
-and defines the Google Sheet columns, dropdowns and import. Add, rename, reorder or remove a field
-there and the form and the sheet change together. Sheets made before a change are refused by
-Sync now (the columns no longer match) — click **New empty sheet** for one that matches.
+and defines the Excel template columns, dropdowns and import. Add, rename, reorder or remove a field
+there and the form and the template change together. A template downloaded before a change is
+refused on upload (the columns no longer match) — download a new one.
+
+## Working units
+
+Units are one list, `db.units` (`public/legacy/06b-units.js`): Unit-1, Unit-2, Unit-3 (JOY SHREE),
+Unit-4 (SUN GROUP). The employee form, attendance filter, pay-slip buttons, acquittance register,
+payroll report and the import template all follow it. Names/addresses are edited, and new units
+added, in **Software Admin → Company Details**.

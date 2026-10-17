@@ -3,9 +3,9 @@
    drives:
      - the form itself (employeeFormHtml)              — public/legacy/08-employees.js
      - saving the form (readEmployeeFormFields)        — saveEmployee()
-     - the Bulk Import Google Sheet columns + checks   — src/features/employee-import/
+     - the Bulk Import Excel template columns + checks — src/features/employee-import/
      - creating employees from the sheet               — importEmployees()
-   So adding, renaming, reordering or removing a field here changes the form AND the sheet together.
+   So adding, renaming, reordering or removing a field here changes the form AND the template together.
 
    Field properties:
      key        record property (e.g. 'basic' -> employee.basic)
@@ -16,9 +16,9 @@
      options    select choices: [{value, label}] (or a function returning them)
      formValue  (employee) => value shown in the form (default employee[key] or '' / 0)
      readValue  (rawValue) => value stored (default: text as typed, numbers +value||0)
-     auto       shown in the form but not editable (filled automatically) — grey, ignored in the sheet
-     sheet      false = not a sheet column (e.g. resignation details: the sheet is for new employees)
-     sheetOptions  limit the sheet dropdown to these values (e.g. Status: only Active)
+     auto       shown in the form but not editable (filled automatically) — grey, ignored on import
+     sheet      false = not a template column (e.g. resignation details: the sheet is for new employees)
+     sheetOptions  limit the template dropdown to these values (e.g. Status: only Active)
      required, full (full-width row), title (tooltip), attrs (extra HTML), wrap (wrapper div attrs),
      width      sheet column width (characters)
 */
@@ -55,8 +55,8 @@ function employeeFields(){
     {key:'designation', label:'Designation', section:'basic', input:'text', width:18},
     {key:'empType', label:'Employment Type', section:'basic', input:'select', options:opts(['Full-Time','Part-Time','Contract']), width:15},
     {key:'unit', label:'Working Unit', section:'basic', input:'select',
-      options:()=>[{value:'Unit-1',label:db.unit1Name||'Unit-1'},{value:'Unit-2',label:db.unit2Name||'Unit-2'}],
-      formValue:e=>e.unit==='Unit-2'?'Unit-2':'Unit-1', width:16},
+      options:()=>getUnits().map(u=>({value:u.code, label:u.name||u.code})),
+      formValue:e=>unitCodeOf(e.unit), width:16},
     // ---- Bank & Statutory Details ----
     {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},
     {key:'branch', label:'Branch', section:'bank', input:'text', width:16},
@@ -146,7 +146,7 @@ function readEmployeeFormFields(){
   });
   return out;
 }
-// Field list for the Bulk Import sheet (React side): only sheet columns, with resolved options.
+// Field list for the Bulk Import template (React side): only sheet columns, with resolved options.
 function employeeSheetFields(){
   return employeeFields().filter(f=>f.sheet!==false).map(f=>({
     key:f.key, label:f.label, input:f.input, auto:!!f.auto, required:!!f.required, width:f.width||14,
