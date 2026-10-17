@@ -34,7 +34,7 @@ function renderSoftwareAdmin(){
     </div>
     <p style="font-size:12px;color:var(--muted);margin-top:10px;">Unit details — used for unit-wise report sections.</p>
     <div class="formGrid">
-      ${getUnits().map((u,i)=>`<div><label>${u.code} Name</label><input id="s_unitName_${i}" value="${String(u.name||'').replace(/"/g,'&quot;')}"></div>
+      ${getUnits().map((u,i)=>`<div><label>${u.code} Name</label><input id="s_unitName_${i}" placeholder="(no name yet — shown as ${u.code})" value="${String(u.name||'').replace(/"/g,'&quot;')}"></div>
       <div><label>${u.code} Address</label><input id="s_unitAddress_${i}" value="${String(u.address||'').replace(/"/g,'&quot;')}"></div>`).join('')}
     </div>
     <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">+ Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>

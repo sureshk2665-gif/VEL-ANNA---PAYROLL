@@ -314,11 +314,11 @@ function savePayrollConstants(){
 // Adds the next working unit (Unit-5, Unit-6, …). Existing units are never removed or renumbered.
 function addWorkingUnit(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can add units.'); return; }
-  const name=prompt('Name of the new working unit (save any other changes on this page first):');
+  const name=prompt('Name of the new working unit — leave blank to add the name later (save any other changes on this page first):');
   if(name===null) return;
   ensureUnits();
   const next=Math.max(0,...db.units.map(u=>+((String(u.code).match(/(\d+)$/)||[0,0])[1])))+1;
-  db.units.push({code:'Unit-'+next, name:name.trim()||('Unit-'+next), address:''});
+  db.units.push({code:'Unit-'+next, name:name.trim(), address:''});
   saveDB(db);
   render('softwareadmin');
 }
@@ -334,7 +334,7 @@ function saveCompanySettings(){
   ensureUnits();
   db.units.forEach((u,i)=>{
     const n=document.getElementById('s_unitName_'+i), a=document.getElementById('s_unitAddress_'+i);
-    if(n) u.name=n.value.trim()||u.code;
+    if(n) u.name=n.value.trim(); // blank = no name yet (shown as just the unit number)
     if(a) u.address=a.value;
   });
   syncLegacyUnitFields();

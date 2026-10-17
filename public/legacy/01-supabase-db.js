@@ -51,10 +51,11 @@ function defaultDB(){
     companyName:'VISALAM INDUSTRIES PVT LTD',
     companyAddress:'No S-48, Sidco Industrial Estate, Kakkalur, Thiruvallur-602003, TAMIL NADU',
     companyGSTIN:'', companyPAN:'', companyCIN:'', companyPhone:'', companyEmail:'', companyLogo:'',
-    unit1Name:'SUN GROUP', unit1Address:'', unit2Name:'Unit-2', unit2Address:'',
+    unit1Name:'SUN GROUP', unit1Address:'', unit2Name:'', unit2Address:'',
     units:[ // Working units — see public/legacy/06b-units.js
-      {code:'Unit-1', name:'SUN GROUP', address:''}, {code:'Unit-2', name:'Unit-2', address:''},
-      {code:'Unit-3', name:'JOY SHREE ENTERPRISES', address:''}, {code:'Unit-4', name:'S M S CONT', address:''}
+      {code:'Unit-1', name:'SUN GROUP', address:''}, {code:'Unit-2', name:'', address:''},
+      {code:'Unit-3', name:'JOY SHREE ENTERPRISES', address:''}, {code:'Unit-4', name:'S M S CONT', address:''},
+      {code:'Unit-5', name:'', address:''}, {code:'Unit-6', name:'', address:''}
     ],
     autoBackup:{enabled:false, frequency:'daily', time:'20:00', weekday:1, dayOfMonth:1, lastRun:null, nextRun:null},
     backupHistory:[],
@@ -142,9 +143,9 @@ async function initDB(){
   if(db.companyPhone===undefined) db.companyPhone='';
   if(db.companyEmail===undefined) db.companyEmail='';
   if(db.companyLogo===undefined) db.companyLogo='';
-  if(!db.unit1Name) db.unit1Name='Unit-1';
+  if(db.unit1Name===undefined) db.unit1Name='';
   if(db.unit1Address===undefined) db.unit1Address='';
-  if(!db.unit2Name) db.unit2Name='Unit-2';
+  if(db.unit2Name===undefined) db.unit2Name='';
   if(db.unit2Address===undefined) db.unit2Address='';
   ensureUnits(); // db.units list — final unit names (see 06b-units.js)
   if(!Array.isArray(db.increments)) db.increments=[];
