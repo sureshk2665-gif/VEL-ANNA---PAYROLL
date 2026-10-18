@@ -1,0 +1,149 @@
+/* =====================================================================================
+   MODERN UI LAYER
+   A purely visual refresh on top of the original styles: typography, neutral palette,
+   rounded surfaces, soft shadows, clearer navigation, tables, forms, dialogs and login.
+   - Loaded last (src/styles/index.css), CSS only: no markup or behaviour is changed.
+   - Screen only: printing (in-app print rules and the slip/report print windows) is untouched.
+   - Every colour theme (Teal, Ocean, …) and Dark mode keep working: the accent still comes
+     from --accent / --accent-soft; only the neutral surfaces are re-tuned here.
+   - Spacing of dense screens (Attendance stage, Time Entry grids) is deliberately left alone.
+   Remove the @import of this file to get the previous look back.
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Design tokens ---------- */
+:root{
+  --paper:#f4f6fa; --card:#ffffff; --ink:#101828; --muted:#667085; --line:#e4e7ec;
+  --surface-2:#f8fafc;                        /* table heads, subtle fills */
+  --radius:14px;
+  --shadow-sm:0 1px 2px rgba(16,24,40,.05);
+  --shadow-md:0 4px 12px -2px rgba(16,24,40,.08), 0 2px 4px -2px rgba(16,24,40,.04);
+  --shadow-lg:0 24px 48px -12px rgba(16,24,40,.25);
+  --ring:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+  --hover:color-mix(in srgb, var(--accent) 6%, transparent);
+  font-family:'Inter','Segoe UI',Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+body.dark{
+  --paper:#0b0f17; --card:#121826; --ink:#e6e9ef; --muted:#8a94a6; --line:#232b3b;
+  --surface-2:#161d2b;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4);
+  --shadow-md:0 6px 16px -4px rgba(0,0,0,.5);
+  --shadow-lg:0 24px 48px -12px rgba(0,0,0,.7);
+  --hover:color-mix(in srgb, var(--accent) 14%, transparent);
+}
+body{font-feature-settings:'cv11','ss01'; color-scheme:light;}
+body.dark{color-scheme:dark;}
+::selection{background:color-mix(in srgb, var(--accent) 22%, transparent);}
+
+/* Thin, quiet scrollbars */
+*{scrollbar-width:thin; scrollbar-color:color-mix(in srgb, var(--muted) 45%, transparent) transparent;}
+*::-webkit-scrollbar{width:10px;height:10px;}
+*::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--muted) 35%, transparent);border-radius:10px;border:3px solid transparent;background-clip:content-box;}
+*::-webkit-scrollbar-thumb:hover{background-color:color-mix(in srgb, var(--muted) 60%, transparent);}
+
+/* ---------- Sidebar ---------- */
+.sidebar{background:var(--card);border-right:1px solid var(--line);padding:18px 12px;}
+.sidebarBrand{margin:2px 0 2px 6px;gap:11px;}
+.sidebarBrand h2{font-size:16.5px;font-weight:750;letter-spacing:-.01em;}
+.logoBadge.small{border-radius:10px;box-shadow:0 0 0 1px var(--line);}
+.sidebar .sub{margin:0 0 18px 6px;font-size:11.5px;letter-spacing:.02em;}
+.navSection{font-size:10.5px;font-weight:650;letter-spacing:.09em;margin:18px 10px 6px;color:color-mix(in srgb, var(--muted) 85%, transparent);}
+.nav-item{position:relative;padding:9px 12px;border-radius:10px;font-size:14px;font-weight:500;color:color-mix(in srgb, var(--ink) 82%, transparent);margin-bottom:2px;transition:background .15s ease,color .15s ease;}
+.nav-item .navIcon{font-size:15px;filter:saturate(.9);}
+.nav-item:hover{background:var(--hover);color:var(--ink);}
+.nav-item.active{background:var(--accent-soft);color:var(--accent);font-weight:650;box-shadow:none;}
+body.dark .nav-item.active{color:color-mix(in srgb, var(--accent) 55%, #fff);}
+.nav-item.active::before{content:"";position:absolute;left:-12px;top:8px;bottom:8px;width:3px;border-radius:0 3px 3px 0;background:var(--accent);}
+
+/* ---------- Top bar ---------- */
+.topbar h1{font-size:24px;font-weight:750;letter-spacing:-.025em;}
+.pageSubtitle{font-size:13.5px;margin-top:4px;}
+.topActions{gap:8px;}
+#currentUserBadge{display:inline-flex;align-items:center;height:36px;padding:0 12px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:12.5px;font-weight:500;color:var(--muted);margin-right:0;}
+.iconBtn,.themeSelect{height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);font-size:13px;font-weight:550;padding:0 12px;box-shadow:var(--shadow-sm);transition:background .15s ease,border-color .15s ease;}
+.iconBtn:hover,.themeSelect:hover{border-color:color-mix(in srgb, var(--accent) 45%, var(--line));background:var(--surface-2);}
+
+/* ---------- Buttons ---------- */
+.btn{border-radius:10px;font-weight:600;letter-spacing:0;box-shadow:var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.12);transition:filter .15s ease, box-shadow .15s ease, transform .08s ease, background .15s ease, border-color .15s ease;}
+.btn:hover{opacity:1;filter:brightness(1.07);box-shadow:var(--shadow-md);}
+.btn.secondary{background:var(--card);color:var(--ink);border:1px solid var(--line);box-shadow:var(--shadow-sm);}
+.btn.secondary:hover{filter:none;background:var(--surface-2);border-color:color-mix(in srgb, var(--accent) 45%, var(--line));}
+.btn.danger:hover{filter:brightness(1.08);}
+.btn:focus-visible,.iconBtn:focus-visible,.nav-item:focus-visible,button:focus-visible{outline:none;box-shadow:var(--ring);}
+.rowActions button{font-weight:600;}
+
+/* ---------- Form fields ---------- */
+.toolbar input,.toolbar select,.formGrid input,.formGrid select,.modal input:not([type=checkbox]):not([type=radio]),.modal select,.modal textarea,.panel input:not([type=checkbox]):not([type=radio]):not([type=file]),.panel select{
+  border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);
+  transition:border-color .15s ease, box-shadow .15s ease;
+}
+.formGrid input,.formGrid select{height:40px;padding:0 12px;line-height:normal;}
+.formGrid label{font-size:12.5px;font-weight:550;color:color-mix(in srgb, var(--ink) 70%, transparent);margin-bottom:6px;}
+.toolbar input:hover,.toolbar select:hover,.formGrid input:hover,.formGrid select:hover{border-color:color-mix(in srgb, var(--muted) 45%, var(--line));}
+.toolbar input:focus,.toolbar select:focus,.formGrid input:focus,.formGrid select:focus,.modal input:focus,.modal select:focus,.modal textarea:focus,.panel input:focus,.panel select:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring);}
+.formGrid input:disabled,.formGrid select:disabled{background:var(--surface-2);color:var(--muted);cursor:not-allowed;}
+fieldset{border:1px solid var(--line);border-radius:14px;padding:16px 16px 18px;margin:16px 0 0;background:color-mix(in srgb, var(--surface-2) 55%, transparent);}
+fieldset legend{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--accent);padding:0 8px;}
+body.dark fieldset legend{color:color-mix(in srgb, var(--accent) 55%, #fff);}
+
+/* ---------- Cards, panels, stats ---------- */
+.panel{border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow-sm);}
+.panel h3{font-size:15px;font-weight:700;letter-spacing:-.01em;}
+.stat{border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow-sm);padding:18px 18px 16px;}
+.stat::before{display:none;}
+.stat:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);}
+.stat .statIcon{width:38px;height:38px;border-radius:12px;background:color-mix(in srgb, var(--stat-color, var(--accent)) 14%, transparent);color:var(--stat-color, var(--accent));opacity:1;font-size:17px;box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--stat-color, var(--accent)) 22%, transparent);}
+.stat .n{font-size:27px;font-weight:750;letter-spacing:-.03em;font-variant-numeric:tabular-nums;}
+.stat .l{font-size:12.5px;font-weight:500;}
+.reportCard{border-radius:16px;border:1px solid var(--line);box-shadow:var(--shadow-sm);}
+.reportCard:hover{border-color:color-mix(in srgb, var(--accent) 50%, var(--line));box-shadow:var(--shadow-md);transform:translateY(-2px);}
+.reportCardArrow{transition:transform .15s ease,color .15s ease;}
+.reportCard:hover .reportCardArrow{transform:translateX(3px);color:var(--accent);}
+
+/* ---------- Tables ---------- */
+table{font-variant-numeric:tabular-nums;}
+th{background:var(--surface-2);color:var(--muted);font-weight:650;font-size:11px;letter-spacing:.06em;border-bottom:1px solid var(--line);}
+th:first-child{border-top-left-radius:10px;}
+th:last-child{border-top-right-radius:10px;}
+tbody tr:nth-child(even){background:transparent;}
+tr:hover td{background:var(--hover);}
+.tableScrollWrap{border:1px solid var(--line);border-radius:12px;}
+.tag{border-radius:999px;font-weight:650;padding:3px 10px;}
+
+/* ---------- Dialogs ---------- */
+.overlay{background:rgba(15,23,42,.42);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);}
+.overlay.show .modal{animation:viplModalIn .18s cubic-bezier(.2,.8,.2,1);}
+.modal{border-radius:20px;border:1px solid var(--line);box-shadow:var(--shadow-lg);padding:26px 28px;}
+.modal h3{font-size:19px;font-weight:750;letter-spacing:-.02em;}
+.modalActions{gap:10px;}
+@keyframes viplModalIn{from{opacity:0;transform:translateY(8px) scale(.985);}to{opacity:1;transform:none;}}
+@media (prefers-reduced-motion:reduce){ .overlay.show .modal{animation:none;} .stat:hover,.reportCard:hover{transform:none;} }
+
+/* "+ Add Employee" choice cards */
+.addEmpChoice{border-radius:16px;padding:18px;box-shadow:var(--shadow-sm);transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;}
+.addEmpChoice:hover{border-color:color-mix(in srgb, var(--accent) 55%, var(--line));background:var(--card);box-shadow:var(--shadow-md);transform:translateY(-2px);}
+.addEmpChoiceIcon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);font-size:24px;flex:none;}
+.bulkImportSteps li::before{background:var(--accent);color:#fff;}
+.bulkImportTableWrap{border-radius:12px;}
+
+/* ---------- Login ---------- */
+#loginScreen{
+  background:
+    radial-gradient(900px 500px at 12% 8%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 60%),
+    radial-gradient(700px 480px at 92% 92%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
+    var(--paper);
+  padding:24px;
+}
+.loginBox{width:380px;max-width:100%;padding:40px 36px 34px;border-radius:24px;border:1px solid var(--line);box-shadow:var(--shadow-lg);background:color-mix(in srgb, var(--card) 92%, transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+.loginBox .logoBadge{width:64px;height:64px;border-radius:18px;margin:0 auto 18px;box-shadow:0 0 0 1px var(--line), var(--shadow-md);}
+.loginBox h1{font-size:24px;font-weight:750;letter-spacing:-.025em;margin-bottom:6px;}
+.loginBox p{font-size:13.5px;margin-bottom:24px;}
+.loginBox input{height:44px;padding:0 14px;border-radius:12px;margin-bottom:12px;background:var(--card);font-size:14px;transition:border-color .15s ease, box-shadow .15s ease;}
+.loginBox input:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring);}
+.loginBox button{height:46px;border-radius:12px;font-size:14.5px;font-weight:650;margin-top:4px;box-shadow:var(--shadow-md);transition:filter .15s ease, transform .08s ease;}
+.loginBox button:hover{filter:brightness(1.07);}
+.loginBox button:active{transform:translateY(1px);}
+.loginErr{min-height:18px;margin:-2px 0 8px;}
+
+} /* @media screen */
