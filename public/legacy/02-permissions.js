@@ -94,7 +94,7 @@ function userAdminRedirectPage(){ return (currentUser && currentUser.role==='Sof
 // Convenience: does the user have ANY access at all to a module (used to show/hide nav + gate render()).
 function canOpenModule(moduleKey){ return hasPerm(moduleKey==='payrollprocess'?'payroll':moduleKey,'view'); }
 function denyMsg(action,moduleLabel){
-  return `<div class="panel"><h3>🚫 Access Denied</h3><p style="color:var(--muted);">You do not have permission to ${action} in the <b>${moduleLabel}</b> module. Please contact your Administrator if you believe this is a mistake.</p></div>`;
+  return `<div class="panel"><h3>${ico('shield-x')} Access Denied</h3><p style="color:var(--muted);">You do not have permission to ${action} in the <b>${moduleLabel}</b> module. Please contact your Administrator if you believe this is a mistake.</p></div>`;
 }
 
 function getSettings(){

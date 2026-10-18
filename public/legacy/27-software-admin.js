@@ -8,7 +8,7 @@
 function renderSoftwareAdmin(){
   if(!isSoftwareAdmin()) return denyMsg('view this page','Software Admin');
   return `
-  <div class="panel"><h3>🏢 Company Details</h3>
+  <div class="panel"><h3>${ico('building')} Company Details</h3>
     <p style="font-size:12px;color:var(--muted);">These appear in the header of printed slips and reports.</p>
     <div class="formGrid" style="align-items:flex-start;">
       <div>
@@ -37,14 +37,14 @@ function renderSoftwareAdmin(){
       ${getUnits().map((u,i)=>`<div><label>${u.code} Name</label><input id="s_unitName_${i}" placeholder="(no name yet — shown as ${u.code})" value="${String(u.name||'').replace(/"/g,'&quot;')}"></div>
       <div><label>${u.code} Address</label><input id="s_unitAddress_${i}" value="${String(u.address||'').replace(/"/g,'&quot;')}"></div>`).join('')}
     </div>
-    <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">+ Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
+    <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">${ico('plus')} Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
   </div>
   ${renderUserRightsPanel()}
-  <div class="panel"><h3>💾 Data Backup &amp; Restore</h3>
+  <div class="panel"><h3>${ico('database')} Data Backup &amp; Restore</h3>
     <p style="font-size:13px;color:var(--muted);">All data is stored locally in this browser (no server). Take a backup regularly and store the file safely — clearing browser data, reinstalling the browser, or switching devices will erase records unless you restore from a backup.</p>
     <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
-      <button class="btn" onclick="backupData()">⬇ Backup Data (Download)</button>
-      <button class="btn secondary" onclick="document.getElementById('restoreFileInput').click()">⬆ Restore Data (Upload)</button>
+      <button class="btn" onclick="backupData()">${ico('download')} Backup Data (Download)</button>
+      <button class="btn secondary" onclick="document.getElementById('restoreFileInput').click()">${ico('upload')} Restore Data (Upload)</button>
       <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none" onchange="restoreData(this.files[0])">
     </div>
     <p id="backupInfo" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
@@ -52,7 +52,7 @@ function renderSoftwareAdmin(){
     <p style="font-size:13px;color:var(--muted);">Danger zone.</p>
     <button class="btn danger" onclick="resetAllData()">Reset All Data</button>
   </div>
-  <div class="panel"><h3>⏱ Automatic Backup Scheduler</h3>
+  <div class="panel"><h3>${ico('timer')} Automatic Backup Scheduler</h3>
     <p style="font-size:13px;color:var(--muted);">Schedule backups to run on their own, saved as a download in the same location as manual backups above. This works while the app is open in a browser tab — keep a tab open (or open it once a day) so the schedule can trigger. If the app wasn't open at the scheduled time, the overdue backup runs automatically the next time it's opened.</p>
     <div class="formGrid">
       <div><label>Automatic Backup</label>
@@ -92,7 +92,7 @@ function renderSoftwareAdmin(){
       <tbody>
         ${(db.backupHistory||[]).slice().reverse().slice(0,50).map(h=>`<tr>
           <td>${h.date}</td><td>${h.time}</td><td>${h.type}</td>
-          <td>${h.status==='Success' ? '<span style="color:#0a7;">✔ Success</span>' : '<span style="color:#c33;">✘ Failed</span>'}</td>
+          <td>${h.status==='Success' ? '<span style="color:#0a7;">'+ico('circle-check')+' Success</span>' : '<span style="color:#c33;">'+ico('circle-x')+' Failed</span>'}</td>
         </tr>`).join('') || '<tr><td colspan="4" style="color:var(--muted);">No automatic backups have run yet.</td></tr>'}
       </tbody>
     </table>
@@ -108,7 +108,7 @@ function renderSoftwareAdmin(){
 function renderLoginLogsPanel(){
   const rows=(db.loginLogs||[]).slice().sort((a,b)=>String(b.loginTime).localeCompare(String(a.loginTime))).slice(0,100);
   return `
-  <div class="panel"><h3>🔐 Login Log <span style="font-size:12px;color:var(--muted);font-weight:400;">${(db.loginLogs||[]).length} session(s) recorded</span></h3>
+  <div class="panel"><h3>${ico('key')} Login Log <span style="font-size:12px;color:var(--muted);font-weight:400;">${(db.loginLogs||[]).length} session(s) recorded</span></h3>
     <p style="font-size:12px;color:var(--muted);">Every successful sign-in — after Username + Password AND the 4-digit OTP are both verified — is logged here with Login Time, Logout Time and Session Duration. A blank Logout Time/Duration means that session is either still open or the tab was closed without using Logout.</p>
     <div style="overflow-x:auto;max-height:340px;overflow-y:auto;">
     <table>

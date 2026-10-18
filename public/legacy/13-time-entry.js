@@ -185,7 +185,7 @@ function renderTELeaveTab(){
   const empMap={}; emps.forEach(e=>empMap[e.code]=e);
   const dates=[...new Set((db.timeLeaves||[]).map(l=>l.date))].sort().reverse().slice(0,20);
   return `<div class="panel">
-    <h3>🌴 Record Employee Leave</h3>
+    <h3>${ico('palm')} Record Employee Leave</h3>
     ${!canEdit?`<p class="syncNote" style="color:var(--warn);">You have view-only access to this module.</p>`:''}
     <p class="syncNote">Select the employee and enter their leave details for the chosen date. This is a standalone leave record kept in the Employee Time Entry module only — it is <b>not</b> read by Payroll/NOPL and does not affect salary processing.</p>
     <div class="formGrid">
@@ -202,17 +202,17 @@ function renderTELeaveTab(){
         </select>
       </div>
       <div><label>Leave Details / Remarks</label><input type="text" placeholder="Reason / details" value="${teLeaveRemarks}" ${canEdit?'':'disabled'} oninput="teSetLeaveField('remarks',this.value)"></div>
-      <div class="full"><button class="btn" ${canEdit?'':'disabled'} onclick="teSaveLeave()">💾 Save Leave Record</button></div>
+      <div class="full"><button class="btn" ${canEdit?'':'disabled'} onclick="teSaveLeave()">${ico('save')} Save Leave Record</button></div>
     </div>
   </div>
   ${!dates.length?`<div class="panel"><div class="empty">No leave records yet.</div></div>`:dates.map(dt=>{
     const list=(db.timeLeaves||[]).filter(l=>l.date===dt);
     return `<div class="panel teDayGroup">
-      <div class="panelHead"><h4 style="margin:0;">🌴 ${fmtDate(dt)}</h4><button class="btn secondary" onclick="printTELeaveDay('${dt}')">🖨️ Print</button></div>
+      <div class="panelHead"><h4 style="margin:0;">${ico('palm')} ${fmtDate(dt)}</h4><button class="btn secondary" onclick="printTELeaveDay('${dt}')">${ico('printer')} Print</button></div>
       <div class="teShiftBox"><table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th>${canDel?'<th></th>':''}</tr></thead>
       <tbody>${list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)'};
         return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td>
-        ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteLeave('${dt}','${l.empCode}')">✕</button></td>`:''}</tr>`; }).join('')}</tbody></table></div>
+        ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteLeave('${dt}','${l.empCode}')">${ico('x')}</button></td>`:''}</tr>`; }).join('')}</tbody></table></div>
     </div>`;
   }).join('')}`;
 }

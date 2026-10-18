@@ -25,7 +25,7 @@ function renderPayrollProcess(){
     ${canEdit ? `
     <div class="toolbar">
       <input type="date" id="f_newHoliday" value="${payMonth}-01">
-      <button class="btn" onclick="addHolidayDate(document.getElementById('f_newHoliday').value)">+ Add NOPH Date</button>
+      <button class="btn" onclick="addHolidayDate(document.getElementById('f_newHoliday').value)">${ico('plus')} Add NOPH Date</button>
     </div>` : ''}
     ${monthHolidays.length ? `
     <table>

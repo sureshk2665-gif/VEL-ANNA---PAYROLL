@@ -1,0 +1,44 @@
+/* Lucide line icons (lucide-react in the React shell, window.ico() in the legacy pages).
+   They draw with currentColor, so they follow the text colour in every light/dark/colour theme. */
+.ico{width:1em;height:1em;flex-shrink:0;vertical-align:-0.14em;}
+
+@media screen {
+
+/* Buttons: icon + label side by side */
+.btn,.iconBtn{display:inline-flex;align-items:center;justify-content:center;gap:7px;}
+.btn .ico,.iconBtn svg{width:15px;height:15px;}
+.rowActions button{display:inline-flex;align-items:center;gap:5px;}
+.rowActions button .ico{width:13px;height:13px;}
+
+/* Sidebar */
+.nav-item .navIcon{display:flex;align-items:center;justify-content:center;width:20px;color:var(--muted);transition:color .15s ease;}
+.nav-item:hover .navIcon{color:var(--ink);}
+.nav-item.active .navIcon{color:inherit;}
+
+/* Topbar */
+.themePickerWrap{position:relative;display:inline-flex;align-items:center;}
+.themePickerIcon{position:absolute;left:11px;color:var(--muted);pointer-events:none;}
+.themePickerWrap .themeSelect{padding-left:33px;}
+#currentUserBadge{gap:7px;}
+#currentUserBadge .ico{width:15px;height:15px;color:var(--accent);}
+
+/* Stat cards, report cards and choice tiles */
+.stat .statIcon .ico{width:19px;height:19px;}
+body.dark .stat .statIcon{color:color-mix(in srgb, var(--stat-color, var(--accent)) 60%, #fff);}
+.reportCardIcon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);}
+.reportCardIcon .ico{width:21px;height:21px;}
+body.dark .reportCardIcon,body.dark .addEmpChoiceIcon{color:color-mix(in srgb, var(--accent) 55%, #fff);}
+.addEmpChoiceIcon{color:var(--accent);}
+.addEmpChoiceIcon .ico{width:24px;height:24px;}
+.bulkImportDoneIcon{color:var(--st-present-text);}
+
+/* Headings, tabs and chips: tint the icon with the accent */
+.panel h3 > .ico,.panel h4 > .ico,.panel h5 > .ico,.accHead h4 > .ico,.bulkImportHead h3 > .ico{color:var(--accent);margin-right:2px;}
+body.dark .panel h3 > .ico,body.dark .panel h4 > .ico,body.dark .panel h5 > .ico,body.dark .accHead h4 > .ico,body.dark .bulkImportHead h3 > .ico{color:color-mix(in srgb, var(--accent) 55%, #fff);}
+.teTab .ico,.attTab .ico{margin-right:3px;}
+.searchWrap .sIcon{display:flex;}
+.searchWrap .sIcon .ico{width:15px;height:15px;}
+.empty > .ico{width:18px;height:18px;margin-right:4px;}
+.bulkImportClose{display:inline-flex;align-items:center;}
+
+} /* @media screen */

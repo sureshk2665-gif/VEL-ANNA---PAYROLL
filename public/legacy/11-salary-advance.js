@@ -113,7 +113,7 @@ function renderSalaryAdvance(){
       <div><label>Deduction Start Month</label><input type="month" id="adv_start" value="${monthKey(todayStr())}"></div>
       <div style="grid-column:1/-1;"><label>Remarks (optional)</label><input type="text" id="adv_remarks" placeholder="Reason / notes"></div>
     </div>
-    <button class="btn" onclick="addSalaryAdvance()">➕ Create Advance & Generate Schedule</button>
+    <button class="btn" onclick="addSalaryAdvance()">${ico('plus')} Create Advance & Generate Schedule</button>
     <p class="advCalcNote">Monthly deduction is calculated automatically as Advance Amount ÷ Number of Months, and the month-wise recovery schedule is generated instantly.</p>
     ` : ''}
   </div>

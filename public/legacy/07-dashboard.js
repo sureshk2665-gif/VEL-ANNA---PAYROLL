@@ -23,28 +23,28 @@ function renderDashboard(){
 
   return `
   <div class="grid">
-    <div class="stat" style="--stat-color:#0f6b5c;"><div class="statTop"><div class="statIcon">👥</div></div><div class="n">${active.length}</div><div class="l">Active Employees</div></div>
-    <div class="stat" style="--stat-color:#16a34a;"><div class="statTop"><div class="statIcon">✅</div></div><div class="n">${counts.Present}</div><div class="l">Present Today</div></div>
-    <div class="stat" style="--stat-color:#dc2626;"><div class="statTop"><div class="statIcon">🚫</div></div><div class="n">${counts.Absent}</div><div class="l">Absent Today</div></div>
-    <div class="stat" style="--stat-color:#d97706;"><div class="statTop"><div class="statIcon">🕐</div></div><div class="n">${counts.HalfDay}</div><div class="l">Half Day</div></div>
-    <div class="stat" style="--stat-color:#2563eb;"><div class="statTop"><div class="statIcon">🌿</div></div><div class="n">${counts.PaidLeave}</div><div class="l">NOPL</div></div>
-    <div class="stat" style="--stat-color:#991b1b;"><div class="statTop"><div class="statIcon">⛔</div></div><div class="n">${counts.LossOfPay}</div><div class="l">Loss Of Pay</div></div>
-    <div class="stat" style="--stat-color:#6d28d9;"><div class="statTop"><div class="statIcon">💰</div></div><div class="n">${fmt(salaryExpense)}</div><div class="l">This Month Salary Expense</div></div>
-    <div class="stat" style="--stat-color:#0891b2;"><div class="statTop"><div class="statIcon">📈</div></div><div class="n">${attPct}%</div><div class="l">Attendance %</div></div>
+    <div class="stat" style="--stat-color:#0f6b5c;"><div class="statTop"><div class="statIcon">${ico('users')}</div></div><div class="n">${active.length}</div><div class="l">Active Employees</div></div>
+    <div class="stat" style="--stat-color:#16a34a;"><div class="statTop"><div class="statIcon">${ico('circle-check')}</div></div><div class="n">${counts.Present}</div><div class="l">Present Today</div></div>
+    <div class="stat" style="--stat-color:#dc2626;"><div class="statTop"><div class="statIcon">${ico('ban')}</div></div><div class="n">${counts.Absent}</div><div class="l">Absent Today</div></div>
+    <div class="stat" style="--stat-color:#d97706;"><div class="statTop"><div class="statIcon">${ico('clock')}</div></div><div class="n">${counts.HalfDay}</div><div class="l">Half Day</div></div>
+    <div class="stat" style="--stat-color:#2563eb;"><div class="statTop"><div class="statIcon">${ico('leaf')}</div></div><div class="n">${counts.PaidLeave}</div><div class="l">NOPL</div></div>
+    <div class="stat" style="--stat-color:#991b1b;"><div class="statTop"><div class="statIcon">${ico('octagon-minus')}</div></div><div class="n">${counts.LossOfPay}</div><div class="l">Loss Of Pay</div></div>
+    <div class="stat" style="--stat-color:#6d28d9;"><div class="statTop"><div class="statIcon">${ico('wallet')}</div></div><div class="n">${fmt(salaryExpense)}</div><div class="l">This Month Salary Expense</div></div>
+    <div class="stat" style="--stat-color:#0891b2;"><div class="statTop"><div class="statIcon">${ico('trending-up')}</div></div><div class="n">${attPct}%</div><div class="l">Attendance %</div></div>
   </div>
   <div class="toolbar no-print">
-    <button class="btn" onclick="render('employees');openAddEmployeeChooser()">+ Add Employee</button>
-    <button class="btn secondary" onclick="render('attendance')">⚡ Mark Attendance</button>
-    <button class="btn secondary" onclick="render('payroll')">💳 Generate Payroll</button>
+    <button class="btn" onclick="render('employees');openAddEmployeeChooser()">${ico('plus')} Add Employee</button>
+    <button class="btn secondary" onclick="render('attendance')">${ico('zap')} Mark Attendance</button>
+    <button class="btn secondary" onclick="render('payroll')">${ico('credit-card')} Generate Payroll</button>
   </div>
   <div class="panel">
-    <div class="panelHead"><h3>🎂 Upcoming Birthdays</h3></div>
+    <div class="panelHead"><h3>${ico('cake')} Upcoming Birthdays</h3></div>
     ${upcoming.length? `<table><thead><tr><th>Name</th><th>Code</th><th>Date</th></tr></thead><tbody>
       ${upcoming.map(e=>`<tr><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.code}</td><td>${fmtDate(e.nextBday)}</td></tr>`).join('')}
     </tbody></table>`:'<div class="empty">No birthday data yet.</div>'}
   </div>
   <div class="panel">
-    <div class="panelHead"><h3>🆕 Recent Employees</h3></div>
+    <div class="panelHead"><h3>${ico('user-plus')} Recent Employees</h3></div>
     ${recent.length? `<table><thead><tr><th>Code</th><th>Name</th><th>Department</th><th>Status</th></tr></thead><tbody>
       ${recent.map(e=>`<tr><td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td><span class="tag ${e.status}">${e.status}</span></td></tr>`).join('')}
     </tbody></table>`:'<div class="empty">No employees yet. Add your first employee.</div>'}

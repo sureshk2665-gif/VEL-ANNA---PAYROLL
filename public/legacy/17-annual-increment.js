@@ -39,7 +39,7 @@ function renderIncrement(){
     const prevBasic=emp.basic||0, prevHra=emp.hra||0, prevConv=emp.conveyance||0, prevWash=emp.washing||0;
     formHtml=`
     <div class="panel" style="margin-top:14px;">
-      <h3>➕ New Increment — ${emp.name} (${emp.code})</h3>
+      <h3>${ico('plus')} New Increment — ${emp.name} (${emp.code})</h3>
       <form id="incForm">
         <div class="formGrid">
           <div><label>Financial Year</label><input id="inc_fy" value="${defaultFY}" disabled></div>
@@ -75,7 +75,7 @@ function renderIncrement(){
 
         <div class="modalActions">
           <button type="button" class="btn secondary" onclick="incEmpCode='';render('increment')">Cancel</button>
-          <button type="submit" class="btn">💾 Save Increment</button>
+          <button type="submit" class="btn">${ico('save')} Save Increment</button>
         </div>
       </form>
     </div>`;
@@ -90,7 +90,7 @@ function renderIncrement(){
   if(editRec){
     editFormHtml=`
     <div class="panel" style="margin-top:14px;">
-      <h3>✏️ Edit Increment — ${editRec.empName} (${editRec.empCode}), FY ${editRec.financialYear}</h3>
+      <h3>${ico('pencil')} Edit Increment — ${editRec.empName} (${editRec.empCode}), FY ${editRec.financialYear}</h3>
       <form id="editIncForm">
         <div class="formGrid">
           <div><label>Effective Date *</label><input type="date" id="edit_effDate" value="${editRec.effectiveDate}" required></div>
@@ -119,7 +119,7 @@ function renderIncrement(){
 
         <div class="modalActions">
           <button type="button" class="btn secondary" onclick="editIncId='';render('increment')">Cancel</button>
-          <button type="submit" class="btn">💾 Save Changes</button>
+          <button type="submit" class="btn">${ico('save')} Save Changes</button>
         </div>
       </form>
     </div>`;
@@ -127,7 +127,7 @@ function renderIncrement(){
 
   return `
   <div class="panel">
-    <h3>📈 Annual Increment</h3>
+    <h3>${ico('trending-up')} Annual Increment</h3>
     <p class="syncNote">Select an employee to record their annual increment. The system auto-splits the Total Increment Amount as 60% Basic, 20% HRA, 10% Conveyance and 10% Washing Allowance — you can still edit any figure before saving. Saving updates the employee's salary structure for all <b>future</b> payroll; past payroll and reports already generated are never changed.</p>
     <div class="toolbar">
       <select id="inc_empPicker" onchange="incEmpCode=this.value;render('increment')">
@@ -142,12 +142,12 @@ function renderIncrement(){
 
   <div class="panel" style="margin-top:14px;">
     <div class="toolbar">
-      <h3 style="margin:0;">🕒 Increment History</h3>
+      <h3 style="margin:0;">${ico('history')} Increment History</h3>
       <select style="margin-left:auto;" onchange="incHistoryEmpCode=this.value;render('increment')">
         <option value="">All Employees</option>
         ${db.employees.slice().sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})).map(e=>`<option value="${e.code}" ${incHistoryEmpCode===e.code?'selected':''}>${e.code} — ${e.name}</option>`).join('')}
       </select>
-      ${canPrint ? `<button class="btn secondary" onclick="printIncrementHistory()">🖨️ Print</button>` : ''}
+      ${canPrint ? `<button class="btn secondary" onclick="printIncrementHistory()">${ico('printer')} Print</button>` : ''}
     </div>
     ${historyRows.length ? `
     <div style="margin:2px 0 12px;">
@@ -175,7 +175,7 @@ function renderIncrement(){
         <td class="num deltaCol">+${fmt(r.incrementAmount)}</td>
         <td class="num currYearCol">${fmt(r.revisedBasic)}</td><td class="num currYearCol">${fmt(r.revisedHra)}</td><td class="num currYearCol">${fmt(r.revisedConveyance)}</td><td class="num currYearCol">${fmt(r.revisedWashing)}</td><td class="num currYearCol"><b>${fmt(r.revisedGross)}</b></td>
         <td>${r.remarks||'-'}</td>
-        ${(canEdit||canDelete)?`<td class="rowActions">${canEdit?`<button onclick="editIncId='${r.id}';render('increment')">✏️ Edit</button>`:''}${canDelete?`<button onclick="deleteIncrementRecord('${r.id}')">🗑️ Delete</button>`:''}</td>`:''}
+        ${(canEdit||canDelete)?`<td class="rowActions">${canEdit?`<button onclick="editIncId='${r.id}';render('increment')">${ico('pencil')} Edit</button>`:''}${canDelete?`<button onclick="deleteIncrementRecord('${r.id}')">${ico('trash')} Delete</button>`:''}</td>`:''}
       </tr>`).join('')}
     </tbody></table></div>` : `<div class="empty">No increment records yet.</div>`}
   </div>`;
