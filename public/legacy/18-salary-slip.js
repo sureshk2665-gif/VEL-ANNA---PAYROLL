@@ -26,7 +26,7 @@ function openSlip(code, ym){
         <td>OT HOURS ${r.otHours}</td>
       </tr>
       <tr>
-        <td>No of days working ${r.presentPlusHalf}</td>
+        <td>Paid days ${r.daysWorking}</td>
         <td>NOPH ${r.noph}</td>
         <td>NOPL Taken (this month) ${r.leaveDays}</td>
       </tr>
@@ -38,12 +38,12 @@ function openSlip(code, ym){
     </table>
     <table style="border:1px solid #1c2430;text-align:center;">
       <colgroup><col style="width:24%"><col style="width:15%"><col style="width:15%"><col style="width:30%"><col style="width:16%"></colgroup>
-      <tr style="background:#0f6b5c;color:#fff;"><th style="text-align:center;">DETAILS</th><th style="text-align:center;">SCALE</th><th style="text-align:center;">EARNED</th><th style="text-align:center;">DEDUCTIONS</th><th style="text-align:center;">AMOUNT (₹)</th></tr>
-      <tr><td style="text-align:left;">Basic</td><td>${fmt(e.basic).replace('₹','')}</td><td>${fmt(r.basicE).replace('₹','')}</td><td style="text-align:left;">ESI</td><td>${fmt(r.esi).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;">HRA</td><td>${fmt(e.hra).replace('₹','')}</td><td>${fmt(r.hraE).replace('₹','')}</td><td style="text-align:left;">PF</td><td>${fmt(r.pf).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;">Over Time</td><td></td><td>${fmt(r.otAmount).replace('₹','')}</td><td style="text-align:left;">Canteen (${r.canteenTokens||0} × ₹${r.canteenTokenPrice||0})</td><td>${fmt(r.canteen).replace('₹','')}</td></tr>
+      <tr style="background:#0f6b5c;color:#fff;"><th style="text-align:center;">DETAILS</th><th style="text-align:center;">PER DAY</th><th style="text-align:center;">EARNED</th><th style="text-align:center;">DEDUCTIONS</th><th style="text-align:center;">AMOUNT (₹)</th></tr>
+      <tr><td style="text-align:left;">Basic</td><td>${fmt(r.basicPerDay??e.basic).replace('₹','')}</td><td>${fmt(r.basicE).replace('₹','')}</td><td style="text-align:left;">ESI</td><td>${fmt(r.esi).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;">HRA</td><td>${fmt(r.hraPerDay??e.hra).replace('₹','')}</td><td>${fmt(r.hraE).replace('₹','')}</td><td style="text-align:left;">PF</td><td>${fmt(r.pf).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;">Over Time</td><td>${r.otPerHourRate?fmt(r.otPerHourRate).replace('₹','')+'/hr':''}</td><td>${fmt(r.otAmount).replace('₹','')}</td><td style="text-align:left;">Canteen (${r.canteenTokens||0} × ₹${r.canteenTokenPrice||0})</td><td>${fmt(r.canteen).replace('₹','')}</td></tr>
       <tr><td style="text-align:left;">Other Allowance</td><td></td><td>${fmt(r.otherAllowance).replace('₹','')}</td><td style="text-align:left;">Advance</td><td>${fmt(r.advance).replace('₹','')}</td></tr>
-      <tr><td></td><td></td><td></td><td style="text-align:left;">Others</td><td>${fmt(r.otherDed).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;font-weight:700;">GROSS (Basic + OT)</td><td></td><td style="font-weight:700;">${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</td><td style="text-align:left;">Others</td><td>${fmt(r.otherDed).replace('₹','')}</td></tr>
       <tr style="font-weight:700;background:#f3f3f3;">
         <td style="text-align:left;">TOTAL EARNINGS</td>
         <td>${fmt(r.scaleTotal).replace('₹','')}</td>
@@ -78,17 +78,17 @@ function slipCardHTML(e, r, ym){
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</div>
     <table class="slipMeta">
       <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours}</td></tr>
-      <tr><td>Days Worked ${r.presentPlusHalf}</td><td>NOPH ${r.noph}</td><td>NOPL Taken ${r.leaveDays}</td></tr>
+      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>NOPL Taken ${r.leaveDays}</td></tr>
       <tr><td>MODE ${e.mode||'-'}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
     </table>
     <table class="slipBody">
       <colgroup><col style="width:25%"><col style="width:11%"><col style="width:12%"><col style="width:32%"><col style="width:20%"></colgroup>
-      <tr class="hd"><th>DETAILS</th><th>SCALE</th><th>EARNED</th><th>DEDUCTIONS</th><th>AMT ₹</th></tr>
-      <tr><td>Basic</td><td class="amt">${fmt(e.basic).replace('₹','')}</td><td class="amt">${fmt(r.basicE).replace('₹','')}</td><td>ESI</td><td class="amt">${fmt(r.esi).replace('₹','')}</td></tr>
-      <tr><td>HRA</td><td class="amt">${fmt(e.hra).replace('₹','')}</td><td class="amt">${fmt(r.hraE).replace('₹','')}</td><td>PF</td><td class="amt">${fmt(r.pf).replace('₹','')}</td></tr>
-      <tr><td>OT</td><td class="amt"></td><td class="amt">${fmt(r.otAmount).replace('₹','')}</td><td>Canteen (${r.canteenTokens||0} tkn)</td><td class="amt">${fmt(r.canteen).replace('₹','')}</td></tr>
+      <tr class="hd"><th>DETAILS</th><th>PER DAY</th><th>EARNED</th><th>DEDUCTIONS</th><th>AMT ₹</th></tr>
+      <tr><td>Basic</td><td class="amt">${fmt(r.basicPerDay??e.basic).replace('₹','')}</td><td class="amt">${fmt(r.basicE).replace('₹','')}</td><td>ESI</td><td class="amt">${fmt(r.esi).replace('₹','')}</td></tr>
+      <tr><td>HRA</td><td class="amt">${fmt(r.hraPerDay??e.hra).replace('₹','')}</td><td class="amt">${fmt(r.hraE).replace('₹','')}</td><td>PF</td><td class="amt">${fmt(r.pf).replace('₹','')}</td></tr>
+      <tr><td>OT</td><td class="amt">${r.otPerHourRate?fmt(r.otPerHourRate).replace('₹','')+'/hr':''}</td><td class="amt">${fmt(r.otAmount).replace('₹','')}</td><td>Canteen (${r.canteenTokens||0} tkn)</td><td class="amt">${fmt(r.canteen).replace('₹','')}</td></tr>
       <tr><td>Other Allw.</td><td class="amt"></td><td class="amt">${fmt(r.otherAllowance).replace('₹','')}</td><td>Advance</td><td class="amt">${fmt(r.advance).replace('₹','')}</td></tr>
-      <tr><td></td><td class="amt"></td><td class="amt"></td><td>Others</td><td class="amt">${fmt(r.otherDed).replace('₹','')}</td></tr>
+      <tr><td><b>GROSS</b></td><td class="amt"></td><td class="amt"><b>${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</b></td><td>Others</td><td class="amt">${fmt(r.otherDed).replace('₹','')}</td></tr>
       <tr class="totalRow">
         <td>TOTAL</td>
         <td class="amt">${fmt(r.scaleTotal).replace('₹','')}</td>

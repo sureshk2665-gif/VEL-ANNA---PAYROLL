@@ -13,7 +13,7 @@ let expStatus = 'Active';
 // PF Contribution Report filter state — yearly, consolidated view.
 let yearlyFY = financialYearOf(todayStr());
 const REPORTS_LIST = [
-  {key:'employee',   icon:'user', title:'Employee Report',              desc:'All active employees with department, designation, unit and net salary.', needsMonth:false, category:'general'},
+  {key:'employee',   icon:'user', title:'Employee Report',              desc:'All active employees with department, designation, unit and daily wage.', needsMonth:false, category:'general'},
   {key:'resignedEmp',icon:'door-open', title:'Resigned Employees Report',    desc:'All resigned employees with joining date, resignation date and reason.', needsMonth:false, category:'general'},
   {key:'department', icon:'tag', title:'Department Report',            desc:'Headcount grouped by department (active employees).', needsMonth:false, category:'general'},
   {key:'unit',       icon:'factory', title:'Unit-wise Report',              desc:'Payroll summary split by working unit, with mode-of-payment totals.', needsMonth:true, category:'monthly'},

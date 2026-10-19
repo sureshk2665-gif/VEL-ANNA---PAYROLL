@@ -10,7 +10,7 @@ const SERIAL = { key: 'serial', header: 'S.No', type: 'number', width: 7, serial
 
 export function buildColumns(fields) {
   return [SERIAL, ...(fields || []).map((f) => {
-    const col = { key: f.key, header: f.label, auto: !!f.auto, required: !!f.required, width: f.width || 14 };
+    const col = { key: f.key, header: f.label, auto: !!f.auto, required: !!f.required, width: f.width || 14, formula: f.formula || '' };
     if (f.input === 'select') {
       const opts = f.options || [];
       col.type = 'list';

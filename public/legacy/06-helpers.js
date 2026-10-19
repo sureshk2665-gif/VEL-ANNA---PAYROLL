@@ -45,15 +45,9 @@ function isEmpOnRollInMonth(e, ym){
   if(!e.resignationDate) return true;
   return ym <= monthKey(e.resignationDate);
 }
+// Daily wage of an employee (Basic + HRA per day).
 function calcGross(e){
-  return (Number(e.basic)||0)+(Number(e.hra)||0);
-}
-function calcNet(e){
-  const gross=calcGross(e);
-  const esi = e.esiApplicable ? Math.round(gross*getSettings().esiRate) : 0;
-  const pf = e.pfApplicable ? Math.round((Number(e.basic)||0)*getSettings().pfRate) : 0;
-  const ded=pf+esi;
-  return gross-ded;
+  return (+e.dailyWage||0) || ((Number(e.basic)||0)+(Number(e.hra)||0));
 }
 function amountInWords(num){
   num=Math.round(num);

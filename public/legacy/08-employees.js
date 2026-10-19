@@ -40,12 +40,12 @@ function renderEmployees(){
   </div>
   <div class="panel">
     ${list.length? `<table><thead><tr>
-      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th>Mobile</th><th>Net Salary</th><th>Status</th><th>Actions</th>
+      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th>Mobile</th><th>Daily Wage</th><th>Status</th><th>Actions</th>
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
         <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
         <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
-        <td>${e.mobile||'-'}</td><td><b>${fmt(calcNet(e))}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
+        <td>${e.mobile||'-'}</td><td><b>${fmt(e.dailyWage||0)}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
         </td>
@@ -152,6 +152,7 @@ async function importEmployees(list){
     db.employees.push({
       // Same fields as the Add Employee form (employeeRecordFromSheet in 07b-employee-fields.js).
       ...employeeRecordFromSheet(f),
+      ...dailyWageSplit(f.dailyWage),
       code,
       status:'Active',
       resignationDate:'',
@@ -210,6 +211,7 @@ function saveEmployee(existingCode){
   if(status!=='Resigned'){ resignationDate=''; resignReason=''; }
   const inactiveFrom = status==='Inactive' ? (f.inactiveFrom||'') : '';
   if(status==='Inactive' && !inactiveFrom){ alert('Please enter the Inactive From date.'); return; }
+  Object.assign(f, dailyWageSplit(f.dailyWage)); // Basic / HRA / OT rate always follow the daily wage
   const prior = existingCode ? db.employees.find(e=>e.code===existingCode) : null;
   const joiningVal=f.joining||'';
   const data={

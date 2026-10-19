@@ -104,6 +104,23 @@ export async function buildTemplate(columns, ctx = {}) {
     }
   });
 
+  // Calculated columns (e.g. Basic = 60% of Daily Wage): fill every data row with the formula,
+  // e.g. "ROUND({dailyWage}*60%,2)" → =IF(P2="","",ROUND(P2*60%,2)). Locked so they can't be typed
+  // over; they stay blank until the referenced cell is filled, and are ignored on import.
+  const letterOf = Object.fromEntries(columns.map((c, i) => [c.key, columnLetter(i + 1)]));
+  columns.forEach((col, i) => {
+    if (!col.formula) return;
+    const refs = [...col.formula.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).filter((k) => letterOf[k]);
+    if (!refs.length) return;
+    const letter = columnLetter(i + 1);
+    for (let r = 2; r <= DATA_ROWS + 1; r++) {
+      const expr = col.formula.replace(/\{(\w+)\}/g, (m, k) => (letterOf[k] ? `${letterOf[k]}${r}` : m));
+      const cell = ws.getCell(`${letter}${r}`);
+      cell.value = { formula: `IF(${letterOf[refs[0]]}${r}="","",${expr})` };
+      cell.protection = { locked: true };
+    }
+  });
+
   // Lock the header row: protect the sheet; every other cell is unlocked by the column style.
   await ws.protect('', {
     selectLockedCells: true,
@@ -124,11 +141,13 @@ export async function buildTemplate(columns, ctx = {}) {
     ['How to use', 'Fill one employee per row on the "Employees" sheet, starting from row 2. Do not change the header row (it is locked).'],
     ['S.No', 'Serial number (1, 2, 3…). Only used to point you to a row if something needs fixing.'],
     ['Required', 'Only "Full Name" is required. Empty dropdown cells use the same default as the Add Employee form.'],
-    ['Dropdowns', 'Status, Gender, Department, Employment Type, Working Unit, Payment Mode, PF Deduction and ESI Deduction have a dropdown in every row — click a cell and use the ▼ arrow.'],
-    ['Grey columns', 'Employee Code, OT Rate and Canteen Rate are filled automatically, exactly as in the Add Employee form. Leave them empty — anything typed there is ignored.'],
+    ['Dropdowns', 'Status, Gender, Department, Employment Type, Working Unit, Contractor and Payment Mode have a dropdown in every row — click a cell and use the ▼ arrow.'],
+    ['Daily Wage', 'Enter the TOTAL daily wage (₹ per day). Basic = 60%, HRA = 40% and OT Rate per hour = Daily Wage ÷ 8 × 1.5 are calculated by the grey columns automatically.'],
+    ['Grey columns', 'Employee Code, Basic / day, HRA / day and OT Rate are calculated automatically, exactly as in the Add Employee form. They are locked and ignored on import.'],
+    ['PF / ESI', 'Not needed here: new employees start with PF and ESI deduction = Yes, and Payroll calculates the amounts. Change it later in the Employee form if someone is exempted.'],
     ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
     ['Dates', 'Use DD-MM-YYYY (e.g. 25-04-2024).'],
-    ['Amounts', 'Monthly amounts in ₹, numbers only.'],
+    ['Amounts', 'Numbers only. Canteen Tokens = tokens bought per month.'],
     ['Department', 'Must be one of the departments already set up in the app: ' + (ctx.departments || []).join(', ')],
     ['After import', 'Every imported employee can be edited later from the Employees page (✏️ Edit).'],
   ].forEach((r) => {

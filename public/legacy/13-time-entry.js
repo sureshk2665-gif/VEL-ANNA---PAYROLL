@@ -4,7 +4,7 @@
    INTENTIONALLY INDEPENDENT: this module reads/writes ONLY db.timeEntries and
    db.timeHolidays (both defined in defaultDB() above). It never reads or writes
    db.attendance, db.payroll, db.holidays, or any Payroll Process constant, and no
-   Payroll function (generatePayroll, computeWorkingDays, calcNet, etc.) reads
+   Payroll function (generatePayroll, computeWorkingDays, etc.) reads
    db.timeEntries or db.timeHolidays. It exists purely for fast employee time entry,
    on-screen viewing, and printing — it has NO effect on salary/payslip processing.
    Do not wire this module into Payroll or Attendance without an explicit request.
