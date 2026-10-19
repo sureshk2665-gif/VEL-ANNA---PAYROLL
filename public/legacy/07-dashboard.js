@@ -59,7 +59,7 @@ function renderDashboard(){
   const emps=db.employees;
   const today=todayStr();
   const active=emps.filter(e=>isEmpOnRollOn(e,today));
-  const counts={Present:0,Absent:0,HalfDay:0,PaidLeave:0,LossOfPay:0,NOPH:0};
+  const counts={Present:0,Absent:0,HalfDay:0,LossOfPay:0,NOPH:0};
   active.forEach(e=>{
     const s=getAttStatus(today, e.code);
     if(!s) counts.Absent++;

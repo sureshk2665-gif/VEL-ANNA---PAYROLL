@@ -39,18 +39,18 @@ function renderPayroll(){
     ${existing && hasPerm('payroll','print') ? `<button class="btn secondary" ${rows.length?'':'disabled'} onclick="printAllSlips(payUnitFilter, payContractorFilter)">${ico('printer')} Print Pay Slips${filtered?' — '+selText:' (All)'}</button>` : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — see Payroll Process)</span>
   </div>
-  <p class="syncNote">Working days, leave, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)}. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
+  <p class="syncNote">Working days, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)}. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
 
   <div class="panel">
     ${existing ? `<div class="tableScrollWrap"><table class="payrollTable"><thead><tr>
-      <th>Code</th><th>Name</th><th class="num">NOWD</th><th class="num">Present</th><th class="num">Leave (NOPL)</th><th class="num">NOPH</th><th class="num">Half</th><th class="num">LOP</th><th class="num">Days Worked</th><th class="num">OT Hrs</th><th class="num" title="Late minutes this month (first ${lateGraceMinutes()} free)">Late Min</th><th class="num">Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>
+      <th>Code</th><th>Name</th><th class="num">NOWD</th><th class="num">Present</th><th class="num">NOPH</th><th class="num">Half</th><th class="num">LOP</th><th class="num">Days Worked</th><th class="num">OT Hrs</th><th class="num" title="Late minutes this month (first ${lateGraceMinutes()} free)">Late Min</th><th class="num">Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>
     </tr></thead><tbody>
       ${rows.map(r=>`<tr onclick="openSlip('${r.code}','${payMonth}')" title="Click to view Salary Slip">
-        <td>${r.code}</td><td class="empNameCell">${r.name}</td><td class="num">${r.nowd}</td><td class="num">${r.presentDays}</td><td class="num">${r.leaveDays}</td><td class="num">${r.holidayDays}</td><td class="num">${r.halfDayCount}</td><td class="num">${r.lopDays}</td><td class="num">${r.daysWorking}</td><td class="num">${r.otHours}</td><td class="num" title="${r.lateDeduction?`${r.lateChargedMinutes} min × ₹${r.latePerMinute} = ₹${r.lateDeduction} deducted`:'Within the free grace time'}">${r.lateMinutes||0}</td>
+        <td>${r.code}</td><td class="empNameCell">${r.name}</td><td class="num">${r.nowd}</td><td class="num">${r.presentDays}</td><td class="num">${r.holidayDays}</td><td class="num">${r.halfDayCount}</td><td class="num">${r.lopDays}</td><td class="num">${r.daysWorking}</td><td class="num">${r.otHours}</td><td class="num" title="${r.lateDeduction?`${r.lateChargedMinutes} min × ₹${r.latePerMinute} = ₹${r.lateDeduction} deducted`:'Within the free grace time'}">${r.lateMinutes||0}</td>
         <td class="num">${fmt(r.earningsTotal)}</td><td class="num">${fmt(r.deductionsTotal)}</td><td class="num"><b>${fmt(r.netSalary)}</b></td>
       </tr>`).join('')}
-      ${!rows.length ? `<tr><td colspan="14"><div class="empty">No payroll records for ${selText} this month.</div></td></tr>` : ''}
-      <tr><td colspan="13" style="text-align:right;"><b>Total Net Salary Paid${filtered?' — '+selText:''}</b></td><td class="num"><b>${fmt(totalNet)}</b></td></tr>
+      ${!rows.length ? `<tr><td colspan="13"><div class="empty">No payroll records for ${selText} this month.</div></td></tr>` : ''}
+      <tr><td colspan="12" style="text-align:right;"><b>Total Net Salary Paid${filtered?' — '+selText:''}</b></td><td class="num"><b>${fmt(totalNet)}</b></td></tr>
     </tbody></table></div>` : `<div class="empty">${active.length? ''+ico('settings')+' Payroll not generated for this month yet. Click "Generate / Regenerate Payroll" above.' : 'Add employees first.'}</div>`}
   </div>`;
 }

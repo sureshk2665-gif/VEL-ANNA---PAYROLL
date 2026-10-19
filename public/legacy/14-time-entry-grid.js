@@ -3,7 +3,7 @@
    ---------------------------------------------------------------------------------
    Shared backend: this view reads and writes exactly the same records the Date-wise
    view uses — db.timeEntries[date][empCode] for In/Out time, db.timeLeaves for
-   attendance (Loss of Pay / Half Day / NOPL) and db.timeHolidays for holiday OT —
+   attendance (Loss of Pay / Half Day) and db.timeHolidays for holiday OT —
    and all Shift / Working / Late / OT figures come from the same teCompute(). There
    is no copy or cache: an edit here is visible in the Date-wise grid, Day list,
    Employee Leave tab and Attendance & OT Summary the moment you switch to them,
@@ -103,7 +103,7 @@ function teEwRowModel(code, dt){
   const hasIn=entry.inH!==''&&entry.inH!==undefined, hasOut=entry.outH!==''&&entry.outH!==undefined;
   const isFuture=dt>todayStr();
   let status;
-  if(onLeave) status=`<span class="tag ${leave.type==='NOPL'?'PaidLeave':'LossOfPay'}">${ico('palm')} ${teEsc(leave.type)}</span>`;
+  if(onLeave) status=`<span class="tag LossOfPay">${ico('palm')} ${teEsc(leave.type)}</span>`;
   else if(hasIn&&hasOut) status = teIsHolidayDate(dt) ? `<span class="tag NOPH">Holiday OT</span>` : leave ? `<span class="tag HalfDay">${ico('contrast')} Half Day</span>` : `<span class="tag Present">Present</span>`;
   else if(hasIn) status=`<span class="tag HalfDay">Out time missing</span>`;
   else if(leave) status=`<span class="tag HalfDay">${ico('contrast')} Half Day</span>`;
@@ -190,7 +190,7 @@ function teWriteTimeFor(dt, code, kind, val){ // val = {h,m,ap} or null to clear
   else { e[kind+'H']=''; e[kind+'M']=''; e[kind+'AP']=kind==='in'?'AM':'PM'; }
 }
 function teEwWriteTime(dt, kind, val){ teWriteTimeFor(dt, teEwEmp, kind, val); }
-// Sets (val = 'Loss of Pay' | 'Half Day' | 'NOPL') or removes (val = '') an Employee Leave for a
+// Sets (val = 'Loss of Pay' | 'Half Day') or removes (val = '') an Employee Leave for a
 // date. Returns false if not allowed (removing needs Delete rights).
 function teSetLeaveFor(dt, code, val){
   if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
@@ -464,7 +464,7 @@ function renderTEEmpWiseTab(){
       <tbody>${rowsHtml}</tbody>
       <tfoot><tr id="teEwFoot">${teEwFootHtml(t)}</tr></tfoot>
     </table></div>
-    <p class="syncNote">This view edits the same records as <b>Date-wise Time Entry</b>, <b>Employee Leave</b> and the <b>Attendance &amp; OT Summary</b> — a change here shows up there straight away, and the other way round. Shift, Working, Late and OT use the same rules as the Date-wise grid (Sundays and booked holidays count as full-day OT). Setting <b>Attendance</b> to Loss of Pay, Half Day or NOPL records an Employee Leave for that date; set it back to <b>Auto</b> to remove it. Click a date to open that day in the Date-wise view.</p>
+    <p class="syncNote">This view edits the same records as <b>Date-wise Time Entry</b>, <b>Employee Leave</b> and the <b>Attendance &amp; OT Summary</b> — a change here shows up there straight away, and the other way round. Shift, Working, Late and OT use the same rules as the Date-wise grid (Sundays and booked holidays count as full-day OT). Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave for that date; set it back to <b>Auto</b> to remove it. Click a date to open that day in the Date-wise view.</p>
   </div>`;
 }
 
@@ -714,7 +714,7 @@ function renderTESummaryTab(){
         <td style="padding:7px;text-align:left;">${r.emp.name}</td>
         <td style="padding:7px;">${r.emp.department||'-'}</td>
         <td style="padding:7px;">${r.presentDays}</td>
-        <td style="padding:7px;">${r.leaveDays>0?`<span class="tag PaidLeave" style="padding:2px 10px;">${r.leaveDays}</span>`:'0'}</td>
+        <td style="padding:7px;">${r.leaveDays>0?`<span class="tag LossOfPay" style="padding:2px 10px;">${r.leaveDays}</span>`:'0'}</td>
         <td style="padding:7px;${r.lateMin>0?'color:var(--warn);font-weight:600;':''}">${teFmtHM(r.lateMin)}</td>
         <td style="padding:7px;${r.otMin>0?'color:var(--danger);font-weight:600;':''}">${teFmtHM(r.otMin)}</td>
       </tr>`).join('')}
