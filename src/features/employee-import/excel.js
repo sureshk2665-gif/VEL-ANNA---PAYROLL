@@ -15,7 +15,7 @@ const columnLetter = (n) => {
 
 // Builds the empty template: header row (A1 = "S.No") locked, data rows open for typing, with
 // dropdowns for the fixed-choice columns and an Instructions sheet. Columns the Add Employee form
-// fills automatically (Employee Code, OT Rate, Canteen Rate) are greyed out and ignored on import —
+// fills automatically (Employee Code, Basic / day, HRA / day) are greyed out and ignored on import —
 // they are left unlocked so pasting whole rows from another sheet still works.
 export async function buildTemplate(columns, ctx = {}) {
   const ExcelJS = await loadExcelJS();
@@ -142,8 +142,8 @@ export async function buildTemplate(columns, ctx = {}) {
     ['S.No', 'Serial number (1, 2, 3…). Only used to point you to a row if something needs fixing.'],
     ['Required', 'Only "Full Name" is required. Empty dropdown cells use the same default as the Add Employee form.'],
     ['Dropdowns', 'Status, Gender, Department, Employment Type, Working Unit, Contractor and Payment Mode have a dropdown in every row — click a cell and use the ▼ arrow.'],
-    ['Daily Wage', 'Enter the TOTAL daily wage (₹ per day). Basic = 60%, HRA = 40% and OT Rate per hour = Daily Wage ÷ 8 × 1.5 are calculated by the grey columns automatically.'],
-    ['Grey columns', 'Employee Code, Basic / day, HRA / day and OT Rate are calculated automatically, exactly as in the Add Employee form. They are locked and ignored on import.'],
+    ['Daily Wage', 'Enter the TOTAL daily wage (₹ per day). Basic = 60% and HRA = 40% are calculated by the grey columns automatically. OT is not entered here: Payroll works out the OT rate (Daily Wage ÷ 8 × 1.5) and OT hours are entered monthly in Attendance.'],
+    ['Grey columns', 'Employee Code, Basic / day and HRA / day are calculated automatically, exactly as in the Add Employee form. They are locked and ignored on import.'],
     ['PF / ESI', 'Not needed here: new employees start with PF and ESI deduction = Yes, and Payroll calculates the amounts. Change it later in the Employee form if someone is exempted.'],
     ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
     ['Dates', 'Use DD-MM-YYYY (e.g. 25-04-2024).'],

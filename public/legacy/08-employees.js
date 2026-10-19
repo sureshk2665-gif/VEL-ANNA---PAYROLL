@@ -152,7 +152,7 @@ async function importEmployees(list){
     db.employees.push({
       // Same fields as the Add Employee form (employeeRecordFromSheet in 07b-employee-fields.js).
       ...employeeRecordFromSheet(f),
-      ...dailyWageSplit(f.dailyWage),
+      ...employeeWageFields(f.dailyWage),
       code,
       status:'Active',
       resignationDate:'',
@@ -211,7 +211,7 @@ function saveEmployee(existingCode){
   if(status!=='Resigned'){ resignationDate=''; resignReason=''; }
   const inactiveFrom = status==='Inactive' ? (f.inactiveFrom||'') : '';
   if(status==='Inactive' && !inactiveFrom){ alert('Please enter the Inactive From date.'); return; }
-  Object.assign(f, dailyWageSplit(f.dailyWage)); // Basic / HRA / OT rate always follow the daily wage
+  Object.assign(f, employeeWageFields(f.dailyWage)); // Basic / HRA always follow the daily wage
   const prior = existingCode ? db.employees.find(e=>e.code===existingCode) : null;
   const joiningVal=f.joining||'';
   const data={
