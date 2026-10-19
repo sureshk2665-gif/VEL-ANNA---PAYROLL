@@ -108,7 +108,8 @@ function slipCardHTML(e, r, ym){
     </div>
   </div>`;
 }
-function printAllSlips(unit){
+// Prints the month's slips, optionally for one unit and/or one contractor ('-' = no contractor).
+function printAllSlips(unit, contractor){
   if(!hasPerm('payroll','print')){ alert('You do not have permission to print payslips.'); return; }
   const existing = db.payroll[payMonth];
   if(!existing){ alert('Generate payroll first.'); return; }
@@ -122,13 +123,13 @@ function printAllSlips(unit){
   // Employee Pay Slip per unit: filter the payroll records down to just the employees
   // who belong to the selected Working Unit (falls back to Unit-1 for records with no unit set,
   // matching unitLabel()'s own fallback elsewhere in the app).
-  let records = Object.values(existing);
-  if(unit) records = records.filter(r=>{
+  let records = Object.values(existing).filter(r=>{
     const e=db.employees.find(x=>x.code===r.code);
-    return unitCodeOf(e && e.unit) === unit;
+    return (!unit || unitCodeOf(e && e.unit) === unit) && contractorFilterMatches(e, contractor);
   });
-  const unitTitle = unit ? ` — ${unitLabel(unit)}` : '';
-  if(!records.length){ alert(unit ? `No payroll records to print for ${unitLabel(unit)}.` : 'No payroll records to print.'); return; }
+  const sel = [unit?unitLabel(unit):'', contractor?(contractor==='-'?'No contractor':contractorName(contractor)):''].filter(Boolean).join(' · ');
+  const unitTitle = sel ? ` — ${sel}` : '';
+  if(!records.length){ alert(sel ? `No payroll records to print for ${sel}.` : 'No payroll records to print.'); return; }
   const perPage = 2;
   const pages=[];
   for(let i=0;i<records.length;i+=perPage){

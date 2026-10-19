@@ -1,7 +1,18 @@
+// Payroll screen filters: they narrow the table, the totals and Print Pay Slips (payroll is always
+// generated for every on-roll employee). '' = all; contractor '-' = no contractor.
+let payUnitFilter = '';
+let payContractorFilter = '';
+function payrollFilterMatches(code){
+  const e=db.employees.find(x=>x.code===code);
+  return (!payUnitFilter || unitCodeOf(e && e.unit)===payUnitFilter) && contractorFilterMatches(e, payContractorFilter);
+}
 function renderPayroll(){
   const existing = db.payroll[payMonth] || null;
   const active=db.employees.filter(e=>isEmpOnRollInMonth(e,payMonth));
-  const rows = existing ? Object.values(existing) : [];
+  const allRows = existing ? Object.values(existing) : [];
+  const rows = allRows.filter(r=>payrollFilterMatches(r.code));
+  const filtered = !!(payUnitFilter || payContractorFilter);
+  const selText = [payUnitFilter?unitLabel(payUnitFilter):'', payContractorFilter?(payContractorFilter==='-'?'No contractor':contractorName(payContractorFilter)):''].filter(Boolean).join(' · ');
   const totalNet = rows.reduce((s,r)=>s+r.netSalary,0);
   const totalEarnings = rows.reduce((s,r)=>s+(r.earningsTotal||0),0);
   const totalDeductions = rows.reduce((s,r)=>s+(r.deductionsTotal||0),0);
@@ -18,7 +29,14 @@ function renderPayroll(){
     <input type="month" value="${payMonth}" onchange="payMonth=this.value;render('payroll')">
     ${hasPerm('payroll','add') || hasPerm('payroll','edit') ? `<button class="btn" onclick="generatePayroll()">${ico('settings')} Generate / Regenerate Payroll</button>` : ''}
     <button class="btn secondary" onclick="render('attendance')">${ico('calendar-days')} Go to Attendance</button>
-    ${existing && hasPerm('payroll','print') ? getUnits().map(u=>`<button class="btn secondary" onclick="printAllSlips('${u.code}')" title="${unitDisplayName(u)}">${ico('printer')} Employee Pay Slip ${u.code.replace('-',' ')}</button>`).join('\n    ') : ''}
+    <select onchange="payUnitFilter=this.value;render('payroll')" title="Filter by unit">
+      <option value="">All Units</option>
+      ${unitOptionsHtml(payUnitFilter)}
+    </select>
+    <select onchange="payContractorFilter=this.value;render('payroll')" title="Filter by contractor">
+      ${contractorFilterOptionsHtml(payContractorFilter)}
+    </select>
+    ${existing && hasPerm('payroll','print') ? `<button class="btn secondary" ${rows.length?'':'disabled'} onclick="printAllSlips(payUnitFilter, payContractorFilter)">${ico('printer')} Print Pay Slips${filtered?' — '+selText:' (All)'}</button>` : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — see Payroll Process)</span>
   </div>
   <p class="syncNote">Working days, leave, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)}. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
@@ -31,7 +49,8 @@ function renderPayroll(){
         <td>${r.code}</td><td class="empNameCell">${r.name}</td><td class="num">${r.nowd}</td><td class="num">${r.presentDays}</td><td class="num">${r.leaveDays}</td><td class="num">${r.noplBalance}</td><td class="num">${r.holidayDays}</td><td class="num">${r.halfDayCount}</td><td class="num">${r.lopDays}</td><td class="num">${r.daysWorking}</td><td class="num">${r.otHours}</td>
         <td class="num">${fmt(r.earningsTotal)}</td><td class="num">${fmt(r.deductionsTotal)}</td><td class="num"><b>${fmt(r.netSalary)}</b></td>
       </tr>`).join('')}
-      <tr><td colspan="13" style="text-align:right;"><b>Total Net Salary Paid</b></td><td class="num"><b>${fmt(totalNet)}</b></td></tr>
+      ${!rows.length ? `<tr><td colspan="14"><div class="empty">No payroll records for ${selText} this month.</div></td></tr>` : ''}
+      <tr><td colspan="13" style="text-align:right;"><b>Total Net Salary Paid${filtered?' — '+selText:''}</b></td><td class="num"><b>${fmt(totalNet)}</b></td></tr>
     </tbody></table></div>` : `<div class="empty">${active.length? ''+ico('settings')+' Payroll not generated for this month yet. Click "Generate / Regenerate Payroll" above.' : 'Add employees first.'}</div>`}
   </div>`;
 }

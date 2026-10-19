@@ -6,6 +6,7 @@ let attViewMode = 'employee'; // 'day' (quick mark) or 'employee' (employee-wise
 let attDate = todayStr();
 let attEmpCode = ''; // selected employee for the Employee-wise Monthly Attendance view
 let attUnitFilter = ''; // '' = all units, or a unit code ('Unit-1', 'Unit-2', …) — filters the Employee dropdown above
+let attContractorFilter = ''; // '' = all contractors, '-' = no contractor, or a contractor code — same idea
 let attEditMode = false; // Monthly Attendance screen: locked (view) until the user clicks Edit
 let attEditSnapshot = null; // used to restore data if edits are cancelled
 function getMonthAttendanceSnapshot(code, ym){
@@ -331,6 +332,7 @@ function setAttEmpCode(code){ attEmpCode=code; attEditMode=false; attEditSnapsho
 // selection so the picker re-defaults to the first employee within the newly chosen unit
 // (see renderAttendanceEmployee, which rebuilds empOpts from the unit-filtered list).
 function setAttUnitFilter(unit){ attUnitFilter=unit; attEmpCode=''; attEditMode=false; attEditSnapshot=null; render('attendance'); }
+function setAttContractorFilter(c){ attContractorFilter=c; attEmpCode=''; attEditMode=false; attEditSnapshot=null; render('attendance'); }
 function shiftAttEmpMonth(delta){
   const [y,m]=attMonth.split('-').map(Number);
   const d=new Date(y, m-1+delta, 1);
@@ -397,12 +399,15 @@ function setCanteenTokens(code, field, val){
   a[field] = +val||0;
   saveDB(db);
 }
-// Unit-selection dropdown shown to the left of the Employee dropdown on the Attendance screen.
-// "All Units" (value="") clears the filter; picking Unit-1/Unit-2 narrows the Employee list.
+// Unit- and Contractor-selection dropdowns shown to the left of the Employee dropdown on the
+// Attendance screen. "All" clears a filter; picking a unit and/or contractor narrows the Employee list.
 function attUnitOptionsHTML(){
   return `<select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttUnitFilter(this.value)" title="Select unit">
     <option value="" ${!attUnitFilter?'selected':''}>All Units</option>
     ${unitOptionsHtml(attUnitFilter)}
+  </select>
+  <select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttContractorFilter(this.value)" title="Select contractor">
+    ${contractorFilterOptionsHtml(attContractorFilter)}
   </select>`;
 }
 function renderAttendanceEmployee(){
@@ -410,11 +415,12 @@ function renderAttendanceEmployee(){
   if(!allActiveAllUnits.length) return `<div class="panel"><div class="empty">No active employees. Add employees first.</div></div>`;
   // Unit filter: '' shows every unit's employees; a unit code narrows the list (and
   // therefore the Employee dropdown below) to just that unit's on-roll employees.
-  const active = attUnitFilter ? allActiveAllUnits.filter(e=>unitCodeOf(e.unit)===attUnitFilter) : allActiveAllUnits;
+  const active = allActiveAllUnits.filter(e=>(!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
   if(!active.length){
+    const what=[attUnitFilter?'in '+unitLabel(attUnitFilter):'', attContractorFilter?(attContractorFilter==='-'?'with no contractor':'from '+contractorName(attContractorFilter)):''].filter(Boolean).join(' ');
     return `<div class="attStage"><div class="attStageTop">${attTabsInline()}
       <div class="grp">${attUnitOptionsHTML()}</div>
-    </div><div class="panel"><div class="empty">No active employees in ${unitLabel(attUnitFilter)} this month.</div></div></div>`;
+    </div><div class="panel"><div class="empty">No active employees ${what||'for this selection'} this month.</div></div></div>`;
   }
   if(!attEmpCode || !active.find(e=>e.code===attEmpCode)) attEmpCode = active[0].code;
   const emp = active.find(e=>e.code===attEmpCode);
