@@ -23,7 +23,7 @@ function openSlip(code, ym){
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
         <td>LOP ${r.lopDays}</td>
-        <td>OT HOURS ${r.otHours}</td>
+        <td>OT HOURS ${r.otHours} &nbsp;·&nbsp; LATE ${r.lateMinutes||0} MIN</td>
       </tr>
       <tr>
         <td>Paid days ${r.daysWorking}</td>
@@ -44,6 +44,7 @@ function openSlip(code, ym){
       <tr><td style="text-align:left;">Over Time</td><td>${r.otPerHourRate?fmt(r.otPerHourRate).replace('₹','')+'/hr':''}</td><td>${fmt(r.otAmount).replace('₹','')}</td><td style="text-align:left;">Canteen (${r.canteenTokens||0} × ₹${r.canteenTokenPrice||0})</td><td>${fmt(r.canteen).replace('₹','')}</td></tr>
       <tr><td style="text-align:left;">Other Allowance</td><td></td><td>${fmt(r.otherAllowance).replace('₹','')}</td><td style="text-align:left;">Advance</td><td>${fmt(r.advance).replace('₹','')}</td></tr>
       <tr><td style="text-align:left;font-weight:700;">GROSS (Basic + OT)</td><td></td><td style="font-weight:700;">${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</td><td style="text-align:left;">Others</td><td>${fmt(r.otherDed).replace('₹','')}</td></tr>
+      <tr><td></td><td></td><td></td><td style="text-align:left;">Late (${r.lateChargedMinutes||0} min${r.lateChargedMinutes?' × ₹'+r.latePerMinute:''})</td><td>${fmt(r.lateDeduction||0).replace('₹','')}</td></tr>
       <tr style="font-weight:700;background:#f3f3f3;">
         <td style="text-align:left;">TOTAL EARNINGS</td>
         <td>${fmt(r.scaleTotal).replace('₹','')}</td>
@@ -77,7 +78,7 @@ function slipCardHTML(e, r, ym){
     </div>
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</div>
     <table class="slipMeta">
-      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours}</td></tr>
+      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours} · LATE ${r.lateMinutes||0}m</td></tr>
       <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>NOPL Taken ${r.leaveDays}</td></tr>
       <tr><td>MODE ${e.mode||'-'}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
     </table>
@@ -89,6 +90,7 @@ function slipCardHTML(e, r, ym){
       <tr><td>OT</td><td class="amt">${r.otPerHourRate?fmt(r.otPerHourRate).replace('₹','')+'/hr':''}</td><td class="amt">${fmt(r.otAmount).replace('₹','')}</td><td>Canteen (${r.canteenTokens||0} tkn)</td><td class="amt">${fmt(r.canteen).replace('₹','')}</td></tr>
       <tr><td>Other Allw.</td><td class="amt"></td><td class="amt">${fmt(r.otherAllowance).replace('₹','')}</td><td>Advance</td><td class="amt">${fmt(r.advance).replace('₹','')}</td></tr>
       <tr><td><b>GROSS</b></td><td class="amt"></td><td class="amt"><b>${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</b></td><td>Others</td><td class="amt">${fmt(r.otherDed).replace('₹','')}</td></tr>
+      <tr><td></td><td class="amt"></td><td class="amt"></td><td>Late (${r.lateChargedMinutes||0} min)</td><td class="amt">${fmt(r.lateDeduction||0).replace('₹','')}</td></tr>
       <tr class="totalRow">
         <td>TOTAL</td>
         <td class="amt">${fmt(r.scaleTotal).replace('₹','')}</td>

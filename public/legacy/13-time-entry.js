@@ -113,6 +113,19 @@ function teCompute(entry, dateForRow){
   const ot = Math.max(0, outMin - regularEnd);
   return {shift, late, working, ot};
 }
+// Total Late (minutes) an employee has in a month on the Time Entry screens. Days on a full-day
+// leave don't count. Payroll uses this for the Late Deduction unless a different figure is typed
+// for that month on the Attendance screen.
+function teMonthLateMinutes(code, ym){
+  let total=0;
+  Object.keys(db.timeEntries||{}).forEach(dt=>{
+    if(!dt.startsWith(ym+'-')) return;
+    const entry=db.timeEntries[dt][code]; if(!entry) return;
+    const lv=teGetLeave(dt, code); if(lv && lv.type!=='Half Day') return;
+    total+=teCompute(entry, dt).late||0;
+  });
+  return total;
+}
 function teSetTab(t){ teTab=t; render('timeentry'); }
 // Changing the date switches the whole Date-wise grid to that date, auto-creating blank rows for
 // every active employee on it. The grid stays unlocked if it was, so entry can continue

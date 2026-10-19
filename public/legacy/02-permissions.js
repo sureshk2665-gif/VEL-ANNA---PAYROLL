@@ -105,6 +105,7 @@ function getSettings(){
   if(db.settings.canteenLunchRate===undefined) db.settings.canteenLunchRate=18;
   if(db.settings.canteenDinnerRate===undefined) db.settings.canteenDinnerRate=13.5;
   if(db.settings.canteenTokenPrice===undefined) db.settings.canteenTokenPrice=150; // ₹ per canteen token
+  if(db.settings.lateGraceMinutes===undefined) db.settings.lateGraceMinutes=120; // free Late minutes per month
   return db.settings;
 }
 

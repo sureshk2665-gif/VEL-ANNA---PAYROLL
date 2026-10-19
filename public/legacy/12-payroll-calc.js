@@ -19,6 +19,25 @@ function canteenTokenPrice(){
   const p=getSettings().canteenTokenPrice;
   return p===undefined ? 150 : (+p||0);
 }
+// Late minutes for the month: the figure typed on the Attendance screen for that month if there
+// is one, otherwise the total Late from Employee Time Entry.
+function lateMinutesFor(e, ym){
+  const adj=getAdj(ym, e.code);
+  if(adj.lateMinutes!==undefined && adj.lateMinutes!==null && adj.lateMinutes!=='') return +adj.lateMinutes||0;
+  return typeof teMonthLateMinutes==='function' ? teMonthLateMinutes(e.code, ym) : 0;
+}
+function lateGraceMinutes(){
+  const g=getSettings().lateGraceMinutes;
+  return g===undefined ? 120 : Math.max(0, +g||0);
+}
+// Late Deduction: one minute's salary = Daily Wage (Basic + HRA per day) ÷ 8 ÷ 60. The first
+// lateGraceMinutes() of Late in the month (2 hours) are free; every minute beyond is deducted.
+function lateDeductionFor(e, ym, dailyWage){
+  const minutes=lateMinutesFor(e, ym), grace=lateGraceMinutes();
+  const charged=Math.max(0, minutes-grace);
+  const perMinute=(+dailyWage||0)/8/60;
+  return {minutes, grace, charged, perMinute, amount:Math.round(charged*perMinute)};
+}
 function computePayrollForEmployee(e, ym){
   const s=getSettings();
   // NOWD is auto-calculated for the payroll month: Total Days − Sundays − Holidays.
@@ -69,7 +88,9 @@ function computePayrollForEmployee(e, ym){
   // is due this month (stops automatically once the full advance has been recovered).
   const advance = scheduledAdvanceDeduction(e.code, ym);
   const otherDed = adj.otherDedOneOff||0; // one-off, entered on the Attendance screen
-  const deductionsTotal = pf+esi+tax+canteen+advance+otherDed; // PF (employee share) is deducted from salary
+  const late = lateDeductionFor(e, ym, wage.dailyWage);
+  const lateDeduction = late.amount;
+  const deductionsTotal = pf+esi+tax+canteen+advance+otherDed+lateDeduction; // PF (employee share) is deducted from salary
   const netSalary = Math.max(0, earningsTotal - deductionsTotal);
 
   return {
@@ -83,7 +104,8 @@ function computePayrollForEmployee(e, ym){
     dailyWage:wage.dailyWage, basicPerDay:wage.basic, hraPerDay:wage.hra, holidaysPaid,
     scaleTotal, grossSalary, earningsTotal,
     esi, esiEmployer, esiWages, pf, pfEmployer, pfWages, pfNo:e.pfNo||'', uan:e.uan||'', tax, canteen, canteenTokens, canteenTokenPrice:tokenPrice,
-    advance, otherDed, deductionsTotal,
+    advance, otherDed, lateMinutes:late.minutes, lateGraceMinutes:late.grace, lateChargedMinutes:late.charged,
+    latePerMinute:Math.round(late.perMinute*100)/100, lateDeduction, deductionsTotal,
     netSalary: Math.round(netSalary),
     generatedAt:new Date().toISOString()
   };
