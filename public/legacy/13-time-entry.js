@@ -31,6 +31,9 @@ let teLeaveRemarks='';
 function ensureTimeEntriesForDate(dateStr2){
   if(!db.timeEntries[dateStr2]) db.timeEntries[dateStr2]={};
   let changed=false;
+  // Bulk Shift's "select all" box once counted itself as an employee and saved a row under the
+  // code "undefined" — drop any such rows.
+  Object.keys(db.timeEntries).forEach(dt=>{ const day=db.timeEntries[dt]; if(day && Object.prototype.hasOwnProperty.call(day,'undefined')){ delete day.undefined; changed=true; } });
   activeEmployeesForTE().forEach(e=>{
     if(!db.timeEntries[dateStr2][e.code]){
       db.timeEntries[dateStr2][e.code]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
@@ -156,6 +159,41 @@ function teDeleteEntry(dateStr2, code){
   saveDB(db); render('timeentry');
 }
 function activeEmployeesForTE(){ return (db.employees||[]).filter(e=>e.status!=='Resigned').sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})); }
+/* ---- Unit / Contractor filter (one filter for the whole Time Entry page: Date-wise grid,
+   Employee-wise picker, Employee Leave, Attendance & OT Summary and their prints). It only
+   narrows what is shown — every active employee still gets a row in db.timeEntries. ---- */
+let teUnitFilter='';        // '' = all units, or a unit code ('Unit-1', …)
+let teContractorFilter='';  // '' = all, '-' = no contractor, or a contractor code
+function teEmpMatchesFilter(e){
+  return !!e && (!teUnitFilter || unitCodeOf(e.unit)===teUnitFilter) && contractorFilterMatches(e, teContractorFilter);
+}
+function teFilteredEmployees(){ return activeEmployeesForTE().filter(teEmpMatchesFilter); }
+// For lists keyed by employee code (day lists, leave records, prints).
+function teCodeInFilter(code){
+  if(!teUnitFilter && !teContractorFilter) return true;
+  return teEmpMatchesFilter((db.employees||[]).find(e=>e.code===code));
+}
+function teFilterText(){
+  return [teUnitFilter?unitLabel(teUnitFilter):'', teContractorFilter?(teContractorFilter==='-'?'No contractor':contractorName(teContractorFilter)):''].filter(Boolean).join(' · ');
+}
+function teSetUnitFilter(v){ teUnitFilter=v||''; teDwSel.clear(); render('timeentry'); }
+function teSetContractorFilter(v){ teContractorFilter=v||''; teDwSel.clear(); render('timeentry'); }
+function teClearFilter(){ teUnitFilter=''; teSetContractorFilter(''); }
+function renderTEFilterBar(){
+  const tab=(code,label,title)=>`<button type="button" role="tab" class="attUnitTab ${teUnitFilter===code?'active':''}" aria-selected="${teUnitFilter===code}" title="${teEsc(title)}" onclick="teSetUnitFilter('${code}')">${label}</button>`;
+  const shown=teFilteredEmployees().length, all=activeEmployeesForTE().length;
+  return `<div class="teFilterBar">
+    <div class="attUnitTabs" role="tablist" aria-label="Working unit">
+      ${tab('','All Units','All units')}
+      ${getUnits().map(u=>tab(u.code, String(u.code).replace('-',' ').toUpperCase(), unitDisplayName(u))).join('')}
+    </div>
+    <label class="teFilterLbl">${ico('building')} Contractor
+      <select onchange="teSetContractorFilter(this.value)" title="Filter by contractor">${contractorFilterOptionsHtml(teContractorFilter)}</select>
+    </label>
+    <span class="teFilterCount">${shown===all?`${all} employees`:`Showing ${shown} of ${all} employees`}</span>
+    ${(teUnitFilter||teContractorFilter)?`<button type="button" class="teFilterClear" onclick="teClearFilter()">${ico('x')} Clear</button>`:''}
+  </div>`;
+}
 /* ---------------- Employee Leave (this module's own leave log — separate from any
    Payroll leave/NOPL logic; purely a record of who is on leave and why). ---------------- */
 function teSetLeaveField(field,val){
@@ -183,20 +221,22 @@ function teDeleteLeave(dt, code){
   saveDB(db); render('timeentry');
 }
 function printTELeaveDay(dt){
-  const list=(db.timeLeaves||[]).filter(l=>l.date===dt);
+  const list=(db.timeLeaves||[]).filter(l=>l.date===dt && teCodeInFilter(l.empCode));
   if(!list.length){ alert('No leave records for this date.'); return; }
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   const rows=list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)',department:''};
     return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td><td>${l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td></tr>`; }).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Leave Type</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table>`;
-  openPrintWindow(`Employee Leave — ${fmtDate(dt)}`, html);
+  openPrintWindow(`Employee Leave — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
 }
 function renderTELeaveTab(){
-  const emps=activeEmployeesForTE();
+  const emps=teFilteredEmployees();
   const canEdit=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
   const canDel=hasPerm('timeentry','delete');
-  const empMap={}; emps.forEach(e=>empMap[e.code]=e);
-  const dates=[...new Set((db.timeLeaves||[]).map(l=>l.date))].sort().reverse().slice(0,20);
+  const empMap={}; activeEmployeesForTE().forEach(e=>empMap[e.code]=e);
+  if(teLeaveEmp && !emps.some(e=>e.code===teLeaveEmp)) teLeaveEmp='';
+  const leaves=(db.timeLeaves||[]).filter(l=>teCodeInFilter(l.empCode));
+  const dates=[...new Set(leaves.map(l=>l.date))].sort().reverse().slice(0,20);
   return `<div class="panel">
     <h3>${ico('palm')} Record Employee Leave</h3>
     ${!canEdit?`<p class="syncNote" style="color:var(--warn);">You have view-only access to this module.</p>`:''}
@@ -219,7 +259,7 @@ function renderTELeaveTab(){
     </div>
   </div>
   ${!dates.length?`<div class="panel"><div class="empty">No leave records yet.</div></div>`:dates.map(dt=>{
-    const list=(db.timeLeaves||[]).filter(l=>l.date===dt);
+    const list=leaves.filter(l=>l.date===dt);
     return `<div class="panel teDayGroup">
       <div class="panelHead"><h4 style="margin:0;">${ico('palm')} ${fmtDate(dt)}</h4><button class="btn secondary" onclick="printTELeaveDay('${dt}')">${ico('printer')} Print</button></div>
       <div class="teShiftBox"><table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th>${canDel?'<th></th>':''}</tr></thead>

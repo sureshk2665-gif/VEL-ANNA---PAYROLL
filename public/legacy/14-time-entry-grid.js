@@ -325,7 +325,7 @@ function teEwSelectEmp(code){
 }
 function teEwPickFromText(v){
   v=String(v||'').trim().toLowerCase(); if(!v) return;
-  const emps=activeEmployeesForTE();
+  const emps=teFilteredEmployees();
   const code=v.split('—')[0].trim();
   const hit=emps.find(e=>e.code.toLowerCase()===code) || emps.find(e=>`${e.code} — ${e.name}`.toLowerCase()===v)
     || emps.find(e=>e.name.toLowerCase().startsWith(v)) || emps.find(e=>(`${e.code} ${e.name}`).toLowerCase().includes(v));
@@ -333,7 +333,7 @@ function teEwPickFromText(v){
   else { const el=document.getElementById('teEwFind'); if(el){ el.classList.add('bad'); el.title='No active employee matches that.'; } }
 }
 function teEwStepEmp(dir){
-  const emps=activeEmployeesForTE(); if(!emps.length) return;
+  const emps=teFilteredEmployees(); if(!emps.length) return;
   let i=emps.findIndex(e=>e.code===teEwEmp);
   i = i<0 ? 0 : (i+dir+emps.length)%emps.length;
   teEwSelectEmp(emps[i].code);
@@ -373,7 +373,7 @@ function printTEEmployee(){
 }
 
 function renderTEEmpWiseTab(){
-  const emps=activeEmployeesForTE();
+  const emps=teFilteredEmployees();
   if(teEwEmp && !emps.some(e=>e.code===teEwEmp)) teEwEmp='';
   const emp=emps.find(e=>e.code===teEwEmp);
   const canEdit=teEwCanEdit();
@@ -476,6 +476,7 @@ function renderTimeEntry(){
     <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holiday Booking</div>
     <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">${ico('chart')} Attendance &amp; OT Summary</div>
   </div>
+  ${teTab!=='holiday' ? renderTEFilterBar() : ''}
   ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : renderTESummaryTab()}`;
 }
 
@@ -491,7 +492,7 @@ function renderTEDayList(){
   if(!dates.length) return `<div class="panel"><div class="empty">No time entries recorded yet.</div></div>`;
   return dates.map(dt=>{
     const rows=db.timeEntries[dt]||{};
-    const codes=Object.keys(rows);
+    const codes=Object.keys(rows).filter(teCodeInFilter);
     if(!codes.length) return '';
     const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
     const byShift={'First Shift':[],'General Shift':[],'Second Shift':[]};
@@ -545,8 +546,8 @@ function renderTEShiftBox(shiftName, list, dt){
 }
 function printTEDay(dt){
   const rows=db.timeEntries[dt]||{};
-  const codes=Object.keys(rows);
-  if(!codes.length){ alert('No time entries for this date.'); return; }
+  const codes=Object.keys(rows).filter(teCodeInFilter);
+  if(!codes.length){ alert('No time entries for this date'+(teFilterText()?' in '+teFilterText():'')+'.'); return; }
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   const tableRows=codes.map((code,idx)=>{
     const emp=empMap[code]||{name:'(removed employee)',department:''};
@@ -564,7 +565,7 @@ function printTEDay(dt){
       <td>${teFmtHM(c.working)}</td><td>${c.late>0?teFmtHM(c.late):'On time'}</td><td>${teFmtHM(c.ot)}</td></tr>`;
   }).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Shift</th><th>In Time</th><th>Out Time</th><th>Working</th><th>Late</th><th>OT</th></tr></thead><tbody>${tableRows}</tbody></table>`;
-  openPrintWindow(`Employee Time Entry — ${fmtDate(dt)}`, html);
+  openPrintWindow(`Employee Time Entry — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
 }
 
 /* ---------------- Holiday Booking tab (this module's own calendar — separate from
@@ -644,8 +645,7 @@ function teSummaryThisMonth(){ teSummaryMonth=monthKey(todayStr()); render('time
 // Present Days (has an In Time logged, not on leave), Leave Days, Holiday/Sunday days
 // worked, total Working / Late / OT hours across every date-entry recorded that month.
 function teMonthSummaryRows(monthStr){
-  const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
-  const emps=activeEmployeesForTE();
+  const emps=teFilteredEmployees();
   const dates=Object.keys(db.timeEntries).filter(d=>d.startsWith(monthStr)).sort();
   const stats={};
   emps.forEach(e=>{ stats[e.code]={emp:e, presentDays:0, leaveDays:0, workingMin:0, lateMin:0, otMin:0}; });
@@ -673,7 +673,7 @@ function printTESummary(monthStr){
   const tableRows=rows.map((r,idx)=>`<tr><td>${idx+1}</td><td>${r.emp.code}</td><td style="text-align:left;">${r.emp.name}</td><td>${r.emp.department||'-'}</td>
     <td>${r.presentDays}</td><td>${r.leaveDays}</td><td>${teFmtHM(r.lateMin)}</td><td>${teFmtHM(r.otMin)}</td></tr>`).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Present Days</th><th>Leave Days</th><th>Late Hours</th><th>OT Hours</th></tr></thead><tbody>${tableRows}</tbody></table>`;
-  openPrintWindow(`Attendance & OT Summary — ${monthName}`, html);
+  openPrintWindow(`Attendance & OT Summary — ${monthName}${teFilterText()?' — '+teFilterText():''}`, html);
 }
 function renderTESummaryTab(){
   const rows=teMonthSummaryRows(teSummaryMonth);
