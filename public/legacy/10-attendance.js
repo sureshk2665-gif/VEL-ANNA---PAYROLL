@@ -402,13 +402,19 @@ function setCanteenTokens(code, field, val){
 // Unit- and Contractor-selection dropdowns shown to the left of the Employee dropdown on the
 // Attendance screen. "All" clears a filter; picking a unit and/or contractor narrows the Employee list.
 function attUnitOptionsHTML(){
-  return `<select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttUnitFilter(this.value)" title="Select unit">
-    <option value="" ${!attUnitFilter?'selected':''}>All Units</option>
-    ${unitOptionsHtml(attUnitFilter)}
-  </select>
-  <select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttContractorFilter(this.value)" title="Select contractor">
+  return `<select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttContractorFilter(this.value)" title="Select contractor">
     ${contractorFilterOptionsHtml(attContractorFilter)}
   </select>`;
+}
+// Unit tabs across the top of the Attendance screen: "All Units", "UNIT 1", "UNIT 2", … Picking a
+// tab narrows the Employee dropdown to that unit (locked while attendance is being edited).
+function attUnitTabsHTML(){
+  const dis=attEditMode?'disabled':'';
+  const tab=(code,label,title)=>`<button type="button" role="tab" class="attUnitTab ${attUnitFilter===code?'active':''}" aria-selected="${attUnitFilter===code}" ${dis} title="${String(title).replace(/"/g,'&quot;')}" onclick="setAttUnitFilter('${code}')">${label}</button>`;
+  return `<div class="attUnitTabs" role="tablist" aria-label="Working unit">
+    ${tab('','All Units','All units')}
+    ${getUnits().map(u=>tab(u.code, String(u.code).replace('-',' ').toUpperCase(), unitDisplayName(u))).join('')}
+  </div>`;
 }
 function renderAttendanceEmployee(){
   const allActiveAllUnits=db.employees.filter(e=>isEmpOnRollInMonth(e,attMonth)).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
@@ -418,7 +424,7 @@ function renderAttendanceEmployee(){
   const active = allActiveAllUnits.filter(e=>(!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
   if(!active.length){
     const what=[attUnitFilter?'in '+unitLabel(attUnitFilter):'', attContractorFilter?(attContractorFilter==='-'?'with no contractor':'from '+contractorName(attContractorFilter)):''].filter(Boolean).join(' ');
-    return `<div class="attStage"><div class="attStageTop">${attTabsInline()}
+    return `<div class="attStage">${attUnitTabsHTML()}<div class="attStageTop">${attTabsInline()}
       <div class="grp">${attUnitOptionsHTML()}</div>
     </div><div class="panel"><div class="empty">No active employees ${what||'for this selection'} this month.</div></div></div>`;
   }
@@ -526,7 +532,7 @@ function renderAttendanceEmployee(){
     </div>
   </div>`;
 
-  return `${topBar}<div class="attStageBody">${autoCol}${entryCol}</div>`;
+  return `${attUnitTabsHTML()}${topBar}<div class="attStageBody">${autoCol}${entryCol}</div>`;
 }
 
 function renderAttendanceGrid(){
