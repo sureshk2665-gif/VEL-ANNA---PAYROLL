@@ -58,6 +58,6 @@ function payrollReportRows(){
   const rec=db.payroll[payMonth]||{};
   return Object.values(rec).map(r=>{
     const e=db.employees.find(x=>x.code===r.code);
-    return {Code:r.code,Name:r.name,WorkingUnit:unitLabel(e&&e.unit),UnitCode:unitCodeOf(e&&e.unit),PaymentMode:(e&&e.mode)||'-',DaysWorked:r.daysWorking,LOP:r.lopDays,Earnings:r.earningsTotal,Deductions:r.deductionsTotal,ESI:r.esi||0,Canteen:r.canteen||0,NetSalary:r.netSalary};
+    return {Code:r.code,Name:r.name,WorkingUnit:unitLabel(e&&e.unit),UnitCode:unitCodeOf(e&&e.unit),Contractor:contractorName(e)||'-',PaymentMode:(e&&e.mode)||'-',DaysWorked:r.daysWorking,LOP:r.lopDays,Earnings:r.earningsTotal,Deductions:r.deductionsTotal,ESI:r.esi||0,Canteen:r.canteen||0,NetSalary:r.netSalary};
   });
 }

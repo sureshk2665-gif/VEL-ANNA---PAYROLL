@@ -18,6 +18,8 @@ const REPORTS_LIST = [
   {key:'department', icon:'tag', title:'Department Report',            desc:'Headcount grouped by department (active employees).', needsMonth:false, category:'general'},
   {key:'unit',       icon:'factory', title:'Unit-wise Report',              desc:'Payroll summary split by working unit, with mode-of-payment totals.', needsMonth:true, category:'monthly'},
   {key:'acquittance',icon:'pen-line', title:'Unit-wise Salary Acquittance Register', desc:'A4 landscape register for employee signatures — max 15 employees per page, header repeated on every page, page totals and unit grand total.', needsMonth:true, needsUnitFilter:true, category:'monthly'},
+  {key:'contractor', icon:'users', title:'Contractor-wise Report',        desc:'Payroll summary split by contractor (any unit), with mode-of-payment totals.', needsMonth:true, category:'monthly'},
+  {key:'acquittanceContractor',icon:'pen-line', title:'Contractor-wise Salary Acquittance Register', desc:'Same A4 signature register, one section per contractor — optionally for one unit only (e.g. a contractor\'s employees in Unit-2).', needsMonth:true, needsContractorFilter:true, category:'monthly'},
   {key:'mode',       icon:'credit-card', title:'Mode of Payment-wise Report',   desc:'Payroll summary split by mode of payment (NEFT, Cash, Cheque, etc.).', needsMonth:true, category:'monthly'},
   {key:'print',      icon:'printer', title:'Print Report',                  desc:'Full payroll listing for the selected month, ready to print.', needsMonth:true, category:'monthly'},
   {key:'esi',        icon:'heart-pulse', title:'ESI Report (Monthly)',          desc:'Month-wise, employee-wise ESI contribution summary — Employee, Employer and Total ESI.', needsMonth:true, category:'monthly'},
@@ -109,8 +111,12 @@ function renderReportDetail(key){
       else previewHtml=pfMonthlyReportTableHtml(rows);
     }
   }
+  else if(key==='acquittanceContractor'){
+    const res=acquittancePreviewHtml(payMonth, key);
+    previewHtml=res.html; hasData=res.hasData;
+  }
   else if(key==='acquittance'){
-    const res=acquittancePreviewHtml(payMonth, acqUnit);
+    const res=acquittancePreviewHtml(payMonth, key);
     previewHtml=res.html; hasData=res.hasData;
   }
   else if(key==='pf'){
@@ -140,6 +146,20 @@ function renderReportDetail(key){
           <select onchange="acqUnit=this.value;render('reports')">
             <option value="All" ${acqUnit==='All'?'selected':''}>All Units (each unit on its own pages)</option>
             ${unitOptionsHtml(acqUnit)}
+          </select>
+        </label>` : ''}
+      ${meta.needsContractorFilter ? `
+        <label style="font-size:12px;color:var(--muted);">Contractor
+          <select onchange="acqContractor=this.value;render('reports')">
+            <option value="All" ${acqContractor==='All'?'selected':''}>All Contractors (each on its own pages)</option>
+            ${getContractors().map(c=>`<option value="${c.code}" ${acqContractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
+            <option value="-" ${acqContractor==='-'?'selected':''}>No Contractor</option>
+          </select>
+        </label>
+        <label style="font-size:12px;color:var(--muted);">Working Unit
+          <select onchange="acqContractorUnit=this.value;render('reports')">
+            <option value="All" ${acqContractorUnit==='All'?'selected':''}>All Units</option>
+            ${unitOptionsHtml(acqContractorUnit)}
           </select>
         </label>` : ''}
       ${meta.needsDateRange ? `
@@ -186,6 +206,7 @@ function renderReportDetail(key){
     </div>
     ${meta.needsDateRange ? `<p class="syncNote">Bonus Eligible Basic Wages = actual sum of each month's Earnings → Basic Salary within the selected period (only months with generated payroll are included). For Bonus Amount, each month's Basic Salary is first capped at ${fmt(BONUS_CEILING)} (if Basic ≤ ${fmt(BONUS_CEILING)}, actual is used) and then summed and multiplied by ${(meta.bonusRate*100).toFixed(2).replace(/\.00$/,'')}%.</p>` : ''}
     ${meta.needsExpFilters ? `<p class="syncNote">Age and Company Experience are calculated as on ${fmtDate(fyEndDate(expFY))} (last day of Financial Year ${expFY}). Employees who joined after this date are excluded. Experience is shown in completed Years and Months.</p>` : ''}
+    ${key==='acquittanceContractor' ? `<p class="syncNote">Same A4 Landscape register as the unit-wise one, with one section per contractor (each starting on a fresh page, at most ${ACQ_ROWS_PER_PAGE} employees per page, page totals and a contractor grand total). Pick a Working Unit to print only that contractor's employees in that unit.</p>` : ''}
     ${key==='acquittance' ? `<p class="syncNote">Printed on A4 Landscape so all 9 columns fit at full size with a wide signature column. Each page holds at most ${ACQ_ROWS_PER_PAGE} employees; larger units roll over to the next page with the same header. Every page shows its Page Total, and the last page of each unit shows the Unit Grand Total. Employees are listed in Emp ID order.</p>` : ''}
     ${key==='esi' ? `<p class="syncNote">Figures are the actual ESI Employee and ESI Employer contributions processed in the ${monthLabel(payMonth)} payroll run. Only employees with ESI applicable and a contribution greater than ₹0 for the month are listed.</p>` : ''}
     ${key==='esiYearly' ? `<p class="syncNote">Yearly consolidated view for Financial Year ${yearlyFY} (Apr ${yearlyFY.split('-')[0]} – Mar ${yearlyFY.split('-')[1]}) — one row per employee, with Total ESI for each processed month plus yearly Employee / Employer / Total ESI, built from the actual ESI figures processed in each month's payroll run. Only employees with an ESI contribution greater than ₹0 in at least one month of the year are listed.</p>` : ''}
@@ -201,8 +222,9 @@ function downloadReportPDF(key){
   if(key==='department') return printSimpleReport('Department Report', departmentReportRows());
   if(key==='experience') return printSimpleReport('Employee Experience Report — FY '+expFY+' (as on '+fmtDate(fyEndDate(expFY))+')', experienceReportRows(expFY, expDept, expDesig, expStatus));
   if(key==='incrementHistory') return printSimpleReport('Annual Increment History', incrementHistoryReportRows());
-  if(key==='unit') return printPayrollReport();
-  if(key==='acquittance') return printAcquittanceReport();
+  if(key==='unit') return printPayrollReport('unit');
+  if(key==='contractor') return printPayrollReport('contractor');
+  if(key==='acquittance' || key==='acquittanceContractor') return printAcquittanceReport(key);
   if(key==='mode') return printModeWiseReport();
   if(key==='print') return printGeneralPayrollReport();
   if(key==='esi') return printESIReport();
