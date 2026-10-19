@@ -180,13 +180,36 @@ function teEwUpdateRow(r){
   set('shift',cc.shift); set('working',cc.working); set('late',cc.late,cc.lateCls); set('ot',cc.ot,cc.otCls); set('total',cc.total); set('status',md.status);
 }
 
-/* ---- Writes (all go to the shared db.timeEntries / db.timeLeaves) ---- */
-function teEwWriteTime(dt, kind, val){ // val = {h,m,ap} or null to clear
+/* ---- Writes (all go to the shared db.timeEntries / db.timeLeaves) — used by both the
+   Employee-wise and the Date-wise grid ---- */
+function teWriteTimeFor(dt, code, kind, val){ // val = {h,m,ap} or null to clear
   if(!db.timeEntries[dt]) db.timeEntries[dt]={};
-  if(!db.timeEntries[dt][teEwEmp]) db.timeEntries[dt][teEwEmp]=teEwBlankEntry();
-  const e=db.timeEntries[dt][teEwEmp];
+  if(!db.timeEntries[dt][code]) db.timeEntries[dt][code]=teEwBlankEntry();
+  const e=db.timeEntries[dt][code];
   if(val){ e[kind+'H']=String(val.h); e[kind+'M']=String(val.m); e[kind+'AP']=val.ap; }
   else { e[kind+'H']=''; e[kind+'M']=''; e[kind+'AP']=kind==='in'?'AM':'PM'; }
+}
+function teEwWriteTime(dt, kind, val){ teWriteTimeFor(dt, teEwEmp, kind, val); }
+// Sets (val = 'Loss of Pay' | 'Half Day' | 'NOPL') or removes (val = '') an Employee Leave for a
+// date. Returns false if not allowed (removing needs Delete rights).
+function teSetLeaveFor(dt, code, val){
+  if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
+  const existing=teGetLeave(dt, code);
+  if(!val){
+    if(existing){
+      if(!hasPerm('timeentry','delete')){ alert('You do not have permission to remove a leave record.'); return false; }
+      db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===dt&&l.empCode===code));
+    }
+  } else {
+    if(existing && existing.type===val) return true;
+    const remarks=existing?existing.remarks:'';
+    db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===dt&&l.empCode===code));
+    db.timeLeaves.push({date:dt, empCode:code, type:val, remarks:remarks||''});
+  }
+  // Make sure the date has a row for this employee so the Attendance & OT Summary counts it.
+  if(!db.timeEntries[dt]) db.timeEntries[dt]={};
+  if(!db.timeEntries[dt][code]) db.timeEntries[dt][code]=teEwBlankEntry();
+  return true;
 }
 // Commits one typed time cell. Returns false if the text couldn't be read (cell stays put).
 function teEwCommitTime(inp){
@@ -225,23 +248,8 @@ function teEwCommitTime(inp){
 }
 function teEwSetAttendance(sel){
   const tr=sel.closest('tr'); const dt=tr.dataset.dt; const r=+tr.dataset.r;
-  const val=sel.value;
-  if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
   const existing=teGetLeave(dt, teEwEmp);
-  if(!val){
-    if(existing){
-      if(!hasPerm('timeentry','delete')){ alert('You do not have permission to remove a leave record.'); sel.value=existing.type; return; }
-      db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===dt&&l.empCode===teEwEmp));
-    }
-  } else {
-    if(existing && existing.type===val) return;
-    const remarks=existing?existing.remarks:'';
-    db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===dt&&l.empCode===teEwEmp));
-    db.timeLeaves.push({date:dt, empCode:teEwEmp, type:val, remarks:remarks||''});
-  }
-  // Make sure the date has a row for this employee so the Attendance & OT Summary counts it.
-  if(!db.timeEntries[dt]) db.timeEntries[dt]={};
-  if(!db.timeEntries[dt][teEwEmp]) db.timeEntries[dt][teEwEmp]=teEwBlankEntry();
+  if(!teSetLeaveFor(dt, teEwEmp, sel.value)){ sel.value=existing?existing.type:''; return; }
   teEwUpdateRow(r); teEwRefreshTotals(); teEwQueueSave();
 }
 function teEwClearRow(r){
@@ -471,90 +479,10 @@ function renderTimeEntry(){
   ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : renderTESummaryTab()}`;
 }
 
-// Auto-created, all-employees quick grid for the SELECTED DATE (defaults to today, but
-// the Date Selector lets the user jump to any date) — every active employee already has
-// a row waiting on that date; just fill in In/Out and it auto-saves.
-function renderTEQuickGrid(){
-  const dt=teGridDate;
-  const isToday=dt===todayStr();
-  const canEdit=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
-  const unlocked=canEdit && teGridEditMode;
-  let emps=activeEmployeesForTE();
-  if(teGridSearch) emps=emps.filter(e=>(`${e.name} ${e.code} ${e.department||''}`).toLowerCase().includes(teGridSearch.toLowerCase()));
-  const rows=db.timeEntries[dt]||{};
-  return `<div class="panel">
-    <div class="panelHead">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('calendar')} Date
-          <input type="date" value="${dt}" onchange="teSetGridDate(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
-        </label>
-        ${!unlocked
-          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teToggleGridEdit()">${ico('pencil')} Edit</button>`
-          : `<button class="btn" onclick="teSaveGridChanges()">${ico('save')} Save</button>`}
-        ${!isToday?`<button class="btn secondary" onclick="teSetGridDate('${todayStr()}')">${ico('undo')} Today</button>`:''}
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input type="text" placeholder="Search employee…" value="${teGridSearch}" oninput="teSetGridSearch(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
-        <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button>
-      </div>
-    </div>
-    <h3 style="margin:0 0 12px;">${ico('calendar-days')} ${isToday?"Today's Time Entries":'Time Entries'} — ${fmtDate(dt)} <span style="font-weight:400;font-size:12px;color:var(--muted);">(auto-created for every active employee${unlocked?' · unlocked for editing':''} · click a name to open that employee's month)</span>
-      <span style="display:inline-flex;gap:12px;margin-left:14px;vertical-align:middle;">
-        <span style="font-size:11px;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:var(--te-in-bg);border:1px solid var(--te-in-border);display:inline-block;"></span>In Time</span>
-        <span style="font-size:11px;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:var(--te-out-bg);border:1px solid var(--te-out-border);display:inline-block;"></span>Out Time</span>
-      </span>
-    </h3>
-    <div class="tableScrollWrap"><table style="min-width:980px;width:100%;border-collapse:collapse;font-size:12.5px;">
-      <thead><tr style="text-align:center;color:var(--muted);">
-        <th style="padding:6px;">Sl No</th><th style="padding:6px;">Emp Code</th><th style="padding:6px;text-align:left;">Employee</th>
-        <th style="padding:6px;background:var(--te-in-bg);border-bottom:2px solid var(--te-in-border);" colspan="3">${ico('log-in')} In Time</th><th style="padding:6px;background:var(--te-out-bg);border-bottom:2px solid var(--te-out-border);" colspan="3">${ico('log-out')} Out Time</th>
-        <th style="padding:6px;">Shift</th><th style="padding:6px;">Working</th><th style="padding:6px;">Late</th><th style="padding:6px;">OT</th>
-      </tr></thead>
-      <tbody>
-      ${emps.map((e,idx)=>{
-        const leave=teGetLeave(dt, e.code);
-        const isHalfDay=leave && leave.type==='Half Day';
-        const entry=rows[e.code]||{inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
-        const c=teCompute(entry, dt);
-        const dis=unlocked?'':'disabled';
-        if(leave && !isHalfDay){
-          return `<tr style="border-top:1px solid var(--line);text-align:center;background:var(--accent-soft);">
-          <td style="padding:5px;color:var(--muted);">${idx+1}</td>
-          <td style="padding:5px;">${e.code}</td><td style="padding:5px;text-align:left;"><button type="button" class="teEmpLink" tabindex="-1" title="Open ${e.name}'s month in Employee-wise view" onclick="teOpenEmpWise('${e.code}','${dt}')">${e.name}</button></td>
-          <td style="padding:5px;" colspan="6"><span class="tag HalfDay" style="padding:2px 10px;">${ico('palm')} ${leave.type}${leave.remarks?' — '+leave.remarks:''}</span></td>
-          <td style="padding:5px;font-size:11px;color:var(--muted);">–</td>
-          <td style="padding:5px;color:var(--muted);">–</td>
-          <td style="padding:5px;color:var(--muted);">–</td>
-          <td style="padding:5px;color:var(--muted);">–</td>
-        </tr>`;
-        }
-        return `<tr style="border-top:1px solid var(--line);text-align:center;${isHalfDay?'background:var(--st-half-bg);':''}">
-          <td style="padding:5px;color:var(--muted);">${idx+1}</td>
-          <td style="padding:5px;">${e.code}</td><td style="padding:5px;text-align:left;"><button type="button" class="teEmpLink" tabindex="-1" title="Open ${e.name}'s month in Employee-wise view" onclick="teOpenEmpWise('${e.code}','${dt}')">${e.name}</button>${isHalfDay?` <span class="tag HalfDay" style="padding:1px 7px;font-size:10px;">${ico('contrast')} Half Day</span>`:''}</td>
-          <td style="padding:2px;background:var(--te-in-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','inH',this.value)" style="width:56px;border:1px solid var(--te-in-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="">HH</option>${teHourOpts(entry.inH)}</select></td>
-          <td style="padding:2px;background:var(--te-in-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','inM',this.value)" style="width:56px;border:1px solid var(--te-in-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="">MM</option>${teMinOpts(entry.inM)}</select></td>
-          <td style="padding:2px;background:var(--te-in-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','inAP',this.value)" style="width:56px;border:1px solid var(--te-in-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="AM" ${entry.inAP==='AM'?'selected':''}>AM</option><option value="PM" ${entry.inAP==='PM'?'selected':''}>PM</option></select></td>
-          <td style="padding:2px;background:var(--te-out-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','outH',this.value)" style="width:56px;border:1px solid var(--te-out-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="">HH</option>${teHourOpts(entry.outH)}</select></td>
-          <td style="padding:2px;background:var(--te-out-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','outM',this.value)" style="width:56px;border:1px solid var(--te-out-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="">MM</option>${teMinOpts(entry.outM)}</select></td>
-          <td style="padding:2px;background:var(--te-out-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','outAP',this.value)" style="width:56px;border:1px solid var(--te-out-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="AM" ${entry.outAP==='AM'?'selected':''}>AM</option><option value="PM" ${entry.outAP==='PM'?'selected':''}>PM</option></select></td>
-          <td style="padding:5px;font-size:11px;">${c.shift?c.shift.name.replace(' Shift',''):'–'}</td>
-          <td style="padding:5px;">${teFmtHM(c.working)}</td>
-          <td style="padding:5px;${c.late>0?'color:var(--warn);font-weight:600;':''}">${c.late>0?teFmtHM(c.late):'On time'}</td>
-          <td style="padding:5px;${c.ot>0?'color:var(--danger);font-weight:600;':''}">${teFmtHM(c.ot)}</td>
-        </tr>`;
-      }).join('')}
-      </tbody>
-    </table></div>
-    <p class="syncNote">${unlocked
-      ? 'The grid is unlocked — fill in In/Out time for any employee and it saves instantly. Click <b>Save</b> above once you\'re done to lock the grid again.'
-      : 'Click <b>'+ico('pencil')+' Edit</b> above to unlock this date\'s grid for entry. Use the Date Selector to jump to any date and continue logging entries for the whole roster in this same view.'} An employee with a booked <b>Loss of Pay</b> or <b>NOPL</b> Employee Leave for the day shows automatically as <b>${ico('palm')} On Leave</b> here — no separate time entry is needed for them. A booked <b>Half Day</b> still shows a row for logging the actual In/Out time worked that day.</p>
-  </div>`;
-}
-
 function renderTEEntryTab(){
   ensureTimeEntriesForDate(teGridDate);
   return `
-  ${renderTEQuickGrid()}
+  ${renderTEDateGrid()}
   ${renderTEDayList()}`;
 }
 
@@ -573,10 +501,12 @@ function renderTEDayList(){
       const emp=empMap[code]||{name:'(removed employee)',department:''};
       if(leave && leave.type!=='Half Day'){ onLeave.push({code,emp,leave}); return; }
       const entry=rows[code];
+      if(!entry || entry.inH==='' || entry.inH===undefined){ if(!leave) return; } // nothing entered yet
       const c=teCompute(entry, dt);
       const shiftName=c.shift?c.shift.name:'General Shift';
       (byShift[shiftName]||byShift['General Shift']).push({code,emp,entry,c,leave});
     });
+    if(!onLeave.length && Object.values(byShift).every(l=>!l.length)) return ''; // nothing entered on this date yet
     const holidayTag = teIsHolidayDate(dt) ? ` <span class="tag HalfDay" style="padding:1px 8px;font-size:11px;">Holiday · Full-day OT</span>` : '';
     return `<div class="panel teDayGroup">
       <div class="panelHead"><h4 style="margin:0;">${ico('calendar')} ${fmtDate(dt)}${holidayTag}</h4>
