@@ -42,7 +42,7 @@ function defaultDB(){
     users:[
       {username:'swadmin',name:'Software Administrator',role:'Software Admin'}
     ],
-    departments:['Accounts','HR','Admin','Sales','Marketing','Production','Design','Stores','Purchase','Management'],
+    departments:['Packing','Production','Quality Assurance','Housekeeping','Assembly','Dispatch','Stores'],
     employees:[],
     attendance:{}, // {date: {empCode: status}}
     payroll:{}, // {monthKey: {empCode: payrollRecord}}
@@ -149,6 +149,7 @@ async function initDB(){
   if(db.unit2Address===undefined) db.unit2Address='';
   // Designations list (Admin → Designations): created once from the designations already in use.
   if(!Array.isArray(db.designations)) db.designations=[...new Set((db.employees||[]).map(e=>String(e.designation||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  ensureDepartments(); // company departments + auto-removal of long-unused ones (09-departments.js)
   ensureContractors(); // db.contractors list — moves the old contractor-named units over (06c-contractors.js)
   ensureUnits(); // db.units list (see 06b-units.js)
   if(!Array.isArray(db.increments)) db.increments=[];
