@@ -313,6 +313,8 @@ function savePayrollConstants(){
   s.pfEmployerRate=+document.getElementById('s_pfEmployerRate').value||0.12;
   const tp=document.getElementById('s_canteenTokenPrice').value;
   s.canteenTokenPrice = tp==='' ? 150 : Math.max(0, +tp||0);
+  const lg=document.getElementById('s_lateGraceMinutes').value;
+  s.lateGraceMinutes = lg==='' ? 120 : Math.max(0, Math.round(+lg||0));
   saveDB(db);
   alert('Payroll constants saved.');
   render('payrollprocess');

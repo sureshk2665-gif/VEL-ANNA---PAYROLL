@@ -34,7 +34,9 @@ function cancelAttendanceEdit(){
       if(!db.attendance[dt]) db.attendance[dt]={};
       if(val) db.attendance[dt][attEmpCode]=val; else delete db.attendance[dt][attEmpCode];
     });
-    Object.assign(getAdj(attMonth, attEmpCode), attEditSnapshot.adj);
+    const a=getAdj(attMonth, attEmpCode);
+    Object.keys(a).forEach(k=>{ if(!(k in attEditSnapshot.adj)) delete a[k]; }); // e.g. a Late figure typed during this edit
+    Object.assign(a, attEditSnapshot.adj);
     saveDB(db);
   }
   attEditMode = false;
@@ -393,6 +395,27 @@ function setAdvanceAmount(code, val){
   a.advance = +val||0;
   saveDB(db);
 }
+// Late for the Attendance screen's employee/month (see lateDeductionFor in Payroll).
+function attLateInfo(emp){
+  return lateDeductionFor(emp, attMonth, dailyWageSplit(emp.dailyWage || ((emp.basic||0)+(emp.hra||0))).dailyWage);
+}
+function attLateTip(emp){
+  const l=attLateInfo(emp);
+  return `${l.minutes} min late − ${l.grace} min free = ${l.charged} min × ₹${(Math.round(l.perMinute*100)/100)}/min (Daily Wage ÷ 8 ÷ 60)`;
+}
+// Late minutes for one month: a typed number overrides Employee Time Entry's total; a blank box
+// goes back to the Time Entry figure.
+function setMonthlyLate(code, inp){
+  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
+  const a=getAdj(attMonth, code);
+  if(String(inp.value).trim()==='') delete a.lateMinutes;
+  else a.lateMinutes=Math.max(0, Math.round(+inp.value||0));
+  saveDB(db);
+  const emp=db.employees.find(x=>x.code===code); if(!emp) return;
+  inp.value=attLateInfo(emp).minutes;
+  const row=document.getElementById('attLateRow');
+  if(row){ row.title=attLateTip(emp); row.querySelector('b').textContent='₹'+attLateInfo(emp).amount; }
+}
 function setCanteenTokens(code, field, val){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   const a=getAdj(attMonth, code);
@@ -512,6 +535,7 @@ function renderAttendanceEmployee(){
       <h4>${ico('credit-card')} System-Calculated</h4>
       <div class="autoRow" title="${advTip}"><span>Scheduled Advance</span><b>₹${scheduledAdv}</b></div>
       <div class="autoRow" title="${monthTokens} token(s) × ₹${tokenPrice}"><span>Canteen Deduction</span><b>₹${canteenAmt}</b></div>
+      <div class="autoRow" id="attLateRow" title="${attLateTip(emp)}"><span>Late Deduction</span><b>₹${attLateInfo(emp).amount}</b></div>
     </div>
   </div>`;
 
@@ -529,6 +553,7 @@ function renderAttendanceEmployee(){
       <div class="attEntryField" title="Usual monthly tokens come from the Employee form (${+emp.canteenTokens||0}); change it here for this month only."><label>Canteen Tokens (₹${tokenPrice}/tkn)</label><input type="number" value="${monthTokens}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','canteenTokens',this.value)"></div>
       <div class="attEntryField"><label>Other Allowance (₹)</label><input type="number" value="${adj.otherAllowanceOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherAllowanceOneOff',this.value)"></div>
       <div class="attEntryField"><label>Other Deduction (₹)</label><input type="number" value="${adj.otherDedOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherDedOneOff',this.value)"></div>
+      <div class="attEntryField" title="Total Late this month from Employee Time Entry (${typeof teMonthLateMinutes==='function'?teMonthLateMinutes(attEmpCode, attMonth):0} min). Type a different number to use it for this month only; clear the box to go back to Time Entry. The first ${lateGraceMinutes()} minutes are free."><label>Late Minutes</label><input type="number" value="${attLateInfo(emp).minutes}" min="0" step="1" ${editable?'':'disabled'} onchange="setMonthlyLate('${attEmpCode}',this)"></div>
     </div>
   </div>`;
 

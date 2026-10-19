@@ -72,7 +72,7 @@ function printGeneralPayrollReport(){
   if(!rows.length){ alert('No payroll records for this month.'); return; }
   const sumOf=(key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
   const cols=Object.keys(rows[0]);
-  const totalCols=['Earnings','Deductions','ESI','PF','Canteen','NetSalary'];
+  const totalCols=['Earnings','Deductions','ESI','PF','Canteen','Late','NetSalary'];
   const totalsRow=cols.map((c,i)=> i===0 ? 'TOTAL' : (totalCols.includes(c) ? fmt(sumOf(c)) : ''));
   const tableHtml=`<table class="repTable"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
     ${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'&&/Salary/.test(c)?fmt(r[c]):r[c]}</td>`).join('')}</tr>`).join('')}
