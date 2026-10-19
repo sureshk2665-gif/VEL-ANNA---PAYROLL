@@ -4,7 +4,6 @@ import { callLegacy } from '../../legacyBridge.js';
 import { buildColumns, rowsFromGrid, validateRows } from './employeeColumns.js';
 import { buildTemplate, readEmployeeRows } from './excel.js';
 
-const TEMPLATE_FILE_NAME = 'VIPL-Employee-Import-Template.xlsx';
 
 const showDate = (iso) => (iso ? iso.split('-').reverse().join('-') : '');
 // What the person typed (so a row with a wrong department shows that value, not the default).
@@ -58,7 +57,7 @@ export default function BulkImportDialog() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = TEMPLATE_FILE_NAME;
+    a.download = `${ctx.filePrefix || 'Payroll'}-Employee-Import-Template.xlsx`;
     document.body.appendChild(a);
     a.click();
     a.remove();

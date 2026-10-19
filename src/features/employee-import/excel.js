@@ -20,7 +20,7 @@ const columnLetter = (n) => {
 export async function buildTemplate(columns, ctx = {}) {
   const ExcelJS = await loadExcelJS();
   const wb = new ExcelJS.Workbook();
-  wb.creator = ctx.companyName || 'VIPL Payroll';
+  wb.creator = ctx.companyName || 'Payroll';
   const ws = wb.addWorksheet(SHEET_NAME, { views: [{ state: 'frozen', ySplit: 1 }] });
   // Hidden sheet holding the dropdown lists (department names can be long or many).
   const lists = wb.addWorksheet('Lists', { state: 'hidden' });
@@ -118,7 +118,7 @@ export async function buildTemplate(columns, ctx = {}) {
 
   const help = wb.addWorksheet('Instructions');
   help.columns = [{ width: 30 }, { width: 90 }];
-  help.addRow([(ctx.companyName || 'VIPL Payroll') + ' — Employee Bulk Import']).font = { bold: true, size: 14 };
+  help.addRow([(ctx.companyName || 'Payroll') + ' — Employee Bulk Import']).font = { bold: true, size: 14 };
   help.addRow([]);
   [
     ['How to use', 'Fill one employee per row on the "Employees" sheet, starting from row 2. Do not change the header row (it is locked).'],
