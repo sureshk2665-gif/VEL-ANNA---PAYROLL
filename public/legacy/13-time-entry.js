@@ -1,13 +1,12 @@
 /* ================================================================================
-   EMPLOYEE TIME ENTRY — standalone sub-module.
+   EMPLOYEE TIME ENTRY — daily In / Out times, Employee Leave and holiday booking.
    ---------------------------------------------------------------------------------
-   INTENTIONALLY INDEPENDENT: this module reads/writes ONLY db.timeEntries and
-   db.timeHolidays (both defined in defaultDB() above). It never reads or writes
-   db.attendance, db.payroll, db.holidays, or any Payroll Process constant, and no
-   Payroll function (generatePayroll, computeWorkingDays, etc.) reads
-   db.timeEntries or db.timeHolidays. It exists purely for fast employee time entry,
-   on-screen viewing, and printing — it has NO effect on salary/payslip processing.
-   Do not wire this module into Payroll or Attendance without an explicit request.
+   Stores: db.timeEntries, db.timeLeaves, db.timeHolidays. This module never writes
+   db.attendance or db.payroll. Payroll reads it in two places:
+     - getAttStatus() (Attendance): a day not marked on the Attendance screen takes its
+       status from here — In Time entered = Present, Employee Leave = Loss of Pay / Half Day;
+     - lateMinutesFor() (Payroll): the month's Late minutes (teMonthLateMinutes).
+   db.timeHolidays (holiday OT here) is separate from the Payroll Holiday Calendar.
    ================================================================================ */
 let teTab='entry';                 // 'entry' (Date-wise) | 'empwise' (Employee-wise) | 'leave' | 'holiday' | 'summary'
 let teGridDate=todayStr();         // date currently selected in the Time Entries grid (defaults to today)
@@ -241,7 +240,7 @@ function renderTELeaveTab(){
   return `<div class="panel">
     <h3>${ico('palm')} Record Employee Leave</h3>
     ${!canEdit?`<p class="syncNote" style="color:var(--warn);">You have view-only access to this module.</p>`:''}
-    <p class="syncNote">Select the employee and enter their leave details for the chosen date. This is a standalone leave record kept in the Employee Time Entry module only — it is <b>not</b> read by Payroll and does not affect salary processing.</p>
+    <p class="syncNote">Select the employee and enter their leave details for the chosen date. A Loss of Pay or Half Day recorded here counts in Attendance and Payroll for that day, unless a different status is marked on the Attendance screen.</p>
     <div class="formGrid">
       <div><label>Date</label><input type="date" value="${teLeaveDate}" ${canEdit?'':'disabled'} onchange="teSetLeaveField('date',this.value)"></div>
       <div><label>Employee</label>
