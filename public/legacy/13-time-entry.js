@@ -5,7 +5,8 @@
    db.attendance or db.payroll. Payroll reads it in two places:
      - getAttStatus() (Attendance): a day not marked on the Attendance screen takes its
        status from here — In Time entered = Present, Employee Leave = Loss of Pay / Half Day;
-     - lateMinutesFor() (Payroll): the month's Late minutes (teMonthLateMinutes).
+     - lateMinutesFor() / otHoursFor() (Payroll): the month's Late minutes and OT hours
+       (teMonthLateMinutes / teMonthOTMinutes).
    db.timeHolidays (holiday OT here) is separate from the Payroll Holiday Calendar.
    ================================================================================ */
 let teTab='entry';                 // 'entry' (Date-wise) | 'empwise' (Employee-wise) | 'leave' | 'holiday' | 'summary'
@@ -119,13 +120,17 @@ function teCompute(entry, dateForRow){
 // Total Late (minutes) an employee has in a month on the Time Entry screens. Days on a full-day
 // leave don't count. Payroll uses this for the Late Deduction unless a different figure is typed
 // for that month on the Attendance screen.
-function teMonthLateMinutes(code, ym){
+function teMonthLateMinutes(code, ym){ return teMonthTotal(code, ym, 'late'); }
+// Total OT (minutes) in a month on the Time Entry screens — same days as Late. Sundays and booked
+// holidays count in full (teCompute). Payroll uses it for OT unless hours are typed on Attendance.
+function teMonthOTMinutes(code, ym){ return teMonthTotal(code, ym, 'ot'); }
+function teMonthTotal(code, ym, key){
   let total=0;
   Object.keys(db.timeEntries||{}).forEach(dt=>{
     if(!dt.startsWith(ym+'-')) return;
     const entry=db.timeEntries[dt][code]; if(!entry) return;
     const lv=teGetLeave(dt, code); if(lv && lv.type!=='Half Day') return;
-    total+=teCompute(entry, dt).late||0;
+    total+=teCompute(entry, dt)[key]||0;
   });
   return total;
 }
