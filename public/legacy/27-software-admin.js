@@ -32,10 +32,21 @@ function renderSoftwareAdmin(){
       <div><label>Phone</label><input id="s_companyPhone" value="${db.companyPhone||''}"></div>
       <div><label>Email</label><input id="s_companyEmail" value="${db.companyEmail||''}"></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:10px;">Unit details — used for unit-wise report sections.</p>
-    <div class="formGrid">
-      ${getUnits().map((u,i)=>`<div><label>${u.code} Name</label><input id="s_unitName_${i}" placeholder="(no name yet — shown as ${u.code})" value="${String(u.name||'').replace(/"/g,'&quot;')}"></div>
-      <div><label>${u.code} Address</label><input id="s_unitAddress_${i}" value="${String(u.address||'').replace(/"/g,'&quot;')}"></div>`).join('')}
+    <h4 style="margin:18px 0 4px;">Working Units</h4>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Edit a unit's name or address here and press Save — it changes everywhere the unit is shown (employee form and list, attendance, salary slips, acquittance register and reports). A unit can be deleted only while no employee (active, inactive or resigned) belongs to it.</p>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Unit</th><th>Name</th><th>Address (printed on salary slips)</th><th>Employees</th><th></th></tr></thead>
+      <tbody>
+      ${getUnits().map(u=>{ const n=unitEmployeeCount(u.code); return `<tr>
+        <td><b>${u.code}</b></td>
+        <td><input id="s_unitName_${u.code}" placeholder="(no name yet — shown as ${u.code})" value="${String(u.name||'').replace(/"/g,'&quot;')}"></td>
+        <td><input id="s_unitAddress_${u.code}" placeholder="(uses the Registered Address)" value="${String(u.address||'').replace(/"/g,'&quot;')}"></td>
+        <td>${n}</td>
+        <td class="rowActions"><button class="del" ${n?`disabled title="Move these ${n} employee(s) to another unit first"`:''} onclick="deleteWorkingUnit('${u.code}')">${ico('trash')} Delete</button></td>
+      </tr>`; }).join('')}
+      </tbody>
+    </table>
     </div>
     <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">${ico('plus')} Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
   </div>

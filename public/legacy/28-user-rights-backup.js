@@ -312,36 +312,55 @@ function savePayrollConstants(){
   alert('Payroll constants saved.');
   render('payrollprocess');
 }
-// Adds the next working unit (Unit-5, Unit-6, …). Existing units are never removed or renumbered.
+// Adds the next working unit (Unit-5, Unit-6, …). Existing units are never renumbered.
 function addWorkingUnit(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can add units.'); return; }
   const name=prompt('Name of the new working unit — leave blank to add the name later (save any other changes on this page first):');
   if(name===null) return;
-  ensureUnits();
+  readCompanySettingsForm(); // keep anything typed on the page
   const next=Math.max(0,...db.units.map(u=>+((String(u.code).match(/(\d+)$/)||[0,0])[1])))+1;
   db.units.push({code:'Unit-'+next, name:name.trim(), address:''});
+  db.removedUnits=(db.removedUnits||[]).filter(c=>c!=='Unit-'+next);
   saveDB(db);
   render('softwareadmin');
 }
-function saveCompanySettings(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can edit company details.'); return; }
-  db.companyName=document.getElementById('s_companyName').value;
-  db.companyAddress=document.getElementById('s_companyAddress').value;
-  db.companyGSTIN=document.getElementById('s_companyGSTIN').value;
-  db.companyPAN=document.getElementById('s_companyPAN').value;
-  db.companyCIN=document.getElementById('s_companyCIN').value;
-  db.companyPhone=document.getElementById('s_companyPhone').value;
-  db.companyEmail=document.getElementById('s_companyEmail').value;
-  ensureUnits();
-  db.units.forEach((u,i)=>{
-    const n=document.getElementById('s_unitName_'+i), a=document.getElementById('s_unitAddress_'+i);
-    if(n) u.name=n.value.trim(); // blank = no name yet (shown as just the unit number)
-    if(a) u.address=a.value;
-  });
+// Deletes a working unit that no employee belongs to (employee history must keep its unit).
+// Anything else typed on the page is kept and saved along with it.
+function deleteWorkingUnit(code){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete units.'); return; }
+  const n=unitEmployeeCount(code);
+  if(n){ alert(`${code} still has ${n} employee(s) (including inactive/resigned). Move them to another unit first — Employees → Edit → Working Unit.`); return; }
+  if(getUnits().length<=1){ alert('At least one working unit is needed.'); return; }
+  if(!confirm(`Delete ${unitLabel(code)}? It will no longer be offered anywhere.`)) return;
+  readCompanySettingsForm();
+  db.units=db.units.filter(u=>u.code!==code);
+  if(!Array.isArray(db.removedUnits)) db.removedUnits=[];
+  if(!db.removedUnits.includes(code)) db.removedUnits.push(code);
   syncLegacyUnitFields();
   saveDB(db);
+  render('softwareadmin');
+}
+// Copies the Company Details form (company fields + each unit's name/address) into db.
+function readCompanySettingsForm(){
+  const val=id=>{ const el=document.getElementById(id); return el ? el.value : null; };
+  [['companyName','s_companyName'],['companyAddress','s_companyAddress'],['companyGSTIN','s_companyGSTIN'],['companyPAN','s_companyPAN'],
+   ['companyCIN','s_companyCIN'],['companyPhone','s_companyPhone'],['companyEmail','s_companyEmail']].forEach(([k,id])=>{
+    const v=val(id); if(v!==null) db[k]=v;
+  });
+  ensureUnits();
+  db.units.forEach(u=>{
+    const n=val('s_unitName_'+u.code), a=val('s_unitAddress_'+u.code);
+    if(n!==null) u.name=n.trim(); // blank = no name yet (shown as just the unit number)
+    if(a!==null) u.address=a;
+  });
+  syncLegacyUnitFields();
+}
+function saveCompanySettings(){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can edit company details.'); return; }
+  readCompanySettingsForm();
+  saveDB(db);
   applyCompanyBranding();
-  alert('Saved.');
+  alert('Saved — the company and unit details now show everywhere.');
 }
 async function changePassword(){
   const cur=document.getElementById('s_curPass').value;
