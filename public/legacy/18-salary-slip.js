@@ -18,7 +18,7 @@ function openSlip(code, ym){
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;">${companyLogoImgHtml(36)}<h2 style="margin:0;font-size:24px;">${db.companyName||'YOUR COMPANY PVT LTD'}</h2></div>
       <p style="margin:2px 0;font-size:17px;">${unitAddress(e.unit)}</p>
     </div>
-    <p style="margin:4px 0;font-weight:600;font-size:19px;white-space:normal;overflow:visible;line-height:1.4;">EMP.CODE ${e.code} &nbsp;|&nbsp; ${e.name} &nbsp;|&nbsp; <span style="font-weight:400;">${e.designation||'-'}</span> &nbsp;|&nbsp; <span style="font-weight:400;font-size:14px;">${unitLabel(e.unit)}</span></p>
+    <p style="margin:4px 0;font-weight:600;font-size:19px;white-space:normal;overflow:visible;line-height:1.4;">EMP.CODE ${e.code} &nbsp;|&nbsp; ${e.name} &nbsp;|&nbsp; <span style="font-weight:400;">${e.designation||'-'}</span> &nbsp;|&nbsp; <span style="font-weight:400;font-size:14px;">${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</span></p>
     <table style="font-size:17px;margin-bottom:8px;">
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
@@ -77,7 +77,7 @@ function slipCardHTML(e, r, ym){
       <p>${unitAddress(e.unit)}</p>
       <p class="slipTitle">Salary Slip — ${monthLabel(ym)}</p>
     </div>
-    <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}</div>
+    <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</div>
     <table class="slipMeta">
       <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours}</td></tr>
       <tr><td>Days Worked ${r.presentPlusHalf}</td><td>NOPH ${r.noph}</td><td>NOPL Taken ${r.leaveDays}</td></tr>

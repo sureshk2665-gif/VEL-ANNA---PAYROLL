@@ -48,7 +48,24 @@ function renderSoftwareAdmin(){
       </tbody>
     </table>
     </div>
-    <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">${ico('plus')} Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
+    <h4 style="margin:22px 0 4px;">Contractors</h4>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Contractors supply employees; any contractor can supply employees to any unit. Rename a contractor here and press Save — it changes everywhere (employee form and list, salary slips, reports, Excel template). A contractor can be deleted only while no employee (active, inactive or resigned) was supplied by them.</p>
+    <div style="overflow-x:auto;">
+    <table>
+      <thead><tr><th>Code</th><th>Contractor Name</th><th>Address</th><th>Phone</th><th>Employees</th><th></th></tr></thead>
+      <tbody>
+      ${getContractors().map(c=>{ const n=contractorEmployeeCount(c.code); const v=x=>String(x||'').replace(/"/g,'&quot;'); return `<tr>
+        <td><b>${c.code}</b></td>
+        <td><input id="s_contractorName_${c.code}" value="${v(c.name)}"></td>
+        <td><input id="s_contractorAddress_${c.code}" value="${v(c.address)}"></td>
+        <td><input id="s_contractorPhone_${c.code}" value="${v(c.phone)}"></td>
+        <td>${n}</td>
+        <td class="rowActions"><button class="del" ${n?`disabled title="Move these ${n} employee(s) to another contractor first"`:''} onclick="deleteContractor('${c.code}')">${ico('trash')} Delete</button></td>
+      </tr>`; }).join('') || '<tr><td colspan="6" style="color:var(--muted);">No contractors yet.</td></tr>'}
+      </tbody>
+    </table>
+    </div>
+    <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">${ico('plus')} Add Unit</button><button class="btn secondary" onclick="addContractor()">${ico('plus')} Add Contractor</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
   </div>
   <div class="panel"><h3>${ico('file-spreadsheet')} Bulk Import Employees</h3>
     <p style="font-size:13px;color:var(--muted);">Add many new employees at once from an Excel file: download the template, fill one row per employee, then upload it. Rows are checked before anything is added. Bulk import is available only here; other users add employees one at a time from Employees → + Add Employee.</p>

@@ -1,5 +1,5 @@
 /* ================= EMPLOYEES ================= */
-let empFilter={search:'',dept:'',status:''};
+let empFilter={search:'',dept:'',status:'',unit:'',contractor:''};
 function renderEmployees(){
   const depts=db.departments;
   // Employee List (Active + Inactive): resigned employees are never shown here — they live
@@ -11,6 +11,8 @@ function renderEmployees(){
     if(empFilter.status && (e.status||'Active')!==empFilter.status) return false;
     if(empFilter.search && !(`${e.name} ${e.code}`.toLowerCase().includes(empFilter.search.toLowerCase()))) return false;
     if(empFilter.dept && e.department!==empFilter.dept) return false;
+    if(empFilter.unit && unitCodeOf(e.unit)!==empFilter.unit) return false;
+    if(empFilter.contractor && (e.contractor||'')!==(empFilter.contractor==='-'?'':empFilter.contractor)) return false;
     return true;
   });
   return `
@@ -19,6 +21,15 @@ function renderEmployees(){
     <select onchange="empFilter.dept=this.value;render('employees')">
       <option value="">All Departments</option>
       ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
+    </select>
+    <select onchange="empFilter.unit=this.value;render('employees')">
+      <option value="">All Units</option>
+      ${getUnits().map(u=>`<option value="${u.code}" ${empFilter.unit===u.code?'selected':''}>${unitDisplayName(u)}</option>`).join('')}
+    </select>
+    <select onchange="empFilter.contractor=this.value;render('employees')">
+      <option value="">All Contractors</option>
+      ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
+      <option value="-" ${empFilter.contractor==='-'?'selected':''}>No contractor</option>
     </select>
     <select onchange="empFilter.status=this.value;render('employees')">
       <option value="">Active &amp; Inactive</option>
@@ -29,11 +40,11 @@ function renderEmployees(){
   </div>
   <div class="panel">
     ${list.length? `<table><thead><tr>
-      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Mobile</th><th>Net Salary</th><th>Status</th><th>Actions</th>
+      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th>Mobile</th><th>Net Salary</th><th>Status</th><th>Actions</th>
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
         <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
-        <td>${unitLabel(e.unit)}</td>
+        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
         <td>${e.mobile||'-'}</td><td><b>${fmt(calcNet(e))}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
