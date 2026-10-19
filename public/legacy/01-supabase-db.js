@@ -147,7 +147,8 @@ async function initDB(){
   if(db.unit1Address===undefined) db.unit1Address='';
   if(db.unit2Name===undefined) db.unit2Name='';
   if(db.unit2Address===undefined) db.unit2Address='';
-  ensureUnits(); // db.units list — final unit names (see 06b-units.js)
+  ensureContractors(); // db.contractors list — moves the old contractor-named units over (06c-contractors.js)
+  ensureUnits(); // db.units list (see 06b-units.js)
   if(!Array.isArray(db.increments)) db.increments=[];
   if(!db.timeEntries || typeof db.timeEntries!=='object') db.timeEntries={};
   if(!Array.isArray(db.timeHolidays)) db.timeHolidays=[];

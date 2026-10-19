@@ -5,30 +5,26 @@
    are edited in Software Admin → Company Details. Older data had only unit1Name/unit2Name —
    initDB() builds db.units from those (see ensureUnits()).
 */
-// The company's units. Every unit is always shown WITH its number — "Unit-1 - SUN GROUP" — or
-// just "Unit-2" while it has no name yet (names are added later in Software Admin).
+// The company's units: plain numbered units (Unit-1, Unit-2, …). A unit is shown with its name
+// when the Software Admin gives it one ("Unit-1 - Main Plant"), otherwise just as "Unit-1".
+// Contractors are a separate list (06c-contractors.js).
 const DEFAULT_UNITS = [
-  {code:'Unit-1', name:'SUN GROUP', address:''},
+  {code:'Unit-1', name:'', address:''},
   {code:'Unit-2', name:'', address:''},
-  {code:'Unit-3', name:'JOY SHREE ENTERPRISES', address:''},
-  {code:'Unit-4', name:'S M S CONT', address:''},
+  {code:'Unit-3', name:'', address:''},
+  {code:'Unit-4', name:'', address:''},
   {code:'Unit-5', name:'', address:''},
   {code:'Unit-6', name:'', address:''}
 ];
-const UNITS_VERSION = 3;
-// Names given by earlier versions of this list (placeholders like "Unit-2", and the first
-// guesses JOY SHREE / SUN GROUP). They are replaced by the names above once — a name that was
+const UNITS_VERSION = 4;
+// Names given by earlier versions of this list — placeholders ("Unit-2") and the contractor names
+// that used to be stored as unit names (now in db.contractors). They are cleared once; a name
 // typed by hand in Software Admin is never changed.
-const UNIT_OLD_DEFAULT_NAMES = {
-  'Unit-1': ['Unit-1', ''],
-  'Unit-2': ['Unit-2'],
-  'Unit-3': ['JOY SHREE', 'Unit-3'],
-  'Unit-4': ['SUN GROUP', 'Unit-4'],
-  'Unit-5': ['Unit-5'],
-  'Unit-6': ['Unit-6']
-};
+const UNIT_OLD_DEFAULT_NAMES = ['UNIT1','UNIT2','UNIT3','UNIT4','UNIT5','UNIT6',
+  'SUNGROUP','JOYSHREE','JOYSHREEENTERPRISES','SMSCONT','SMSCONTRACTORS','MANOENTERPRISES'];
 // Makes sure db.units exists and contains every default unit (adds missing ones once, except
-// units the Software Admin deleted — db.removedUnits; never removes a unit itself, and only replaces the earlier default names once — see UNIT_OLD_DEFAULT_NAMES).
+// units the Software Admin deleted — db.removedUnits; never removes a unit itself, and only
+// clears the earlier default names once — see UNIT_OLD_DEFAULT_NAMES).
 // Keeps the old unit1/unit2 fields in step.
 function ensureUnits(){
   if(!Array.isArray(db.units)) db.units=[];
@@ -43,9 +39,7 @@ function ensureUnits(){
   db.units=db.units.filter(u=>u && u.code);
   if(!(db.unitsVersion>=UNITS_VERSION)){
     db.units.forEach(u=>{
-      const old=UNIT_OLD_DEFAULT_NAMES[u.code];
-      const final=DEFAULT_UNITS.find(d=>d.code===u.code);
-      if(old && final && old.includes(String(u.name||'').trim())) u.name=final.name;
+      if(UNIT_OLD_DEFAULT_NAMES.includes(String(u.name||'').toUpperCase().replace(/[^A-Z0-9]/g,''))) u.name='';
     });
     db.unitsVersion=UNITS_VERSION;
   }

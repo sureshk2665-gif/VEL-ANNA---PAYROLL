@@ -55,9 +55,13 @@ function employeeFields(){
     {key:'designation', label:'Designation', section:'basic', input:'text', width:18},
     {key:'empType', label:'Employment Type', section:'basic', input:'select', options:opts(['Full-Time','Part-Time','Contract']), width:15},
     {key:'unit', label:'Working Unit', section:'basic', input:'select',
-      // Import also accepts just the unit name ("SUN GROUP") or number ("Unit-1").
+      // Import also accepts just the unit name or number ("Unit-1").
       options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u), aliases:u.name?[u.name]:[]})),
       formValue:e=>unitCodeOf(e.unit), width:16},
+    // Who supplied the employee — independent of the unit (see 06c-contractors.js).
+    {key:'contractor', label:'Contractor', section:'basic', input:'select',
+      options:()=>[{value:'', label:'— None —'}, ...getContractors().map(c=>({value:c.code, label:c.name||c.code, aliases:[c.code]}))],
+      formValue:e=>e.contractor||'', width:22},
     // ---- Bank & Statutory Details ----
     {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},
     {key:'branch', label:'Branch', section:'bank', input:'text', width:16},

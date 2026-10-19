@@ -187,6 +187,10 @@ function restoreData(file){
         return;
       }
       db=incoming;
+      // Older backups pre-date the contractor list / numbered units — convert them like initDB().
+      ensureContractors();
+      ensureUnits();
+      await saveDB(db);
       applyCompanyBranding();
       alert('Data restored successfully and saved to the database.');
       render('softwareadmin');
@@ -354,6 +358,36 @@ function readCompanySettingsForm(){
     if(a!==null) u.address=a;
   });
   syncLegacyUnitFields();
+  getContractors().forEach(c=>{
+    const n=val('s_contractorName_'+c.code), a=val('s_contractorAddress_'+c.code), p=val('s_contractorPhone_'+c.code);
+    if(n!==null && n.trim()) c.name=n.trim(); // a contractor always keeps a name
+    if(a!==null) c.address=a;
+    if(p!==null) c.phone=p;
+  });
+}
+// Adds a contractor (C-5, C-6, …). Contractors are never renumbered.
+function addContractor(){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can add contractors.'); return; }
+  const name=prompt('Name of the new contractor:');
+  if(name===null) return;
+  if(!name.trim()){ alert('Please enter the contractor name.'); return; }
+  readCompanySettingsForm(); // keep anything typed on the page
+  if(!Array.isArray(db.contractors)) db.contractors=[];
+  const next=Math.max(0,...db.contractors.map(c=>+((String(c.code).match(/(\d+)$/)||[0,0])[1])))+1;
+  db.contractors.push({code:'C-'+next, name:name.trim(), address:'', phone:''});
+  saveDB(db);
+  render('softwareadmin');
+}
+// Deletes a contractor no employee was supplied by (employee history must keep its contractor).
+function deleteContractor(code){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete contractors.'); return; }
+  const n=contractorEmployeeCount(code);
+  if(n){ alert(`${contractorName(code)} still has ${n} employee(s) (including inactive/resigned). Move them to another contractor first — Employees → Edit → Contractor.`); return; }
+  if(!confirm(`Delete contractor ${contractorName(code)}? It will no longer be offered anywhere.`)) return;
+  readCompanySettingsForm();
+  db.contractors=getContractors().filter(c=>c.code!==code);
+  saveDB(db);
+  render('softwareadmin');
 }
 function saveCompanySettings(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can edit company details.'); return; }
