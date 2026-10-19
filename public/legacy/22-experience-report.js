@@ -17,7 +17,7 @@ function fyOptionsList(){
 }
 // Distinct designations typed against employees (designation is free text, not a fixed list).
 function designationOptionsList(){
-  return [...new Set(db.employees.map(e=>e.designation).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  return [...new Set([...designationList(), ...db.employees.map(e=>e.designation).filter(Boolean)])].sort((a,b)=>a.localeCompare(b));
 }
 // Completed years & months between two YYYY-MM-DD dates (fromDate up to asOfDate).
 function yearsMonthsBetween(fromDate, asOfDate){

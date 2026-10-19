@@ -147,6 +147,8 @@ async function initDB(){
   if(db.unit1Address===undefined) db.unit1Address='';
   if(db.unit2Name===undefined) db.unit2Name='';
   if(db.unit2Address===undefined) db.unit2Address='';
+  // Designations list (Admin → Designations): created once from the designations already in use.
+  if(!Array.isArray(db.designations)) db.designations=[...new Set((db.employees||[]).map(e=>String(e.designation||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
   ensureContractors(); // db.contractors list — moves the old contractor-named units over (06c-contractors.js)
   ensureUnits(); // db.units list (see 06b-units.js)
   if(!Array.isArray(db.increments)) db.increments=[];
