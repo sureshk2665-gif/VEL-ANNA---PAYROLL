@@ -120,6 +120,7 @@ function openBulkImport(){
 function employeeImportContext(){
   return {
     canAdd: isSoftwareAdmin(),
+    companyName: db.companyName||'',
     username: currentUser ? currentUser.username : '',
     departments: (db.departments||[]).slice(),
     fields: employeeSheetFields(),

@@ -27,14 +27,16 @@ const UNIT_OLD_DEFAULT_NAMES = {
   'Unit-5': ['Unit-5'],
   'Unit-6': ['Unit-6']
 };
-// Makes sure db.units exists and contains every default unit (adds missing ones once; never
-// removes a unit, and only replaces the earlier default names once — see UNIT_OLD_DEFAULT_NAMES).
+// Makes sure db.units exists and contains every default unit (adds missing ones once, except
+// units the Software Admin deleted — db.removedUnits; never removes a unit itself, and only replaces the earlier default names once — see UNIT_OLD_DEFAULT_NAMES).
 // Keeps the old unit1/unit2 fields in step.
 function ensureUnits(){
   if(!Array.isArray(db.units)) db.units=[];
   const legacy={'Unit-1':{name:db.unit1Name, address:db.unit1Address}, 'Unit-2':{name:db.unit2Name, address:db.unit2Address}};
+  if(!Array.isArray(db.removedUnits)) db.removedUnits=[];
   DEFAULT_UNITS.forEach(d=>{
     if(db.units.some(u=>u && u.code===d.code)) return;
+    if(db.removedUnits.includes(d.code)) return; // deleted in Software Admin — never re-add
     const old=legacy[d.code]||{};
     db.units.push({code:d.code, name:old.name||d.name, address:old.address||d.address});
   });
@@ -58,11 +60,17 @@ function syncLegacyUnitFields(){
 function getUnits(){
   return (Array.isArray(db.units) && db.units.length) ? db.units : DEFAULT_UNITS;
 }
-// The unit code an employee (or a stored code) belongs to — unknown/blank falls back to Unit-1,
-// as it always has.
+// The unit code an employee (or a stored code) belongs to — unknown/blank falls back to Unit-1
+// (or the first unit, if Unit-1 was deleted), as it always has.
 function unitCodeOf(unit){
   const code = unit && typeof unit==='object' ? unit.unit : unit;
-  return getUnits().some(u=>u.code===code) ? code : 'Unit-1';
+  const units=getUnits();
+  if(units.some(u=>u.code===code)) return code;
+  return units.some(u=>u.code==='Unit-1') ? 'Unit-1' : units[0].code;
+}
+// How many employees (any status — active, inactive or resigned) belong to a unit.
+function unitEmployeeCount(code){
+  return (db.employees||[]).filter(e=>unitCodeOf(e.unit)===code).length;
 }
 // "Unit-1 - SUN GROUP", or just "Unit-2" while the unit has no name. Used everywhere a unit is
 // shown: form and template dropdowns, employee list, slips, registers and reports.
