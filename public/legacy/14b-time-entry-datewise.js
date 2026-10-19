@@ -307,6 +307,6 @@ function renderTEDateGrid(){
       </tr></thead>
       <tbody>${emps.map((e,i)=>teDwRowHtml(e,i,dt,unlocked)).join('') || `<tr><td colspan="14"><div class="empty">${teFilterText()?'No active employees in '+teEsc(teFilterText())+'.':'No active employees.'}</div></td></tr>`}</tbody>
     </table></div>
-    <p class="syncNote">Shifts: <b>First</b> 7:00 AM – 3:30 PM · <b>General</b> 9:00 AM – 5:30 PM · <b>Second</b> 3:30 PM – 12:00 AM (8 working hours + 30-minute break; time beyond that is OT). Sundays and booked holidays count as full-day OT. Setting <b>Attendance</b> to Loss of Pay, Half Day or NOPL records an Employee Leave; set it back to <b>Auto</b> to remove it. This is the same data as the Employee-wise view.</p>
+    <p class="syncNote">Shifts: <b>First</b> 7:00 AM – 3:30 PM · <b>General</b> 9:00 AM – 5:30 PM · <b>Second</b> 3:30 PM – 12:00 AM (8 working hours + 30-minute break; time beyond that is OT). Sundays and booked holidays count as full-day OT. Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave; set it back to <b>Auto</b> to remove it. This is the same data as the Employee-wise view.</p>
   </div>`;
 }

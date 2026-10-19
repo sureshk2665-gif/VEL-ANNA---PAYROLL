@@ -45,9 +45,8 @@ function computePayrollForEmployee(e, ym){
   const adj = getAdj(ym, e.code);
   const attSum = attendanceSummary(e.code, ym);
   const lopDays = adj.lopOverride!==null ? adj.lopOverride : attSum.lopEquivalent;
-  const noplTaken = attSum.leave;
   // DAILY WAGE payroll (as in the company's model sheet):
-  //   Paid days  = Present + Half Day × 0.5 + NOPL (paid leave) + Holidays (NOPH) while on the roll
+  //   Paid days  = Present + Half Day × 0.5 + Holidays (NOPH) while on the roll (no paid leave / NOPL)
   //   Basic      = Basic/day × Paid days        HRA = HRA/day × Paid days
   //   OT         = OT rate/hr (Daily Wage ÷ 8 × 1.5) × OT hours
   //   GROSS      = Basic + OT                    Total Earnings = GROSS + HRA (+ one-off allowance)
@@ -57,7 +56,7 @@ function computePayrollForEmployee(e, ym){
     const ds=dateStr(ym,d);
     if(!isSunday(ym,d) && getHolidayType(ds)==='NOPH' && isEmpOnRollOn(e, ds)) holidaysPaid++;
   }
-  const workedDays = attSum.present + attSum.halfDay*0.5 + noplTaken;
+  const workedDays = attSum.present + attSum.halfDay*0.5;
   const daysWorking = Math.max(0, workedDays + holidaysPaid);
   const wage = dailyWageSplit(e.dailyWage || ((e.basic||0)+(e.hra||0)));
 

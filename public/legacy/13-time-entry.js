@@ -16,7 +16,7 @@ let teCalMonth=monthKey(todayStr());
 let teSummaryMonth=monthKey(todayStr()); // month shown in the Attendance & OT Summary tab
 let teSelHolDate=null;
 let teHolRemarks='';
-const TE_LEAVE_TYPES=['Loss of Pay','Half Day','NOPL'];
+const TE_LEAVE_TYPES=['Loss of Pay','Half Day']; // no NOPL (paid leave)
 let teLeaveDate=todayStr();
 let teLeaveEmp='';
 let teLeaveType=TE_LEAVE_TYPES[0];
@@ -89,7 +89,8 @@ function teIsHolidayDate(dateStr2){
 // time entry is needed on that date once leave is booked. Reads db.timeLeaves only
 // (this module's own store); never touches db.attendance/db.payroll.
 function teGetLeave(dateStr2, code){
-  return (db.timeLeaves||[]).find(l=>l.date===dateStr2 && l.empCode===code) || null;
+  const l=(db.timeLeaves||[]).find(l=>l.date===dateStr2 && l.empCode===code) || null;
+  return l && l.type==='NOPL' ? {...l, type:'Loss of Pay'} : l; // NOPL was removed — old records read as Loss of Pay
 }
 function teCompute(entry, dateForRow){
   const inMin=teTimeToMinutes(entry.inH,entry.inM,entry.inAP);
@@ -195,7 +196,7 @@ function renderTEFilterBar(){
   </div>`;
 }
 /* ---------------- Employee Leave (this module's own leave log — separate from any
-   Payroll leave/NOPL logic; purely a record of who is on leave and why). ---------------- */
+   Payroll leave logic; purely a record of who is on leave and why). ---------------- */
 function teSetLeaveField(field,val){
   if(field==='date') teLeaveDate=val;
   else if(field==='emp') teLeaveEmp=val;
@@ -225,7 +226,7 @@ function printTELeaveDay(dt){
   if(!list.length){ alert('No leave records for this date.'); return; }
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   const rows=list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)',department:''};
-    return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td><td>${l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td></tr>`; }).join('');
+    return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td><td>${l.type==='NOPL'?'Loss of Pay':l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td></tr>`; }).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Leave Type</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table>`;
   openPrintWindow(`Employee Leave — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
 }
@@ -240,7 +241,7 @@ function renderTELeaveTab(){
   return `<div class="panel">
     <h3>${ico('palm')} Record Employee Leave</h3>
     ${!canEdit?`<p class="syncNote" style="color:var(--warn);">You have view-only access to this module.</p>`:''}
-    <p class="syncNote">Select the employee and enter their leave details for the chosen date. This is a standalone leave record kept in the Employee Time Entry module only — it is <b>not</b> read by Payroll/NOPL and does not affect salary processing.</p>
+    <p class="syncNote">Select the employee and enter their leave details for the chosen date. This is a standalone leave record kept in the Employee Time Entry module only — it is <b>not</b> read by Payroll and does not affect salary processing.</p>
     <div class="formGrid">
       <div><label>Date</label><input type="date" value="${teLeaveDate}" ${canEdit?'':'disabled'} onchange="teSetLeaveField('date',this.value)"></div>
       <div><label>Employee</label>
@@ -264,7 +265,7 @@ function renderTELeaveTab(){
       <div class="panelHead"><h4 style="margin:0;">${ico('palm')} ${fmtDate(dt)}</h4><button class="btn secondary" onclick="printTELeaveDay('${dt}')">${ico('printer')} Print</button></div>
       <div class="teShiftBox"><table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th>${canDel?'<th></th>':''}</tr></thead>
       <tbody>${list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)'};
-        return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td>
+        return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${l.type==='NOPL'?'Loss of Pay':l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td>
         ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteLeave('${dt}','${l.empCode}')">${ico('x')}</button></td>`:''}</tr>`; }).join('')}</tbody></table></div>
     </div>`;
   }).join('')}`;

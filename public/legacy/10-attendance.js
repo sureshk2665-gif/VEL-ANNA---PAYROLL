@@ -54,7 +54,7 @@ function shiftAttDate(delta){
 function setAttDate(v){ attDate=v; attMonth=monthKey(v); render('attendance'); }
 function goAttToday(){ attDate=todayStr(); attMonth=monthKey(attDate); render('attendance'); }
 function toggleAttCompact(){ attCompact=!attCompact; render('attendance'); }
-const QUICK_STATUS = ['Present','HalfDay','LossOfPay','PaidLeave'];
+const QUICK_STATUS = ['Present','HalfDay','LossOfPay'];
 function daysInMonth(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); }
 // NOWD — Number Of Working Days is always auto-calculated per payroll month:
 // Total Days in the month − Sundays in the month. There is no manual entry for this figure.
@@ -103,7 +103,8 @@ function removeHolidayDate(dateVal){
 function getAttStatus(date, code){
   const t=getHolidayType(date);
   if(t) return t;
-  return db.attendance[date]?.[code] || '';
+  const s=db.attendance[date]?.[code] || '';
+  return s==='PaidLeave' ? 'LossOfPay' : s; // NOPL (paid leave) was removed — any old NOPL mark counts as Loss Of Pay
 }
 
 function attendanceSummary(code, ym){
@@ -118,7 +119,6 @@ function attendanceSummary(code, ym){
     if(!s) continue;
     marked++;
     if(s==='Present') present++;
-    else if(s==='PaidLeave') leave++;
     else if(s==='NOPH') noph++;
     else if(s==='HalfDay') halfDay++;
     else if(s==='LossOfPay') lop++;
@@ -129,21 +129,6 @@ function attendanceSummary(code, ym){
 }
 // Kept for payroll compatibility — LOP-equivalent days derived straight from Attendance data.
 function attendanceLopCount(code, ym){ return attendanceSummary(code, ym).lopEquivalent; }
-// Total NOPL (Paid Leave) days marked in Attendance for an employee,
-// from the beginning of all recorded attendance up to and including the given month — this
-// links Paid Leave entered in Attendance to the NOPL Balance shown on the Salary Slip.
-function noplUsedUpto(code, ym){
-  let total=0;
-  Object.keys(db.attendance).forEach(dateKey=>{
-    if(dateKey.slice(0,7) <= ym){
-      // Use getAttStatus (not the raw stored value) so a date later added to the Holiday
-      // Calendar as NOPH is correctly excluded here too, matching payroll's NOPL Taken figure.
-      const s=getAttStatus(dateKey, code);
-      if(s==='PaidLeave') total++;
-    }
-  });
-  return total;
-}
 
 function attTabsInline(){
   return `<div class="attTabsInline">
@@ -525,7 +510,6 @@ function renderAttendanceEmployee(){
       <div class="attSumGrid">
         <div class="sk">Present Days</div><div class="sv">${sum.present}</div>
         <div class="sk">Absent Days</div><div class="sv">${sum.absent}</div>
-        <div class="sk">NOPL Days</div><div class="sv">${sum.leave}</div>
         <div class="sk">NOPH Days</div><div class="sv">${sum.nophDays}</div>
         <div class="sk">Half Days</div><div class="sv">${sum.halfDay}</div>
         <div class="sk totalRow">Total Payable Days</div><div class="sv totalRow">${sum.payableDays}</div>
@@ -584,7 +568,7 @@ function renderAttendanceGrid(){
         <tr>
           <th class="empHead">Employee</th>
           ${dayCols.map(d=>`<th class="${isSunday(attMonth,d)?'sun':''} ${isHolidayDate(dateStr(attMonth,d))?'holiday':''}" title="${isHolidayDate(dateStr(attMonth,d))?'NOPH':''}">${d}<br><span style="font-weight:400;">${weekdayShort(attMonth,d)}</span></th>`).join('')}
-          <th class="sumHead">Pres</th><th class="sumHead">Leave</th><th class="sumHead">Hol</th><th class="sumHead">Half</th><th class="sumHead">LOP</th><th class="sumHead">OT</th>
+          <th class="sumHead">Pres</th><th class="sumHead">Hol</th><th class="sumHead">Half</th><th class="sumHead">LOP</th><th class="sumHead">OT</th>
         </tr>
       </thead>
       <tbody>
@@ -613,13 +597,12 @@ function renderAttendanceGrid(){
               </td>`;
             }).join('')}
             <td class="sumCell">${sum.present}</td>
-            <td class="sumCell">${sum.leave}</td>
             <td class="sumCell">${sum.holiday}</td>
             <td class="sumCell">${sum.halfDay}</td>
             <td class="sumCell">${sum.lop}</td>
             <td><input type="number" class="otInput" style="width:100%;height:20px;font-size:9px;" value="${otVal}" min="0" step="0.5" ${hasPerm('attendance','edit')?'':'disabled'} onchange="setMonthlyOT('${e.code}',+this.value)"></td>
           </tr>`;
-        }).join('') : `<tr><td colspan="${dayCols.length+7}" style="text-align:center;padding:12px;color:var(--muted);">No employees match your search.</td></tr>`}
+        }).join('') : `<tr><td colspan="${dayCols.length+6}" style="text-align:center;padding:12px;color:var(--muted);">No employees match your search.</td></tr>`}
       </tbody>
       <tfoot>
         <tr>
@@ -632,12 +615,12 @@ function renderAttendanceGrid(){
               ${QUICK_STATUS.map(s=>`<option value="${s}">${STATUS_LABEL[s].slice(0,3)}</option>`).join('')}
             </select></td>`;
           }).join('')}
-          <td colspan="7"></td>
+          <td colspan="5"></td>
         </tr>
       </tfoot>
     </table>
     </div>
-    <p class="syncNote">Changes save instantly and flow straight into Payroll — working days, leave, holidays, half-days and LOP are calculated automatically from this grid, and OT hours entered here are used directly in salary processing. No need to re-enter attendance data on the Payroll page. Untick "Fit all days on screen" for a wider, easier-to-read scrollable view.</p>
+    <p class="syncNote">Changes save instantly and flow straight into Payroll — working days, holidays, half-days and LOP are calculated automatically from this grid, and OT hours entered here are used directly in salary processing. No need to re-enter attendance data on the Payroll page. Untick "Fit all days on screen" for a wider, easier-to-read scrollable view.</p>
     `}
   </div>`;
 }
