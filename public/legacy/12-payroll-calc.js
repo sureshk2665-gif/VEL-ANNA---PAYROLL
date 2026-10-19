@@ -70,7 +70,7 @@ function computePayrollForEmployee(e, ym){
   // is due this month (stops automatically once the full advance has been recovered).
   const advance = scheduledAdvanceDeduction(e.code, ym);
   const otherDed = adj.otherDedOneOff||0; // one-off, entered on the Attendance screen
-  const deductionsTotal = esi+tax+canteen+advance+otherDed;
+  const deductionsTotal = pf+esi+tax+canteen+advance+otherDed; // PF (employee share) is deducted from salary
   const netSalary = Math.max(0, earningsTotal - deductionsTotal);
 
   return {

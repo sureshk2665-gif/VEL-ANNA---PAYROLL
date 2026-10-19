@@ -72,7 +72,7 @@ function printGeneralPayrollReport(){
   if(!rows.length){ alert('No payroll records for this month.'); return; }
   const sumOf=(key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
   const cols=Object.keys(rows[0]);
-  const totalCols=['Earnings','Deductions','ESI','Canteen','NetSalary'];
+  const totalCols=['Earnings','Deductions','ESI','PF','Canteen','NetSalary'];
   const totalsRow=cols.map((c,i)=> i===0 ? 'TOTAL' : (totalCols.includes(c) ? fmt(sumOf(c)) : ''));
   const tableHtml=`<table class="repTable"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
     ${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'&&/Salary/.test(c)?fmt(r[c]):r[c]}</td>`).join('')}</tr>`).join('')}
@@ -214,10 +214,10 @@ function printPayrollReport(by){
 function modeSectionRowsHTML(rows, startSn){
   let sn=startSn;
   return rows.map(r=>{
-    const otherDed=(r.Deductions||0)-(r.ESI||0)-(r.Canteen||0);
+    const otherDed=(r.Deductions||0)-(r.ESI||0)-(r.PF||0)-(r.Canteen||0);
     return `<tr>
       <td>${sn++}</td><td>${r.Code}</td><td>${r.Name}</td><td>${r.UnitCode||r.WorkingUnit}</td>
-      <td>${fmt(r.Earnings)}</td><td>${fmt(r.ESI||0)}</td><td>${fmt(r.Canteen||0)}</td><td>${fmt(otherDed)}</td><td>${fmt(r.Deductions)}</td><td>${r.LOP}</td><td>${r.DaysWorked}</td>
+      <td>${fmt(r.Earnings)}</td><td>${fmt(r.ESI||0)}</td><td>${fmt(r.PF||0)}</td><td>${fmt(r.Canteen||0)}</td><td>${fmt(otherDed)}</td><td>${fmt(r.Deductions)}</td><td>${r.LOP}</td><td>${r.DaysWorked}</td>
       <td class="netCell">${fmt(r.NetSalary)}</td>
     </tr>`;}).join('');
 }
@@ -236,18 +236,18 @@ function printModeWiseReport(){
     <h3 class="unitTitle">${title} <span class="cnt">(${rows.length} employee${rows.length>1?'s':''})</span></h3>
     <table class="repTable">
       <colgroup>
-        <col style="width:3%"><col style="width:7%"><col style="width:16%"><col style="width:9%"><col style="width:9%"><col style="width:8%"><col style="width:8%"><col style="width:8%"><col style="width:9%"><col style="width:4%"><col style="width:7%"><col style="width:12%">
+        <col style="width:3%"><col style="width:7%"><col style="width:14%"><col style="width:8%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:8%"><col style="width:9%"><col style="width:4%"><col style="width:6%"><col style="width:10%">
       </colgroup>
-      <thead><tr><th>S.No</th><th>Code</th><th>Name</th><th>Working Unit</th><th>Gross Salary</th><th>ESI</th><th>Canteen</th><th>Other Ded.</th><th>Total Ded.</th><th>LOP</th><th>Days Worked</th><th>Net Pay</th></tr></thead>
+      <thead><tr><th>S.No</th><th>Code</th><th>Name</th><th>Working Unit</th><th>Gross Salary</th><th>ESI</th><th>PF</th><th>Canteen</th><th>Other Ded.</th><th>Total Ded.</th><th>LOP</th><th>Days Worked</th><th>Net Pay</th></tr></thead>
       <tbody>${modeSectionRowsHTML(rows,1)}
-        <tr class="subtotal"><td colspan="4">Sub Total — ${title}</td><td>${fmt(sumOf(rows,'Earnings'))}</td><td>${fmt(sumOf(rows,'ESI'))}</td><td>${fmt(sumOf(rows,'Canteen'))}</td><td>${fmt(sumOf(rows,'Deductions')-sumOf(rows,'ESI')-sumOf(rows,'Canteen'))}</td><td>${fmt(sumOf(rows,'Deductions'))}</td><td></td><td></td><td class="netPayTotal">${fmt(sumOf(rows,'NetSalary'))}</td></tr>
+        <tr class="subtotal"><td colspan="4">Sub Total — ${title}</td><td>${fmt(sumOf(rows,'Earnings'))}</td><td>${fmt(sumOf(rows,'ESI'))}</td><td>${fmt(sumOf(rows,'PF'))}</td><td>${fmt(sumOf(rows,'Canteen'))}</td><td>${fmt(sumOf(rows,'Deductions')-sumOf(rows,'ESI')-sumOf(rows,'PF')-sumOf(rows,'Canteen'))}</td><td>${fmt(sumOf(rows,'Deductions'))}</td><td></td><td></td><td class="netPayTotal">${fmt(sumOf(rows,'NetSalary'))}</td></tr>
       </tbody>
     </table>
     </div>`;
   };
   const grandNet=sumOf(allRows,'NetSalary'), grandEarn=sumOf(allRows,'Earnings'), grandDed=sumOf(allRows,'Deductions');
-  const grandESI=sumOf(allRows,'ESI'), grandCanteen=sumOf(allRows,'Canteen');
-  const grandOtherDed=grandDed-grandESI-grandCanteen;
+  const grandESI=sumOf(allRows,'ESI'), grandPF=sumOf(allRows,'PF'), grandCanteen=sumOf(allRows,'Canteen');
+  const grandOtherDed=grandDed-grandESI-grandPF-grandCanteen;
   const overallSummaryHTML=`
     <table class="modeTable">
       <thead><tr><th>Mode of Payment</th>${modesPresent.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
@@ -261,8 +261,9 @@ function printModeWiseReport(){
       <tbody>
         <tr><td>Total Gross Salary</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'Earnings'))}</td>`).join('')}<td>${fmt(grandEarn)}</td></tr>
         <tr><td>Total ESI Deductions</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'ESI'))}</td>`).join('')}<td>${fmt(grandESI)}</td></tr>
+        <tr><td>Total PF Deductions</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'PF'))}</td>`).join('')}<td>${fmt(grandPF)}</td></tr>
         <tr><td>Total Canteen Deductions</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'Canteen'))}</td>`).join('')}<td>${fmt(grandCanteen)}</td></tr>
-        <tr><td>Other Deductions</td>${modesPresent.map(m=>{const rr=allRows.filter(r=>(r.PaymentMode||'-')===m);const od=sumOf(rr,'Deductions')-sumOf(rr,'ESI')-sumOf(rr,'Canteen');return `<td>${fmt(od)}</td>`;}).join('')}<td>${fmt(grandOtherDed)}</td></tr>
+        <tr><td>Other Deductions</td>${modesPresent.map(m=>{const rr=allRows.filter(r=>(r.PaymentMode||'-')===m);const od=sumOf(rr,'Deductions')-sumOf(rr,'ESI')-sumOf(rr,'PF')-sumOf(rr,'Canteen');return `<td>${fmt(od)}</td>`;}).join('')}<td>${fmt(grandOtherDed)}</td></tr>
         <tr><td>Sub Total (Total Deductions)</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'Deductions'))}</td>`).join('')}<td>${fmt(grandDed)}</td></tr>
         <tr><td>Total Net Salary Paid</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'NetSalary'))}</td>`).join('')}<td>${fmt(grandNet)}</td></tr>
       </tbody>
