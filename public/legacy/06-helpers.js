@@ -31,6 +31,8 @@ function isEmpOnRollOn(e, dateStr){
   if(e.employmentHistory && e.employmentHistory.some(h=>h.joinDate && h.resignDate && dateStr>=h.joinDate && dateStr<=h.resignDate)) return true;
   // Current stint.
   if(e.joining && dateStr<e.joining) return false;
+  // Inactive: on the roll up to the day before Inactive From (kept for history, never deleted).
+  if(e.status==='Inactive' && e.inactiveFrom) return dateStr < e.inactiveFrom;
   if(e.status!=='Resigned') return true;
   if(!e.resignationDate) return true;
   return dateStr <= e.resignationDate;
@@ -38,6 +40,7 @@ function isEmpOnRollOn(e, dateStr){
 function isEmpOnRollInMonth(e, ym){
   if(e.employmentHistory && e.employmentHistory.some(h=>h.joinDate && h.resignDate && ym>=monthKey(h.joinDate) && ym<=monthKey(h.resignDate))) return true;
   if(e.joining && ym<monthKey(e.joining)) return false;
+  if(e.status==='Inactive' && e.inactiveFrom) return ym <= monthKey(e.inactiveFrom);
   if(e.status!=='Resigned') return true;
   if(!e.resignationDate) return true;
   return ym <= monthKey(e.resignationDate);

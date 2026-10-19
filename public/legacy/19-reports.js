@@ -170,6 +170,7 @@ function renderReportDetail(key){
         <label style="font-size:12px;color:var(--muted);">Employee Status
           <select onchange="expStatus=this.value;render('reports')">
             <option value="Active" ${expStatus==='Active'?'selected':''}>Active</option>
+            <option value="Inactive" ${expStatus==='Inactive'?'selected':''}>Inactive</option>
             <option value="Resigned" ${expStatus==='Resigned'?'selected':''}>Resigned</option>
             <option value="All" ${expStatus==='All'?'selected':''}>All</option>
           </select>
