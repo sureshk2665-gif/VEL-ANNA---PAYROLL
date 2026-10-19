@@ -89,14 +89,21 @@ function unitSectionRowsHTML(rows, startSn){
       <td class="netCell">${fmt(r.NetSalary)}</td>
     </tr>`).join('');
 }
-function printPayrollReport(){
+// Unit-wise (by='unit', default) or Contractor-wise (by='contractor') payroll report.
+function printPayrollReport(by){
   if(!hasPerm('reports','print')){ alert('You do not have permission to print reports.'); return; }
   const rec=db.payroll[payMonth];
   if(!rec){ alert('Generate payroll first.'); return; }
   const allRows=payrollReportRows();
   if(!allRows.length){ alert('No payroll records for this month.'); return; }
-  // One section per working unit (see getUnits() in 06b-units.js).
-  const unitSections=getUnits().map(u=>({u, rows:allRows.filter(r=>r.UnitCode ? r.UnitCode===u.code : r.WorkingUnit===unitLabel(u.code))}));
+  // One section per working unit (see getUnits() in 06b-units.js), or per contractor
+  // (06c-contractors.js; employees without one get a "No Contractor" section).
+  const byContractor = by==='contractor';
+  const contractorOf=r=>((db.employees.find(e=>e.code===r.Code)||{}).contractor)||'';
+  const sections = byContractor
+    ? [...getContractors().map(c=>({title:(c.name||c.code)+(c.address?(' — '+c.address):''), rows:allRows.filter(r=>contractorOf(r)===c.code)})),
+       {title:'No Contractor', rows:allRows.filter(r=>!getContractors().some(c=>c.code===contractorOf(r)))}].filter(s=>s.rows.length || s.title!=='No Contractor')
+    : getUnits().map(u=>({title:unitDisplayName(u)+(u.address?(' — '+u.address):''), rows:allRows.filter(r=>r.UnitCode ? r.UnitCode===u.code : r.WorkingUnit===unitLabel(u.code))}));
   const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(r[key]||0),0);
   const MODES=['NEFT','TRANSFER','CASH','CHEQUE'];
   const modeSummaryHTML=(rows)=>{
@@ -112,7 +119,7 @@ function printPayrollReport(){
     </table>`;
   };
   const unitTableHTML=(title, rows)=>{
-    if(!rows.length) return `<div class="reportSection"><h3 class="unitTitle">${title}</h3><p class="noRows">No employees currently working in this unit.</p></div>`;
+    if(!rows.length) return `<div class="reportSection"><h3 class="unitTitle">${title}</h3><p class="noRows">No employees currently ${byContractor?'supplied by this contractor':'working in this unit'}.</p></div>`;
     return `
     <div class="reportSection">
     <h3 class="unitTitle">${title} <span class="cnt">(${rows.length} employee${rows.length>1?'s':''})</span></h3>
@@ -185,10 +192,10 @@ function printPayrollReport(){
       ${db.companyGSTIN?('GSTIN: '+db.companyGSTIN+' &nbsp;|&nbsp; '):''}${db.companyPAN?('PAN: '+db.companyPAN+' &nbsp;|&nbsp; '):''}${db.companyCIN?('CIN: '+db.companyCIN+' &nbsp;|&nbsp; '):''}${db.companyPhone?('Ph: '+db.companyPhone+' &nbsp;|&nbsp; '):''}${db.companyEmail?('Email: '+db.companyEmail):''}
     </p>
   </div>
-  <div class="reportTitle">Payroll / Salary Report<span>For the month of ${monthLabel(payMonth)}</span></div>
+  <div class="reportTitle">${byContractor?'Contractor-wise ':''}Payroll / Salary Report<span>For the month of ${monthLabel(payMonth)}</span></div>
   </td></tr></thead>
   <tbody><tr><td>
-  ${unitSections.map(s=>unitTableHTML(unitDisplayName(s.u)+(s.u.address?(' — '+s.u.address):''), s.rows)).join('\n  ')}
+  ${sections.map(s=>unitTableHTML(s.title, s.rows)).join('\n  ')}
   <div class="grandTotalBox">
     <span>Total Employees: <b>${allRows.length}</b></span>
     <span>Total Earnings: <b>${fmt(grandEarn)}</b></span>

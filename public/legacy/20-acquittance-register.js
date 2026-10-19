@@ -1,11 +1,15 @@
-/* ================= SALARY ACQUITTANCE REGISTER (Unit-wise, paginated) =================
+/* ================= SALARY ACQUITTANCE REGISTER (Unit-wise / Contractor-wise, paginated) =================
    A4 Landscape register for physical salary acknowledgement. Hard limit of
-   ACQ_ROWS_PER_PAGE employees per sheet; each Unit starts on a fresh page and any
+   ACQ_ROWS_PER_PAGE employees per sheet; each Unit (or Contractor) starts on a fresh page and any
    overflow rolls to the next page(s) with the full header repeated. Every page shows
    its own Page Total; the last page of each Unit also shows the Unit Grand Total.
    Pages are built as fixed-size A4 sheets (not browser-flowed tables), so the
    15-per-page rule holds exactly on screen, in print and in Save-as-PDF. */
 let acqUnit = 'All';
+// Contractor-wise register filters: contractor ('All', a code, or '-' = no contractor) and,
+// optionally, one unit ('All' or a unit code) — e.g. "SUN GROUP employees in Unit-2".
+let acqContractor = 'All';
+let acqContractorUnit = 'All';
 const ACQ_ROWS_PER_PAGE = 15;
 function acqEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function acqAmt(n){ return (Math.round((Number(n)||0)*100)/100).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2}); }
@@ -14,13 +18,15 @@ function monthLabelLong(ym){
   const names=['January','February','March','April','May','June','July','August','September','October','November','December'];
   return names[+m-1]+' '+y;
 }
-function acquittanceUnitRows(ym, unitCode){
+// Every payroll row of the month with the employee's unit and contractor.
+function acquittanceAllRows(ym){
   const rec=db.payroll[ym]||{};
   return Object.values(rec).map(r=>{
     const e=db.employees.find(x=>x.code===r.code)||{};
     return {
       code:r.code, name:r.name||e.name||'-',
       unit:unitCodeOf(e.unit),
+      contractor:e.contractor||'',
       designation:r.designation||e.designation||'',
       department:r.department||e.department||'',
       days:Number(r.daysWorking)||0,
@@ -28,17 +34,30 @@ function acquittanceUnitRows(ym, unitCode){
       ded:Number(r.deductionsTotal)||0,
       net:Number(r.netSalary)||0
     };
-  }).filter(r=>r.unit===unitCode)
-    .sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true}));
+  }).sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true}));
 }
-// [{unitCode, unitName, unitAddress, rows}] for the selected filter; units with no payroll rows are skipped.
+function acquittanceUnitRows(ym, unitCode){
+  return acquittanceAllRows(ym).filter(r=>r.unit===unitCode);
+}
+// Register groups [{kind, unitName (the group's name), unitAddress, rows}] — one group per unit for
+// the selected filter; groups with no payroll rows are skipped.
 function acquittanceUnits(ym, filter){
   const codes = filter==='All' ? getUnits().map(u=>u.code) : [filter];
   return codes.map(c=>({
-    unitCode:c, unitName:unitLabel(c),
+    kind:'Unit', unitName:unitLabel(c),
     unitAddress:((getUnits().find(u=>u.code===c)||{}).address)||'',
     rows:acquittanceUnitRows(ym,c)
   })).filter(u=>u.rows.length);
+}
+// Same, one group per contractor ('-' = employees with no contractor), optionally limited to a unit.
+function acquittanceContractors(ym, filter, unitFilter){
+  const all=acquittanceAllRows(ym).filter(r=>unitFilter==='All' || r.unit===unitFilter);
+  const groups=[...getContractors().map(c=>({code:c.code, name:c.name||c.code, address:c.address||''})), {code:'', name:'No Contractor', address:''}];
+  const unitText = unitFilter==='All' ? '' : ' — '+unitLabel(unitFilter);
+  return groups
+    .filter(g=>filter==='All' || g.code===(filter==='-'?'':filter))
+    .map(g=>({kind:'Contractor', unitName:g.name+unitText, unitAddress:g.address, rows:all.filter(r=>r.contractor===g.code)}))
+    .filter(g=>g.rows.length);
 }
 function acquittanceSheetCount(units){
   return units.reduce((s,u)=>s+Math.ceil(u.rows.length/ACQ_ROWS_PER_PAGE),0);
@@ -65,7 +84,10 @@ function acquittanceDocHtml(ym, units, opts){
       const isLast = pi===pages.length-1;
       const startSn = pi*ACQ_ROWS_PER_PAGE;
       const bodyRows = pg.map((r,i)=>{
-        const dd=[r.designation,r.department].filter(Boolean).map(acqEsc); // [designation, department]
+        // [designation, department] — the contractor-wise register also names the employee's unit,
+        // since one contractor's employees can work in different units.
+        const sub=u.kind==='Contractor' ? [unitLabel(r.unit), r.department].filter(Boolean).join(' · ') : r.department;
+        const dd=[r.designation||'-', sub].filter(Boolean).map(acqEsc);
         return `<tr>
           <td class="c">${startSn+i+1}</td>
           <td class="c">${acqEsc(r.code)}</td>
@@ -103,7 +125,7 @@ function acquittanceDocHtml(ym, units, opts){
           </div>
           <h2>Salary Acquittance Register</h2>
           <div class="aMeta">
-            <span>Unit: <b>${acqEsc(u.unitName)}</b>${u.unitAddress?` <i>(${acqEsc(u.unitAddress)})</i>`:''}</span>
+            <span>${u.kind||'Unit'}: <b>${acqEsc(u.unitName)}</b>${u.unitAddress?` <i>(${acqEsc(u.unitAddress)})</i>`:''}</span>
             <span>Month &amp; Year: <b>${monthText}</b></span>
             <span>Page <b>${pi+1}</b> of <b>${pages.length}</b></span>
           </div>
@@ -192,10 +214,14 @@ function acquittanceDocHtml(ym, units, opts){
   ${previewScript}
   </body></html>`;
 }
-function acquittancePreviewHtml(ym, filter){
+// The register groups for the open report: 'acquittance' (unit-wise) or 'acquittanceContractor'.
+function acquittanceGroupsFor(key, ym){
+  return key==='acquittanceContractor' ? acquittanceContractors(ym, acqContractor, acqContractorUnit) : acquittanceUnits(ym, acqUnit);
+}
+function acquittancePreviewHtml(ym, key){
   if(!db.payroll[ym]) return {html:'<div class="empty">No payroll generated for '+monthLabel(ym)+' yet.</div>', hasData:false};
-  const units=acquittanceUnits(ym, filter);
-  if(!units.length) return {html:'<div class="empty">No payroll records for '+(filter==='All'?'any unit':unitLabel(filter))+' in '+monthLabel(ym)+'.</div>', hasData:false};
+  const units=acquittanceGroupsFor(key, ym);
+  if(!units.length) return {html:'<div class="empty">No payroll records for the selected '+(key==='acquittanceContractor'?'contractor / unit':'unit')+' in '+monthLabel(ym)+'.</div>', hasData:false};
   const doc=acquittanceDocHtml(ym, units, {preview:true});
   const src=doc.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
   const n=acquittanceSheetCount(units);
@@ -206,11 +232,11 @@ function acquittancePreviewHtml(ym, filter){
     hasData:true
   };
 }
-function printAcquittanceReport(){
+function printAcquittanceReport(key){
   if(!hasPerm('reports','print')){ alert('You do not have permission to print or download reports.'); return; }
   if(!db.payroll[payMonth]){ alert('Generate payroll for '+monthLabel(payMonth)+' first.'); return; }
-  const units=acquittanceUnits(payMonth, acqUnit);
-  if(!units.length){ alert('No payroll records for the selected unit in '+monthLabel(payMonth)+'.'); return; }
+  const units=acquittanceGroupsFor(key||'acquittance', payMonth);
+  if(!units.length){ alert('No payroll records for the selected '+(key==='acquittanceContractor'?'contractor / unit':'unit')+' in '+monthLabel(payMonth)+'.'); return; }
   const w=window.open('','_blank');
   if(!w){ alert('Please allow pop-ups to download/print the report.'); return; }
   w.document.write(acquittanceDocHtml(payMonth, units, {preview:false}));
