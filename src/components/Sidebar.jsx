@@ -18,7 +18,7 @@ export default function Sidebar() {
           <div className="navSection" key={'s-' + item.section}>{item.section}</div>
         ) : (
           <div className="nav-item" data-page={item.page} key={item.page}>
-            <span className="navIcon">{item.icon}</span>
+            <span className="navIcon"><item.icon size={18} strokeWidth={1.9} aria-hidden="true" /></span>
             {item.label}
           </div>
         )

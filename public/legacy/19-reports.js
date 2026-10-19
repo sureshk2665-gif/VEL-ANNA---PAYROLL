@@ -13,27 +13,27 @@ let expStatus = 'Active';
 // PF Contribution Report filter state — yearly, consolidated view.
 let yearlyFY = financialYearOf(todayStr());
 const REPORTS_LIST = [
-  {key:'employee',   icon:'👤', title:'Employee Report',              desc:'All active employees with department, designation, unit and net salary.', needsMonth:false, category:'general'},
-  {key:'resignedEmp',icon:'🚪', title:'Resigned Employees Report',    desc:'All resigned employees with joining date, resignation date and reason.', needsMonth:false, category:'general'},
-  {key:'department', icon:'🏷️', title:'Department Report',            desc:'Headcount grouped by department (active employees).', needsMonth:false, category:'general'},
-  {key:'unit',       icon:'🏭', title:'Unit-wise Report',              desc:'Payroll summary split by working unit, with mode-of-payment totals.', needsMonth:true, category:'monthly'},
-  {key:'acquittance',icon:'✍️', title:'Unit-wise Salary Acquittance Register', desc:'A4 landscape register for employee signatures — max 15 employees per page, header repeated on every page, page totals and unit grand total.', needsMonth:true, needsUnitFilter:true, category:'monthly'},
-  {key:'mode',       icon:'💳', title:'Mode of Payment-wise Report',   desc:'Payroll summary split by mode of payment (NEFT, Cash, Cheque, etc.).', needsMonth:true, category:'monthly'},
-  {key:'print',      icon:'🖨️', title:'Print Report',                  desc:'Full payroll listing for the selected month, ready to print.', needsMonth:true, category:'monthly'},
-  {key:'esi',        icon:'🏥', title:'ESI Report (Monthly)',          desc:'Month-wise, employee-wise ESI contribution summary — Employee, Employer and Total ESI.', needsMonth:true, category:'monthly'},
-  {key:'pfMonthly',  icon:'🏦', title:'PF Report (Monthly)',           desc:'Month-wise, employee-wise PF contribution summary — Employee, Employer and Total PF.', needsMonth:true, category:'monthly'},
-  {key:'experience', icon:'🎂', title:'Employee Experience Report',   desc:'Age and Company Experience (Years & Months) as on Financial Year end, with Department, Designation and Status filters.', needsMonth:false, needsExpFilters:true, category:'yearly'},
-  {key:'incrementHistory', icon:'📈', title:'Annual Increment History', desc:'Complete increment history for all employees, by Financial Year.', needsMonth:false, category:'yearly'},
-  {key:'esiYearly',  icon:'🏥', title:'ESI Report (Yearly)',           desc:'Yearly consolidated ESI summary — one row per employee, month-wise Total ESI plus Employee/Employer/Total ESI for the Financial Year.', needsMonth:false, needsFY:true, category:'yearly'},
-  {key:'pf',         icon:'🏦', title:'PF Report (Yearly)',            desc:'Yearly consolidated PF summary — one row per employee, month-wise Total PF plus Employee/Employer/Total PF for the Financial Year.', needsMonth:false, needsFY:true, category:'yearly'},
-  {key:'bonus833',   icon:'🎁', title:'Bonus Report @ 8.33%',          desc:'Statutory minimum bonus on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.0833, category:'yearly'},
-  {key:'bonus15',    icon:'🎁', title:'Bonus Report @ 15%',            desc:'Bonus @ 15% on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.15, category:'yearly'},
-  {key:'bonus20',    icon:'🎁', title:'Bonus Report @ 20%',            desc:'Statutory maximum bonus on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.20, category:'yearly'},
+  {key:'employee',   icon:'user', title:'Employee Report',              desc:'All active employees with department, designation, unit and net salary.', needsMonth:false, category:'general'},
+  {key:'resignedEmp',icon:'door-open', title:'Resigned Employees Report',    desc:'All resigned employees with joining date, resignation date and reason.', needsMonth:false, category:'general'},
+  {key:'department', icon:'tag', title:'Department Report',            desc:'Headcount grouped by department (active employees).', needsMonth:false, category:'general'},
+  {key:'unit',       icon:'factory', title:'Unit-wise Report',              desc:'Payroll summary split by working unit, with mode-of-payment totals.', needsMonth:true, category:'monthly'},
+  {key:'acquittance',icon:'pen-line', title:'Unit-wise Salary Acquittance Register', desc:'A4 landscape register for employee signatures — max 15 employees per page, header repeated on every page, page totals and unit grand total.', needsMonth:true, needsUnitFilter:true, category:'monthly'},
+  {key:'mode',       icon:'credit-card', title:'Mode of Payment-wise Report',   desc:'Payroll summary split by mode of payment (NEFT, Cash, Cheque, etc.).', needsMonth:true, category:'monthly'},
+  {key:'print',      icon:'printer', title:'Print Report',                  desc:'Full payroll listing for the selected month, ready to print.', needsMonth:true, category:'monthly'},
+  {key:'esi',        icon:'heart-pulse', title:'ESI Report (Monthly)',          desc:'Month-wise, employee-wise ESI contribution summary — Employee, Employer and Total ESI.', needsMonth:true, category:'monthly'},
+  {key:'pfMonthly',  icon:'landmark', title:'PF Report (Monthly)',           desc:'Month-wise, employee-wise PF contribution summary — Employee, Employer and Total PF.', needsMonth:true, category:'monthly'},
+  {key:'experience', icon:'cake', title:'Employee Experience Report',   desc:'Age and Company Experience (Years & Months) as on Financial Year end, with Department, Designation and Status filters.', needsMonth:false, needsExpFilters:true, category:'yearly'},
+  {key:'incrementHistory', icon:'trending-up', title:'Annual Increment History', desc:'Complete increment history for all employees, by Financial Year.', needsMonth:false, category:'yearly'},
+  {key:'esiYearly',  icon:'heart-pulse', title:'ESI Report (Yearly)',           desc:'Yearly consolidated ESI summary — one row per employee, month-wise Total ESI plus Employee/Employer/Total ESI for the Financial Year.', needsMonth:false, needsFY:true, category:'yearly'},
+  {key:'pf',         icon:'landmark', title:'PF Report (Yearly)',            desc:'Yearly consolidated PF summary — one row per employee, month-wise Total PF plus Employee/Employer/Total PF for the Financial Year.', needsMonth:false, needsFY:true, category:'yearly'},
+  {key:'bonus833',   icon:'gift', title:'Bonus Report @ 8.33%',          desc:'Statutory minimum bonus on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.0833, category:'yearly'},
+  {key:'bonus15',    icon:'gift', title:'Bonus Report @ 15%',            desc:'Bonus @ 15% on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.15, category:'yearly'},
+  {key:'bonus20',    icon:'gift', title:'Bonus Report @ 20%',            desc:'Statutory maximum bonus on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.20, category:'yearly'},
 ];
 const REPORT_CATEGORIES = [
-  {key:'general', label:'📁 General Reports'},
-  {key:'monthly', label:'📅 Monthly Reports'},
-  {key:'yearly',  label:'📆 Yearly Reports'},
+  {key:'general', icon:'folder',         label:'General Reports'},
+  {key:'monthly', icon:'calendar',       label:'Monthly Reports'},
+  {key:'yearly',  icon:'calendar-range', label:'Yearly Reports'},
 ];
 function renderReports(){
   return reportView ? renderReportDetail(reportView) : renderReportsList();
@@ -45,11 +45,11 @@ function renderReportsList(){
     if(!list.length) return '';
     return `
     <div class="panel">
-      <h3>${cat.label}</h3>
+      <h3>${ico(cat.icon)} ${cat.label}</h3>
       <div class="reportGrid">
         ${list.map(r=>`
           <div class="reportCard" onclick="openReport('${r.key}')">
-            <div class="reportCardIcon">${r.icon}</div>
+            <div class="reportCardIcon">${ico(r.icon)}</div>
             <div class="reportCardBody">
               <div class="reportCardTitle">${r.title}</div>
               <div class="reportCardDesc">${r.desc}</div>
@@ -89,23 +89,23 @@ function renderReportDetail(key){
     }
   }
   else if(key==='esi'){
-    if(!db.payroll[payMonth]){ previewHtml='<div class="empty">⚠️ No ESI Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
+    if(!db.payroll[payMonth]){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
     else{
       const rows=esiReportRows(payMonth);
-      if(!rows.length){ previewHtml='<div class="empty">⚠️ No ESI Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
+      if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
       else previewHtml=esiReportTableHtml(rows);
     }
   }
   else if(key==='esiYearly'){
     const {rows,months,grandTotal}=esiYearlyReportRows(yearlyFY);
-    if(!rows.length){ previewHtml='<div class="empty">⚠️ No ESI Contribution Found for Financial Year '+yearlyFY+'.</div>'; hasData=false; }
+    if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found for Financial Year '+yearlyFY+'.</div>'; hasData=false; }
     else previewHtml=esiYearlyReportTableHtml(rows,months,grandTotal);
   }
   else if(key==='pfMonthly'){
-    if(!db.payroll[payMonth]){ previewHtml='<div class="empty">⚠️ No PF Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
+    if(!db.payroll[payMonth]){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
     else{
       const rows=pfMonthlyReportRows(payMonth);
-      if(!rows.length){ previewHtml='<div class="empty">⚠️ No PF Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
+      if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
       else previewHtml=pfMonthlyReportTableHtml(rows);
     }
   }
@@ -115,7 +115,7 @@ function renderReportDetail(key){
   }
   else if(key==='pf'){
     const {rows,months,grandTotal}=pfReportRows(yearlyFY);
-    if(!rows.length){ previewHtml='<div class="empty">⚠️ No PF Contribution Found — no payroll has been generated for Financial Year '+yearlyFY+' yet.</div>'; hasData=false; }
+    if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found — no payroll has been generated for Financial Year '+yearlyFY+' yet.</div>'; hasData=false; }
     else previewHtml=pfReportTableHtml(rows,months,grandTotal);
   }
   else{
@@ -131,7 +131,7 @@ function renderReportDetail(key){
   <div class="panel">
     <div class="reportDetailHead">
       <button class="btn secondary" onclick="closeReport()">← Back to Reports</button>
-      <h3 style="margin:0;">${meta.icon} ${meta.title}</h3>
+      <h3 style="margin:0;">${ico(meta.icon)} ${meta.title}</h3>
     </div>
     <div class="toolbar">
       ${meta.needsMonth ? `<input type="month" value="${payMonth}" onchange="payMonth=this.value;render('reports')">` : ''}
@@ -180,8 +180,8 @@ function renderReportDetail(key){
             ${fyOptionsList().map(fy=>`<option value="${fy}" ${fy===yearlyFY?'selected':''}>${fy}</option>`).join('')}
           </select>
         </label>` : ''}
-      ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">⬇️ Download PDF</button>` : ''}
-      ${canPrint ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">🖨️ Print</button>` : ''}
+      ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('download')} Download PDF</button>` : ''}
+      ${canPrint ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('printer')} Print</button>` : ''}
     </div>
     ${meta.needsDateRange ? `<p class="syncNote">Bonus Eligible Basic Wages = actual sum of each month's Earnings → Basic Salary within the selected period (only months with generated payroll are included). For Bonus Amount, each month's Basic Salary is first capped at ${fmt(BONUS_CEILING)} (if Basic ≤ ${fmt(BONUS_CEILING)}, actual is used) and then summed and multiplied by ${(meta.bonusRate*100).toFixed(2).replace(/\.00$/,'')}%.</p>` : ''}
     ${meta.needsExpFilters ? `<p class="syncNote">Age and Company Experience are calculated as on ${fmtDate(fyEndDate(expFY))} (last day of Financial Year ${expFY}). Employees who joined after this date are excluded. Experience is shown in completed Years and Months.</p>` : ''}

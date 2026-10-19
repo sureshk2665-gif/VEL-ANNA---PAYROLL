@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { Check, CircleCheck, Download, FileSpreadsheet, FileText, Pencil, TriangleAlert, Upload, X } from 'lucide-react';
 import { callLegacy } from '../../legacyBridge.js';
 import { buildColumns, rowsFromGrid, validateRows } from './employeeColumns.js';
 import { buildTemplate, readEmployeeRows } from './excel.js';
@@ -112,22 +113,22 @@ export default function BulkImportDialog() {
     <div className="overlay show" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div className="modal bulkImportModal" role="dialog" aria-modal="true" aria-labelledby="bulkImportTitle">
         <div className="bulkImportHead">
-          <h3 id="bulkImportTitle">📥 Bulk Import New Employees</h3>
-          <button type="button" className="bulkImportClose" onClick={close} aria-label="Close" disabled={!!busy}>×</button>
+          <h3 id="bulkImportTitle"><FileSpreadsheet className="ico" aria-hidden="true" /> Bulk Import New Employees</h3>
+          <button type="button" className="bulkImportClose" onClick={close} aria-label="Close" disabled={!!busy}><X size={20} aria-hidden="true" /></button>
         </div>
 
         {step === 'start' && (
           <ol className="bulkImportSteps">
             <li>
               <div><b>Download the template</b><small>An Excel sheet with every field of the Add Employee form as columns. The header row is locked.</small></div>
-              <button type="button" className="btn secondary" onClick={downloadTemplate} disabled={!!busy}>⬇️ Download Template</button>
+              <button type="button" className="btn secondary" onClick={downloadTemplate} disabled={!!busy}><Download className="ico" aria-hidden="true" /> Download Template</button>
             </li>
             <li>
               <div><b>Fill one new employee per row</b><small>Only Full Name is required. Use the dropdowns for Status, Gender, Department, Employment Type, Unit, Payment Mode, PF and ESI. Dates as DD-MM-YYYY. Leave the grey columns empty.</small></div>
             </li>
             <li>
               <div><b>Upload the filled file</b><small>Every row is checked and shown before anything is added.</small></div>
-              {fileButton('⬆️ Upload Excel', 'btn')}
+              {fileButton(<><Upload className="ico" aria-hidden="true" /> Upload Excel</>, 'btn')}
             </li>
           </ol>
         )}
@@ -135,10 +136,10 @@ export default function BulkImportDialog() {
         {step === 'review' && (
           <>
             <div className="bulkImportSummary">
-              <span className="bulkChip">📄 {source && source.name}</span>
+              <span className="bulkChip"><FileText className="ico" aria-hidden="true" /> {source && source.name}</span>
               <span className="bulkChip">{results.length} new row{results.length === 1 ? '' : 's'}</span>
-              <span className="bulkChip ok">✓ {ready.length} ready</span>
-              {withErrors > 0 && <span className="bulkChip bad">⚠ {withErrors} need fixing</span>}
+              <span className="bulkChip ok"><Check className="ico" aria-hidden="true" /> {ready.length} ready</span>
+              {withErrors > 0 && <span className="bulkChip bad"><TriangleAlert className="ico" aria-hidden="true" /> {withErrors} need fixing</span>}
               {withErrors > 0 && (
                 <label className="bulkImportFilter">
                   <input type="checkbox" checked={showErrorsOnly} onChange={(e) => setShowErrorsOnly(e.target.checked)} /> Show only rows with problems
@@ -162,7 +163,7 @@ export default function BulkImportDialog() {
                       <td>{typed(r.raw.department) || r.employee.department}</td>
                       <td>{showDate(r.employee.joining)}</td>
                       <td>{r.employee.basic ? r.employee.basic.toLocaleString('en-IN') : ''}</td>
-                      <td>{r.errors.length ? <ul>{r.errors.map((m) => <li key={m}>{m}</li>)}</ul> : <span className="bulkOk">✓ Ready</span>}</td>
+                      <td>{r.errors.length ? <ul>{r.errors.map((m) => <li key={m}>{m}</li>)}</ul> : <span className="bulkOk"><Check className="ico" aria-hidden="true" /> Ready</span>}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -181,11 +182,11 @@ export default function BulkImportDialog() {
         {step === 'done' && imported && (
           <>
             <div className="bulkImportDone">
-              <div className="bulkImportDoneIcon">✅</div>
+              <div className="bulkImportDoneIcon"><CircleCheck size={44} strokeWidth={1.75} aria-hidden="true" /></div>
               <p><b>{imported.codes.length} employee{imported.codes.length === 1 ? '' : 's'} added</b>
                 {imported.codes.length > 0 && <> — codes {imported.codes[0]}{imported.codes.length > 1 ? ' to ' + imported.codes[imported.codes.length - 1] : ''}</>}.</p>
               {!imported.saved && <p className="bulkImportError">They could not be saved to the database — see the message shown, and do not log out until it is fixed.</p>}
-              <small>From now on, change these employees only from the Employees page (✏️ Edit).</small>
+              <small>From now on, change these employees only from the Employees page (<Pencil className="ico" aria-hidden="true" /> Edit).</small>
             </div>
             <div className="modalActions">
               <button type="button" className="btn" onClick={close}>Done</button>

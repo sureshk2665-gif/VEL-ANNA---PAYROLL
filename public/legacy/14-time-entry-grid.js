@@ -43,7 +43,7 @@ function teEwSetSaveState(s){
   teEwSaveState=s;
   const el=document.getElementById('teEwSaveState'); if(!el) return;
   el.className='teEwSave '+s;
-  el.textContent = s==='saving'?'Saving…' : s==='saved'?'✓ All changes saved' : s==='error'?'⚠ Not saved — check connection':'';
+  el.innerHTML = s==='saving'?'Saving…' : s==='saved'?ico('check')+' All changes saved' : s==='error'?ico('alert')+' Not saved — check connection':'';
 }
 window.addEventListener('beforeunload',e=>{ if(teEwSaveBusy){ e.preventDefault(); e.returnValue=''; } });
 
@@ -103,10 +103,10 @@ function teEwRowModel(code, dt){
   const hasIn=entry.inH!==''&&entry.inH!==undefined, hasOut=entry.outH!==''&&entry.outH!==undefined;
   const isFuture=dt>todayStr();
   let status;
-  if(onLeave) status=`<span class="tag ${leave.type==='NOPL'?'PaidLeave':'LossOfPay'}">🌴 ${teEsc(leave.type)}</span>`;
-  else if(hasIn&&hasOut) status = teIsHolidayDate(dt) ? `<span class="tag NOPH">Holiday OT</span>` : leave ? `<span class="tag HalfDay">🌓 Half Day</span>` : `<span class="tag Present">Present</span>`;
+  if(onLeave) status=`<span class="tag ${leave.type==='NOPL'?'PaidLeave':'LossOfPay'}">${ico('palm')} ${teEsc(leave.type)}</span>`;
+  else if(hasIn&&hasOut) status = teIsHolidayDate(dt) ? `<span class="tag NOPH">Holiday OT</span>` : leave ? `<span class="tag HalfDay">${ico('contrast')} Half Day</span>` : `<span class="tag Present">Present</span>`;
   else if(hasIn) status=`<span class="tag HalfDay">Out time missing</span>`;
-  else if(leave) status=`<span class="tag HalfDay">🌓 Half Day</span>`;
+  else if(leave) status=`<span class="tag HalfDay">${ico('contrast')} Half Day</span>`;
   else if(dow===0) status=`<span class="teEwMuted">Sunday</span>`;
   else if(hol) status=`<span class="teEwMuted">Holiday</span>`;
   else if(isFuture) status=`<span class="teEwMuted">–</span>`;
@@ -375,14 +375,14 @@ function renderTEEmpWiseTab(){
   const inputStyle='padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;';
   const picker=`<div class="panelHead" style="margin-bottom:10px;">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">👤 Employee
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('user')} Employee
           <input id="teEwFind" class="teEwFind" list="teEwEmpList" placeholder="Type code or name, press Enter" value="${emp?teEsc(emp.code+' — '+emp.name):''}"
             onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault();teEwPickFromText(this.value);}" onchange="teEwPickFromText(this.value)" style="${inputStyle}width:260px;">
         </label>
         <datalist id="teEwEmpList">${emps.map(e=>`<option value="${teEsc(e.code+' — '+e.name)}">${teEsc(e.department||'')}</option>`).join('')}</datalist>
         <button class="btn secondary" title="Previous employee (Alt+↑)" onclick="teEwStepEmp(-1)">‹</button>
         <button class="btn secondary" title="Next employee (Alt+↓)" onclick="teEwStepEmp(1)">›</button>
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-left:6px;">🗓️ Month
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-left:6px;">${ico('calendar-days')} Month
           <input type="month" value="${teEwMonth}" onchange="teEwSetMonth(this.value)" style="${inputStyle}">
         </label>
         <button class="btn secondary" title="Previous month (Alt+PageUp)" onclick="teEwStepMonth(-1)">‹</button>
@@ -392,9 +392,9 @@ function renderTEEmpWiseTab(){
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
         ${!unlocked
-          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teEwUnlock()">✏️ Edit</button>`
-          : `<button class="btn" onclick="teEwLock()">💾 Save</button>`}
-        <button class="btn secondary" ${emp?'':'disabled'} onclick="printTEEmployee()">🖨️ Print</button>
+          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teEwUnlock()">${ico('pencil')} Edit</button>`
+          : `<button class="btn" onclick="teEwLock()">${ico('save')} Save</button>`}
+        <button class="btn secondary" ${emp?'':'disabled'} onclick="printTEEmployee()">${ico('printer')} Print</button>
       </div>
     </div>`;
   if(!emp){
@@ -426,7 +426,7 @@ function renderTEEmpWiseTab(){
         <option value="" ${!md.leave?'selected':''}>Auto (from time)</option>
         ${TE_LEAVE_TYPES.map(tp=>`<option value="${tp}" ${md.leave&&md.leave.type===tp?'selected':''}>${tp}</option>`).join('')}
       </select></td>
-      <td>${unlocked?`<button type="button" tabindex="-1" class="teEwClear" title="Clear In/Out time for this date" onclick="teEwClearRow(${i})">✕</button>`:''}</td>
+      <td>${unlocked?`<button type="button" tabindex="-1" class="teEwClear" title="Clear In/Out time for this date" onclick="teEwClearRow(${i})">${ico('x')}</button>`:''}</td>
     </tr>`;
   }).join('');
   if(teEwFocus) setTimeout(teEwRestoreFocus,0);
@@ -434,7 +434,7 @@ function renderTEEmpWiseTab(){
     ${picker}
     <div class="teEwEmpCard">
       <div><b>${teEsc(emp.name)}</b> <span style="color:var(--muted);">${teEsc(emp.code)}${emp.department?' · '+teEsc(emp.department):''}${emp.designation?' · '+teEsc(emp.designation):''}</span></div>
-      <div style="font-size:12px;color:var(--muted);">${monthName}${unlocked?' · unlocked for editing':' · locked — click ✏️ Edit to enter time'}</div>
+      <div style="font-size:12px;color:var(--muted);">${monthName}${unlocked?' · unlocked for editing':' · locked — click '+ico('pencil')+' Edit to enter time'}</div>
     </div>
     <div class="teStatRow" id="teEwStats">${teEwStatsHtml(t)}</div>
     ${unlocked?`<div class="teEwKeys">
@@ -449,7 +449,7 @@ function renderTEEmpWiseTab(){
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid" id="teEwGrid" data-emp="${teEsc(teEwEmp)}">
       <thead><tr>
         <th>Date</th><th>Day</th>
-        <th class="teEwInHead">🟢 In Time</th><th class="teEwOutHead">🟠 Out Time</th>
+        <th class="teEwInHead">${ico('log-in')} In Time</th><th class="teEwOutHead">${ico('log-out')} Out Time</th>
         <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>OT</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>
       </tr></thead>
@@ -462,11 +462,11 @@ function renderTEEmpWiseTab(){
 
 function renderTimeEntry(){
   return `<div class="teTabs">
-    <div class="teTab ${teTab==='entry'?'active':''}" onclick="teSetTab('entry')">📅 Date-wise Time Entry</div>
-    <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">👤 Employee-wise Time Entry</div>
-    <div class="teTab ${teTab==='leave'?'active':''}" onclick="teSetTab('leave')">🌴 Employee Leave</div>
-    <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">📅 Holiday Booking</div>
-    <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">📊 Attendance &amp; OT Summary</div>
+    <div class="teTab ${teTab==='entry'?'active':''}" onclick="teSetTab('entry')">${ico('calendar')} Date-wise Time Entry</div>
+    <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">${ico('user')} Employee-wise Time Entry</div>
+    <div class="teTab ${teTab==='leave'?'active':''}" onclick="teSetTab('leave')">${ico('palm')} Employee Leave</div>
+    <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holiday Booking</div>
+    <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">${ico('chart')} Attendance &amp; OT Summary</div>
   </div>
   ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : renderTESummaryTab()}`;
 }
@@ -485,20 +485,20 @@ function renderTEQuickGrid(){
   return `<div class="panel">
     <div class="panelHead">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">📅 Date
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('calendar')} Date
           <input type="date" value="${dt}" onchange="teSetGridDate(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
         </label>
         ${!unlocked
-          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teToggleGridEdit()">✏️ Edit</button>`
-          : `<button class="btn" onclick="teSaveGridChanges()">💾 Save</button>`}
-        ${!isToday?`<button class="btn secondary" onclick="teSetGridDate('${todayStr()}')">⏪ Today</button>`:''}
+          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teToggleGridEdit()">${ico('pencil')} Edit</button>`
+          : `<button class="btn" onclick="teSaveGridChanges()">${ico('save')} Save</button>`}
+        ${!isToday?`<button class="btn secondary" onclick="teSetGridDate('${todayStr()}')">${ico('undo')} Today</button>`:''}
       </div>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <input type="text" placeholder="Search employee…" value="${teGridSearch}" oninput="teSetGridSearch(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
-        <button class="btn secondary" onclick="printTEDay('${dt}')">🖨️ Print</button>
+        <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button>
       </div>
     </div>
-    <h3 style="margin:0 0 12px;">🗓️ ${isToday?"Today's Time Entries":'Time Entries'} — ${fmtDate(dt)} <span style="font-weight:400;font-size:12px;color:var(--muted);">(auto-created for every active employee${unlocked?' · unlocked for editing':''} · click a name to open that employee's month)</span>
+    <h3 style="margin:0 0 12px;">${ico('calendar-days')} ${isToday?"Today's Time Entries":'Time Entries'} — ${fmtDate(dt)} <span style="font-weight:400;font-size:12px;color:var(--muted);">(auto-created for every active employee${unlocked?' · unlocked for editing':''} · click a name to open that employee's month)</span>
       <span style="display:inline-flex;gap:12px;margin-left:14px;vertical-align:middle;">
         <span style="font-size:11px;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:var(--te-in-bg);border:1px solid var(--te-in-border);display:inline-block;"></span>In Time</span>
         <span style="font-size:11px;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:5px;"><span style="width:11px;height:11px;border-radius:3px;background:var(--te-out-bg);border:1px solid var(--te-out-border);display:inline-block;"></span>Out Time</span>
@@ -507,7 +507,7 @@ function renderTEQuickGrid(){
     <div class="tableScrollWrap"><table style="min-width:980px;width:100%;border-collapse:collapse;font-size:12.5px;">
       <thead><tr style="text-align:center;color:var(--muted);">
         <th style="padding:6px;">Sl No</th><th style="padding:6px;">Emp Code</th><th style="padding:6px;text-align:left;">Employee</th>
-        <th style="padding:6px;background:var(--te-in-bg);border-bottom:2px solid var(--te-in-border);" colspan="3">🟢 In Time</th><th style="padding:6px;background:var(--te-out-bg);border-bottom:2px solid var(--te-out-border);" colspan="3">🟠 Out Time</th>
+        <th style="padding:6px;background:var(--te-in-bg);border-bottom:2px solid var(--te-in-border);" colspan="3">${ico('log-in')} In Time</th><th style="padding:6px;background:var(--te-out-bg);border-bottom:2px solid var(--te-out-border);" colspan="3">${ico('log-out')} Out Time</th>
         <th style="padding:6px;">Shift</th><th style="padding:6px;">Working</th><th style="padding:6px;">Late</th><th style="padding:6px;">OT</th>
       </tr></thead>
       <tbody>
@@ -521,7 +521,7 @@ function renderTEQuickGrid(){
           return `<tr style="border-top:1px solid var(--line);text-align:center;background:var(--accent-soft);">
           <td style="padding:5px;color:var(--muted);">${idx+1}</td>
           <td style="padding:5px;">${e.code}</td><td style="padding:5px;text-align:left;"><button type="button" class="teEmpLink" tabindex="-1" title="Open ${e.name}'s month in Employee-wise view" onclick="teOpenEmpWise('${e.code}','${dt}')">${e.name}</button></td>
-          <td style="padding:5px;" colspan="6"><span class="tag HalfDay" style="padding:2px 10px;">🌴 ${leave.type}${leave.remarks?' — '+leave.remarks:''}</span></td>
+          <td style="padding:5px;" colspan="6"><span class="tag HalfDay" style="padding:2px 10px;">${ico('palm')} ${leave.type}${leave.remarks?' — '+leave.remarks:''}</span></td>
           <td style="padding:5px;font-size:11px;color:var(--muted);">–</td>
           <td style="padding:5px;color:var(--muted);">–</td>
           <td style="padding:5px;color:var(--muted);">–</td>
@@ -530,7 +530,7 @@ function renderTEQuickGrid(){
         }
         return `<tr style="border-top:1px solid var(--line);text-align:center;${isHalfDay?'background:var(--st-half-bg);':''}">
           <td style="padding:5px;color:var(--muted);">${idx+1}</td>
-          <td style="padding:5px;">${e.code}</td><td style="padding:5px;text-align:left;"><button type="button" class="teEmpLink" tabindex="-1" title="Open ${e.name}'s month in Employee-wise view" onclick="teOpenEmpWise('${e.code}','${dt}')">${e.name}</button>${isHalfDay?` <span class="tag HalfDay" style="padding:1px 7px;font-size:10px;">🌓 Half Day</span>`:''}</td>
+          <td style="padding:5px;">${e.code}</td><td style="padding:5px;text-align:left;"><button type="button" class="teEmpLink" tabindex="-1" title="Open ${e.name}'s month in Employee-wise view" onclick="teOpenEmpWise('${e.code}','${dt}')">${e.name}</button>${isHalfDay?` <span class="tag HalfDay" style="padding:1px 7px;font-size:10px;">${ico('contrast')} Half Day</span>`:''}</td>
           <td style="padding:2px;background:var(--te-in-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','inH',this.value)" style="width:56px;border:1px solid var(--te-in-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="">HH</option>${teHourOpts(entry.inH)}</select></td>
           <td style="padding:2px;background:var(--te-in-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','inM',this.value)" style="width:56px;border:1px solid var(--te-in-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="">MM</option>${teMinOpts(entry.inM)}</select></td>
           <td style="padding:2px;background:var(--te-in-bg);"><select ${dis} onchange="teGridSet('${dt}','${e.code}','inAP',this.value)" style="width:56px;border:1px solid var(--te-in-border);border-radius:4px;background:var(--card);color:var(--ink);"><option value="AM" ${entry.inAP==='AM'?'selected':''}>AM</option><option value="PM" ${entry.inAP==='PM'?'selected':''}>PM</option></select></td>
@@ -547,7 +547,7 @@ function renderTEQuickGrid(){
     </table></div>
     <p class="syncNote">${unlocked
       ? 'The grid is unlocked — fill in In/Out time for any employee and it saves instantly. Click <b>Save</b> above once you\'re done to lock the grid again.'
-      : 'Click <b>✏️ Edit</b> above to unlock this date\'s grid for entry. Use the Date Selector to jump to any date and continue logging entries for the whole roster in this same view.'} An employee with a booked <b>Loss of Pay</b> or <b>NOPL</b> Employee Leave for the day shows automatically as <b>🌴 On Leave</b> here — no separate time entry is needed for them. A booked <b>Half Day</b> still shows a row for logging the actual In/Out time worked that day.</p>
+      : 'Click <b>'+ico('pencil')+' Edit</b> above to unlock this date\'s grid for entry. Use the Date Selector to jump to any date and continue logging entries for the whole roster in this same view.'} An employee with a booked <b>Loss of Pay</b> or <b>NOPL</b> Employee Leave for the day shows automatically as <b>${ico('palm')} On Leave</b> here — no separate time entry is needed for them. A booked <b>Half Day</b> still shows a row for logging the actual In/Out time worked that day.</p>
   </div>`;
 }
 
@@ -579,8 +579,8 @@ function renderTEDayList(){
     });
     const holidayTag = teIsHolidayDate(dt) ? ` <span class="tag HalfDay" style="padding:1px 8px;font-size:11px;">Holiday · Full-day OT</span>` : '';
     return `<div class="panel teDayGroup">
-      <div class="panelHead"><h4 style="margin:0;">📅 ${fmtDate(dt)}${holidayTag}</h4>
-        <button class="btn secondary" onclick="printTEDay('${dt}')">🖨️ Print</button></div>
+      <div class="panelHead"><h4 style="margin:0;">${ico('calendar')} ${fmtDate(dt)}${holidayTag}</h4>
+        <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button></div>
       ${renderTELeaveGroupBox(onLeave)}
       <div class="teShiftGrid">
         ${Object.keys(byShift).map(sn=>renderTEShiftBox(sn,byShift[sn],dt)).join('')}
@@ -591,7 +591,7 @@ function renderTEDayList(){
 function renderTELeaveGroupBox(list){
   if(!list.length) return '';
   return `<div class="teShiftBox" style="margin-bottom:14px;">
-    <h5>🌴 On Leave</h5>
+    <h5>${ico('palm')} On Leave</h5>
     <table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th></tr></thead>
     <tbody>${list.map((r,idx)=>`<tr>
       <td>${idx+1}</td><td>${r.code}</td><td style="text-align:left;">${r.emp.name}</td><td>${r.leave.type}</td><td style="text-align:left;">${r.leave.remarks||'-'}</td>
@@ -602,14 +602,14 @@ function renderTEShiftBox(shiftName, list, dt){
   if(!list.length) return '';
   const canDel=hasPerm('timeentry','delete');
   return `<div class="teShiftBox">
-    <h5>${shiftName==='First Shift'?'🌅':shiftName==='Second Shift'?'🌙':'☀️'} ${shiftName}</h5>
+    <h5>${shiftName==='First Shift'?ico('sunrise'):shiftName==='Second Shift'?ico('moon'):ico('sun')} ${shiftName}</h5>
     <table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>In</th><th>Out</th><th>Working</th><th>Late</th><th>OT</th>${canDel?'<th></th>':''}</tr></thead>
     <tbody>${list.map((r,idx)=>`<tr>
-      <td>${idx+1}</td><td>${r.code}</td><td style="text-align:left;">${r.emp.name}${r.leave&&r.leave.type==='Half Day'?` <span class="tag HalfDay" style="padding:1px 7px;font-size:10px;">🌓 Half Day</span>`:''}</td>
+      <td>${idx+1}</td><td>${r.code}</td><td style="text-align:left;">${r.emp.name}${r.leave&&r.leave.type==='Half Day'?` <span class="tag HalfDay" style="padding:1px 7px;font-size:10px;">${ico('contrast')} Half Day</span>`:''}</td>
       <td>${r.entry.inH?String(r.entry.inH).padStart(2,'0')+':'+String(r.entry.inM).padStart(2,'0')+' '+r.entry.inAP:'-'}</td>
       <td>${r.entry.outH?String(r.entry.outH).padStart(2,'0')+':'+String(r.entry.outM).padStart(2,'0')+' '+r.entry.outAP:'-'}</td>
       <td>${teFmtHM(r.c.working)}</td><td>${r.c.late>0?teFmtHM(r.c.late):'On time'}</td><td>${teFmtHM(r.c.ot)}</td>
-      ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteEntry('${dt}','${r.code}')">✕</button></td>`:''}
+      ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteEntry('${dt}','${r.code}')">${ico('x')}</button></td>`:''}
     </tr>`).join('')}</tbody></table>
   </div>`;
 }
@@ -623,10 +623,10 @@ function printTEDay(dt){
     const leave=teGetLeave(dt, code);
     if(leave && leave.type!=='Half Day'){
       return `<tr><td>${idx+1}</td><td>${code}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td>
-      <td colspan="6">🌴 On Leave — ${leave.type}${leave.remarks?' ('+leave.remarks+')':''}</td></tr>`;
+      <td colspan="6">${ico('palm')} On Leave — ${leave.type}${leave.remarks?' ('+leave.remarks+')':''}</td></tr>`;
     }
     const entry=rows[code]; const c=teCompute(entry,dt);
-    const halfDayNote = leave ? ` <span style="font-size:10px;">🌓 Half Day${leave.remarks?' — '+leave.remarks:''}</span>` : '';
+    const halfDayNote = leave ? ` <span style="font-size:10px;">${ico('contrast')} Half Day${leave.remarks?' — '+leave.remarks:''}</span>` : '';
     return `<tr><td>${idx+1}</td><td>${code}</td><td style="text-align:left;">${emp.name}${halfDayNote}</td><td>${emp.department||'-'}</td>
       <td>${c.shift?c.shift.name:'-'}</td>
       <td>${entry.inH?String(entry.inH).padStart(2,'0')+':'+String(entry.inM).padStart(2,'0')+' '+entry.inAP:'-'}</td>
@@ -675,12 +675,12 @@ function renderTEHolidayTab(){
     cells.push(`<div class="${cls}" onclick="${isSun?'':`teSelectCalDate('${dt}')`}">
       <b>${d}</b>
       ${isSun?`<span class="teSunTag">Sun · Auto OT</span>`:''}
-      ${booked?`<span class="teOcc">🔶 ${booked.remarks||'Booked'}</span>${canEdit?`<span class="teRemove" onclick="teRemoveHoliday('${dt}',event)">✕</span>`:''}`:''}
+      ${booked?`<span class="teOcc">${ico('bookmark')} ${booked.remarks||'Booked'}</span>${canEdit?`<span class="teRemove" onclick="teRemoveHoliday('${dt}',event)">${ico('x')}</span>`:''}`:''}
     </div>`);
   }
   const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   return `<div class="panel">
-    <h3>📅 Time Entry — Holiday Booking</h3>
+    <h3>${ico('calendar')} Time Entry — Holiday Booking</h3>
     <p class="syncNote">Click any date below to select it, then use Book Holiday to confirm (with an optional occasion/remarks name). A booked date marks every In/Out entry on that date as full-day OT <b>within this Employee Time Entry module only</b>. Sundays (shaded, marked "Sun · Auto OT") already get this automatically every week. This calendar is entirely separate from the Payroll → Payroll Process Holiday Calendar and has no effect on NOWD/NOPH or salary processing.</p>
     <div class="teCalWrap">
       <div class="teCalHead">
@@ -697,7 +697,7 @@ function renderTEHolidayTab(){
     <div class="formGrid" style="margin-top:16px;">
       <div><label>Selected Date</label><input type="text" value="${teSelHolDate?fmtDate(teSelHolDate):''}" disabled></div>
       <div><label>Occasion / Remarks (optional)</label><input type="text" placeholder="e.g. Diwali, Independence Day" value="${teHolRemarks}" ${canEdit?'':'disabled'} oninput="teSetHolRemarks(this.value)"></div>
-      <div class="full"><button class="btn" ${canEdit&&teSelHolDate?'':'disabled'} onclick="teBookHoliday()">📌 Book Holiday</button></div>
+      <div class="full"><button class="btn" ${canEdit&&teSelHolDate?'':'disabled'} onclick="teBookHoliday()">${ico('pin')} Book Holiday</button></div>
     </div>
   </div>`;
 }
@@ -754,23 +754,23 @@ function renderTESummaryTab(){
   const totalOT=rows.reduce((s,r)=>s+r.otMin,0);
   return `<div class="panel">
     <div class="panelHead">
-      <h3 style="margin:0;">📊 Attendance &amp; OT Summary — ${monthName} <span style="font-weight:400;font-size:12px;color:var(--muted);">(consolidated from Time Entry &amp; Employee Leave)</span></h3>
+      <h3 style="margin:0;">${ico('chart')} Attendance &amp; OT Summary — ${monthName} <span style="font-weight:400;font-size:12px;color:var(--muted);">(consolidated from Time Entry &amp; Employee Leave)</span></h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">🗓️ Month
+        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('calendar-days')} Month
           <input type="month" value="${teSummaryMonth}" onchange="teSummarySetMonth(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
         </label>
         <button class="btn secondary" onclick="teSummaryPrevMonth()">‹ Prev</button>
         <button class="btn secondary" onclick="teSummaryNextMonth()">Next ›</button>
         <button class="btn secondary" onclick="teSummaryThisMonth()">This Month</button>
-        <button class="btn secondary" onclick="printTESummary('${teSummaryMonth}')">🖨️ Print</button>
+        <button class="btn secondary" onclick="printTESummary('${teSummaryMonth}')">${ico('printer')} Print</button>
       </div>
     </div>
     <p class="syncNote">This is a read-only, month-level roll-up of what's recorded in the Time Entry and Employee Leave tabs above — one row per active employee, with their working days, leave days, and Working / Late / OT hours totalled for the selected month. It is a summary view only and does <b>not</b> feed Payroll/NOWD/NOPH.</p>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:18px;">
-      <div class="stat"><div class="statTop"><span class="statIcon">👥</span></div><div class="n">${rows.length}</div><div class="l">Active Employees</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">✅</span></div><div class="n">${totalPresent}</div><div class="l">Total Present-Days</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">🌴</span></div><div class="n">${totalLeave}</div><div class="l">Total Leave-Days</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">⏱️</span></div><div class="n">${teFmtHM(totalOT)}</div><div class="l">Total OT Hours</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('users')}</span></div><div class="n">${rows.length}</div><div class="l">Active Employees</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('circle-check')}</span></div><div class="n">${totalPresent}</div><div class="l">Total Present-Days</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('palm')}</span></div><div class="n">${totalLeave}</div><div class="l">Total Leave-Days</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('timer')}</span></div><div class="n">${teFmtHM(totalOT)}</div><div class="l">Total OT Hours</div></div>
     </div>
     <div class="tableScrollWrap"><table style="min-width:900px;width:100%;border-collapse:collapse;font-size:13px;">
       <thead><tr style="text-align:center;color:var(--muted);">

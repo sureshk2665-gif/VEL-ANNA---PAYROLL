@@ -12,13 +12,13 @@ function renderEmployees(){
   });
   return `
   <div class="toolbar">
-    <div class="searchWrap"><span class="sIcon">🔍</span><input placeholder="Search name or code..." oninput="empFilter.search=this.value;render('employees')" value="${empFilter.search}"></div>
+    <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input placeholder="Search name or code..." oninput="empFilter.search=this.value;render('employees')" value="${empFilter.search}"></div>
     <select onchange="empFilter.dept=this.value;render('employees')">
       <option value="">All Departments</option>
       ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
     </select>
     <span style="font-size:12.5px;color:var(--muted);">${list.length} of ${activeEmps.length} active employee(s)</span>
-    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openEmployeeModal()">+ Add Employee</button>` : ''}
+    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openEmployeeModal()">${ico('plus')} Add Employee</button>` : ''}
   </div>
   <div class="panel">
     ${list.length? `<table><thead><tr>
@@ -29,11 +29,11 @@ function renderEmployees(){
         <td>${unitLabel(e.unit)}</td>
         <td>${e.mobile||'-'}</td><td><b>${fmt(calcNet(e))}</b></td><td><span class="tag ${e.status}">${e.status}</span></td>
         <td class="rowActions">
-          ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">✏️ Edit</button>` : ''}
-          ${hasPerm('employees','delete') ? `<button class="del" onclick="deleteEmployee('${e.code}')">🗑️ Delete</button>` : ''}
+          ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
+          ${hasPerm('employees','delete') ? `<button class="del" onclick="deleteEmployee('${e.code}')">${ico('trash')} Delete</button>` : ''}
         </td>
       </tr>`).join('')}
-    </tbody></table>` : '<div class="empty">🔎 No employees found. Try adjusting your search or filters.</div>'}
+    </tbody></table>` : '<div class="empty">'+ico('search-x')+' No employees found. Try adjusting your search or filters.</div>'}
   </div>`;
 }
 
@@ -46,7 +46,7 @@ function renderResigned(){
   }).sort((a,b)=>(b.resignationDate||'').localeCompare(a.resignationDate||''));
   return `
   <div class="toolbar">
-    <div class="searchWrap"><span class="sIcon">🔍</span><input placeholder="Search name or code..." oninput="resignedFilter.search=this.value;render('resigned')" value="${resignedFilter.search}"></div>
+    <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input placeholder="Search name or code..." oninput="resignedFilter.search=this.value;render('resigned')" value="${resignedFilter.search}"></div>
     <span style="font-size:12.5px;color:var(--muted);">${list.length} resigned employee(s)</span>
   </div>
   <div class="panel">
@@ -59,11 +59,11 @@ function renderResigned(){
         <td>${e.resignReason||'-'}</td><td><span class="tag Resigned">Resigned</span></td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openRejoinModal('${e.code}')">↩️ Rejoin</button>` : ''}
-          ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">✏️ Edit</button>` : ''}
-          ${hasPerm('employees','delete') ? `<button class="del" onclick="deleteEmployee('${e.code}')">🗑️ Delete</button>` : ''}
+          ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
+          ${hasPerm('employees','delete') ? `<button class="del" onclick="deleteEmployee('${e.code}')">${ico('trash')} Delete</button>` : ''}
         </td>
       </tr>`).join('')}
-    </tbody></table>` : '<div class="empty">🔎 No resigned employees.</div>'}
+    </tbody></table>` : '<div class="empty">'+ico('search-x')+' No resigned employees.</div>'}
   </div>`;
 }
 function openRejoinModal(code){

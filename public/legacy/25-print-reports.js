@@ -36,7 +36,7 @@ function openPrintWindow(title, bodyHtml, opts){
     table.pageWrap>thead>tr>td, table.pageWrap>tbody>tr>td{padding:0;border:none;}
   </style></head>
   <body>
-  <div class="printBar"><button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer;">⬇️ Download PDF / Print</button></div>
+  <div class="printBar"><button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer;">${ico('download')} Download PDF / Print</button></div>
   <table class="pageWrap"><thead><tr><td>
   <div class="companyHead">
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;">

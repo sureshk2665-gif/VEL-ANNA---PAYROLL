@@ -187,7 +187,7 @@ function acquittanceDocHtml(ym, units, opts){
     }
     @media print{ .printBar{display:none;} body{background:#fff;} .sheet{margin:0;box-shadow:none;} }
   </style></head><body>
-  ${opts.preview ? '' : `<div class="printBar"><button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer;">⬇️ Download PDF / Print (A4 Landscape)</button></div>`}
+  ${opts.preview ? '' : `<div class="printBar"><button onclick="window.print()" style="padding:8px 18px;font-size:14px;cursor:pointer;">${ico('download')} Download PDF / Print (A4 Landscape)</button></div>`}
   <div class="sheets">${sheets.join('')}</div>
   ${previewScript}
   </body></html>`;

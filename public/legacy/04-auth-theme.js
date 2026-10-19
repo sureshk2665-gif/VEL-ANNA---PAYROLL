@@ -110,7 +110,7 @@ function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
   const badge=document.getElementById('currentUserBadge');
-  if(badge && currentUser) badge.textContent='👤 '+(currentUser.name||currentUser.username)+(currentUser.role?' ('+currentUser.role+')':'');
+  if(badge && currentUser) { badge.innerHTML=ico('user'); badge.append(' '+(currentUser.name||currentUser.username)+(currentUser.role?' ('+currentUser.role+')':'')); }
   applyCompanyBranding();
   refreshNavVisibility();
   const firstAllowed=PERMISSION_MODULES.map(m=>m.key).find(k=>canOpenModule(k))||'dashboard';

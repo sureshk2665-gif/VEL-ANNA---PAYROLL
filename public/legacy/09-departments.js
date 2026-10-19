@@ -3,13 +3,13 @@ function renderDepartments(){
   return `
   ${hasPerm('departments','add') ? `<div class="toolbar">
     <input id="newDeptInput" placeholder="New department name">
-    <button class="btn" onclick="addDepartment()">+ Add Department</button>
+    <button class="btn" onclick="addDepartment()">${ico('plus')} Add Department</button>
   </div>` : ''}
   <div class="panel">
     <table><thead><tr><th>Department</th><th>Employees</th><th>Actions</th></tr></thead><tbody>
       ${db.departments.map(d=>{
         const count=db.employees.filter(e=>e.department===d).length;
-        return `<tr><td><b>🏷️ ${d}</b></td><td>${count}</td><td class="rowActions">${hasPerm('departments','delete') ? `<button class="del" onclick="deleteDepartment('${d}')">🗑️ Delete</button>` : ''}</td></tr>`;
+        return `<tr><td><b>${ico('tag')} ${d}</b></td><td>${count}</td><td class="rowActions">${hasPerm('departments','delete') ? `<button class="del" onclick="deleteDepartment('${d}')">${ico('trash')} Delete</button>` : ''}</td></tr>`;
       }).join('')}
     </tbody></table>
   </div>`;

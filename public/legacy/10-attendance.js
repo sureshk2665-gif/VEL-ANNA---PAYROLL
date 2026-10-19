@@ -144,7 +144,7 @@ function noplUsedUpto(code, ym){
 
 function attTabsInline(){
   return `<div class="attTabsInline">
-    <button class="attTab active" style="cursor:default;" title="Monthly Attendance">🗓 Monthly Attendance</button>
+    <button class="attTab active" style="cursor:default;" title="Monthly Attendance">${ico('calendar-days')} Monthly Attendance</button>
   </div><span class="attTabDivider"></span>`;
 }
 function renderAttendance(){
@@ -189,13 +189,13 @@ function renderAttCompletionCard(){
   const st = attendanceCompletionStats(attMonth);
   if(st.lastDay===0){
     return `<div class="attCompletionCard future">
-      <div class="accHead"><h4>📋 Attendance Completion — ${monthLabel(attMonth)}</h4></div>
+      <div class="accHead"><h4>${ico('clipboard')} Attendance Completion — ${monthLabel(attMonth)}</h4></div>
       <p class="syncNote" style="margin:6px 0 0;">This month hasn't started yet — nothing to mark.</p>
     </div>`;
   }
   if(!st.totalEmp){
     return `<div class="attCompletionCard future">
-      <div class="accHead"><h4>📋 Attendance Completion — ${monthLabel(attMonth)}</h4></div>
+      <div class="accHead"><h4>${ico('clipboard')} Attendance Completion — ${monthLabel(attMonth)}</h4></div>
       <p class="syncNote" style="margin:6px 0 0;">No active employees for this month.</p>
     </div>`;
   }
@@ -204,14 +204,14 @@ function renderAttCompletionCard(){
   return `
   <div class="attCompletionCard">
     <div class="accHead">
-      <h4>📋 Attendance Completion — ${monthLabel(attMonth)} <span class="accSub">through ${fmtDate(dateStr(attMonth,st.lastDay))}</span></h4>
+      <h4>${ico('clipboard')} Attendance Completion — ${monthLabel(attMonth)} <span class="accSub">through ${fmtDate(dateStr(attMonth,st.lastDay))}</span></h4>
       <span class="accPct ${pctClass}">${st.pct}% Complete</span>
     </div>
     <div class="accBarTrack"><div class="accBarFill ${pctClass}" style="width:${st.pct}%;"></div></div>
     <div class="accChips">
-      <span class="chip ok">✓ ${st.complete} Fully Marked</span>
-      <span class="chip ${st.partial?'warn':''}">◐ ${st.partial} Partially Marked</span>
-      <span class="chip ${st.notStarted?'danger':''}">✕ ${st.notStarted} Not Started</span>
+      <span class="chip ok">${ico('check')} ${st.complete} Fully Marked</span>
+      <span class="chip ${st.partial?'warn':''}">${ico('circle-dashed')} ${st.partial} Partially Marked</span>
+      <span class="chip ${st.notStarted?'danger':''}">${ico('x')} ${st.notStarted} Not Started</span>
       <span class="chip">${st.totalEmp} Total Employees</span>
     </div>
     ${incomplete.length ? `
@@ -219,7 +219,7 @@ function renderAttCompletionCard(){
       ${incomplete.slice(0,60).map(x=>`<button type="button" class="accMissingPill" onclick="setAttEmpCode('${x.code}')" title="Open ${x.name}'s attendance to fill in the missing day(s)">
         <b>${x.name}</b><span>${x.code}${x.department?' · '+x.department:''} · ${x.missing} day${x.missing===1?'':'s'} pending</span>
       </button>`).join('')}
-    </div>` : `<p class="syncNote" style="margin:10px 0 0;color:var(--st-present-text);">✅ Everyone is fully marked up to date.</p>`}
+    </div>` : `<p class="syncNote" style="margin:10px 0 0;color:var(--st-present-text);">${ico('circle-check')} Everyone is fully marked up to date.</p>`}
   </div>`;
 }
 
@@ -259,14 +259,14 @@ function renderAttendanceDay(){
     <span class="attDayLabel">${dayName}, ${dateLabel}</span>
     <input type="search" placeholder="Search employee..." value="${attSearch}" oninput="attSearch=this.value;render('attendance')" style="margin-left:auto;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);">
   </div>
-  ${isHolidayToday ? `<p class="syncNote" style="color:var(--warn);">🔒 ${dateLabel} is set as <b>${STATUS_LABEL[todayHolidayType]}</b> in the Holiday Calendar. All employees are automatically marked ${STATUS_LABEL[todayHolidayType]} for this date and it cannot be edited here — remove it from the Holiday Calendar (Payroll → Payroll Process) to unlock.</p>` : ''}
+  ${isHolidayToday ? `<p class="syncNote" style="color:var(--warn);">${ico('lock')} ${dateLabel} is set as <b>${STATUS_LABEL[todayHolidayType]}</b> in the Holiday Calendar. All employees are automatically marked ${STATUS_LABEL[todayHolidayType]} for this date and it cannot be edited here — remove it from the Holiday Calendar (Payroll → Payroll Process) to unlock.</p>` : ''}
   <div class="attDaySumBar">
     <span class="chip">${c.total} Active Employees</span>
     <span class="chip">${c.marked} Marked</span>
     <span class="chip ${c.unmarked?'warn':''}">${c.unmarked} Unmarked</span>
   </div>
   <div class="attBulkBar">
-    ${hasPerm('attendance','edit') ? `<button class="btn secondary" ${isHolidayToday?'disabled':''} onclick="markAllQuick('Present')">✓ Mark All Present</button>
+    ${hasPerm('attendance','edit') ? `<button class="btn secondary" ${isHolidayToday?'disabled':''} onclick="markAllQuick('Present')">${ico('check')} Mark All Present</button>
     <button class="btn secondary" ${isHolidayToday?'disabled':''} onclick="copyPrevDayAttendance()">Copy Previous Day</button>` : ''}
     ${hasPerm('attendance','delete') ? `<button class="btn danger" ${isHolidayToday?'disabled':''} onclick="clearDayAttendance()">Clear This Day</button>` : ''}
     <button class="attTab" style="margin-left:auto;" onclick="setAttView('grid')">Open Month Grid →</button>
@@ -475,15 +475,15 @@ function renderAttendanceEmployee(){
     </div>
     <div class="sep"></div>
     <div class="grp">
-      ${editable ? `<button class="btn secondary tiny" onclick="fillEmployeeMonthPresent('${attEmpCode}')" title="Fill every unmarked day this month as Present">✓ Fill Remaining Present</button>
-      <button class="btn secondary tiny" onclick="copyEmployeePrevMonth('${attEmpCode}')" title="Copy last month's pattern into this month">⧉ Copy Previous Month</button>
-      ${hasPerm('attendance','delete') ? `<button class="btn danger tiny" onclick="clearEmployeeMonth('${attEmpCode}')" title="Clear all entries this month">🗑 Clear Month</button>`:''}` : ''}
+      ${editable ? `<button class="btn secondary tiny" onclick="fillEmployeeMonthPresent('${attEmpCode}')" title="Fill every unmarked day this month as Present">${ico('check')} Fill Remaining Present</button>
+      <button class="btn secondary tiny" onclick="copyEmployeePrevMonth('${attEmpCode}')" title="Copy last month's pattern into this month">${ico('copy')} Copy Previous Month</button>
+      ${hasPerm('attendance','delete') ? `<button class="btn danger tiny" onclick="clearEmployeeMonth('${attEmpCode}')" title="Clear all entries this month">${ico('trash')} Clear Month</button>`:''}` : ''}
     </div>
-    ${attEditMode ? `<div class="attStageEditNote">✏️ Edit mode — set each day's status, then Save.</div>` : ''}
+    ${attEditMode ? `<div class="attStageEditNote">${ico('pencil')} Edit mode — set each day's status, then Save.</div>` : ''}
     <div class="attRightActions">
       ${hasPerm('attendance','edit') ? (attEditMode
-        ? `<button class="btn secondary" onclick="cancelAttendanceEdit()">✕ Cancel</button><button class="btn" onclick="saveAttendance()">💾 Save Attendance</button>`
-        : `<button class="btn btnEditAtt" onclick="toggleAttEdit()">✏️ Edit Attendance</button>`) : ''}
+        ? `<button class="btn secondary" onclick="cancelAttendanceEdit()">${ico('x')} Cancel</button><button class="btn" onclick="saveAttendance()">${ico('save')} Save Attendance</button>`
+        : `<button class="btn btnEditAtt" onclick="toggleAttEdit()">${ico('pencil')} Edit Attendance</button>`) : ''}
     </div>
   </div>`;
 
@@ -492,7 +492,7 @@ function renderAttendanceEmployee(){
   <div class="attAutoCol">
     ${renderAttCompletionCard()}
     <div class="autoCard grow">
-      <h4>📊 Attendance Summary (auto)</h4>
+      <h4>${ico('chart')} Attendance Summary (auto)</h4>
       <div class="attSumGrid">
         <div class="sk">Present Days</div><div class="sv">${sum.present}</div>
         <div class="sk">Absent Days</div><div class="sv">${sum.absent}</div>
@@ -503,7 +503,7 @@ function renderAttendanceEmployee(){
       </div>
     </div>
     <div class="autoCard">
-      <h4>💳 System-Calculated</h4>
+      <h4>${ico('credit-card')} System-Calculated</h4>
       <div class="autoRow" title="${advTip}"><span>Scheduled Advance</span><b>₹${scheduledAdv}</b></div>
       <div class="autoRow" title="Lunch Tokens × ₹${lunchRate} + Dinner Tokens × ₹${dinnerRate}"><span>Canteen Deduction</span><b>₹${canteenAmt}</b></div>
     </div>

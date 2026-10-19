@@ -9,16 +9,16 @@ function renderPayroll(){
   return `
   ${existing ? `
   <div class="grid">
-    <div class="stat" style="--stat-color:#0f6b5c;"><div class="statTop"><div class="statIcon">👥</div></div><div class="n">${rows.length}</div><div class="l">Employees Processed</div></div>
-    <div class="stat" style="--stat-color:#2563eb;"><div class="statTop"><div class="statIcon">📥</div></div><div class="n">${fmt(totalEarnings)}</div><div class="l">Total Earnings</div></div>
-    <div class="stat" style="--stat-color:#dc2626;"><div class="statTop"><div class="statIcon">📤</div></div><div class="n">${fmt(totalDeductions)}</div><div class="l">Total Deductions</div></div>
-    <div class="stat" style="--stat-color:#6d28d9;"><div class="statTop"><div class="statIcon">💰</div></div><div class="n">${fmt(totalNet)}</div><div class="l">Net Salary Payable</div></div>
+    <div class="stat" style="--stat-color:#0f6b5c;"><div class="statTop"><div class="statIcon">${ico('users')}</div></div><div class="n">${rows.length}</div><div class="l">Employees Processed</div></div>
+    <div class="stat" style="--stat-color:#2563eb;"><div class="statTop"><div class="statIcon">${ico('circle-arrow-down')}</div></div><div class="n">${fmt(totalEarnings)}</div><div class="l">Total Earnings</div></div>
+    <div class="stat" style="--stat-color:#dc2626;"><div class="statTop"><div class="statIcon">${ico('circle-arrow-up')}</div></div><div class="n">${fmt(totalDeductions)}</div><div class="l">Total Deductions</div></div>
+    <div class="stat" style="--stat-color:#6d28d9;"><div class="statTop"><div class="statIcon">${ico('wallet')}</div></div><div class="n">${fmt(totalNet)}</div><div class="l">Net Salary Payable</div></div>
   </div>` : ''}
   <div class="toolbar">
     <input type="month" value="${payMonth}" onchange="payMonth=this.value;render('payroll')">
-    ${hasPerm('payroll','add') || hasPerm('payroll','edit') ? `<button class="btn" onclick="generatePayroll()">⚙️ Generate / Regenerate Payroll</button>` : ''}
-    <button class="btn secondary" onclick="render('attendance')">🗓️ Go to Attendance</button>
-    ${existing && hasPerm('payroll','print') ? getUnits().map(u=>`<button class="btn secondary" onclick="printAllSlips('${u.code}')" title="${unitDisplayName(u)}">🖨️ Employee Pay Slip ${u.code.replace('-',' ')}</button>`).join('\n    ') : ''}
+    ${hasPerm('payroll','add') || hasPerm('payroll','edit') ? `<button class="btn" onclick="generatePayroll()">${ico('settings')} Generate / Regenerate Payroll</button>` : ''}
+    <button class="btn secondary" onclick="render('attendance')">${ico('calendar-days')} Go to Attendance</button>
+    ${existing && hasPerm('payroll','print') ? getUnits().map(u=>`<button class="btn secondary" onclick="printAllSlips('${u.code}')" title="${unitDisplayName(u)}">${ico('printer')} Employee Pay Slip ${u.code.replace('-',' ')}</button>`).join('\n    ') : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — see Payroll Process)</span>
   </div>
   <p class="syncNote">Working days, leave, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)}. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
@@ -32,7 +32,7 @@ function renderPayroll(){
         <td class="num">${fmt(r.earningsTotal)}</td><td class="num">${fmt(r.deductionsTotal)}</td><td class="num"><b>${fmt(r.netSalary)}</b></td>
       </tr>`).join('')}
       <tr><td colspan="13" style="text-align:right;"><b>Total Net Salary Paid</b></td><td class="num"><b>${fmt(totalNet)}</b></td></tr>
-    </tbody></table></div>` : `<div class="empty">${active.length? '⚙️ Payroll not generated for this month yet. Click "Generate / Regenerate Payroll" above.' : 'Add employees first.'}</div>`}
+    </tbody></table></div>` : `<div class="empty">${active.length? ''+ico('settings')+' Payroll not generated for this month yet. Click "Generate / Regenerate Payroll" above.' : 'Add employees first.'}</div>`}
   </div>`;
 }
 function generatePayroll(){
