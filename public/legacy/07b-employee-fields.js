@@ -32,12 +32,15 @@ function employeeFieldSections(){
 function employeeFields(){
   const opts = list => list.map(v => ({value:v, label:v}));
   const resignedWrap = (e, extra) => (extra||'') + ` style="${e.status==='Resigned'?'':'display:none;'}"`;
+  const inactiveWrap = (e, extra) => (extra||'') + ` style="${e.status==='Inactive'?'':'display:none;'}"`;
   return [
     // ---- Basic Information ----
     {key:'code', label:'Employee Code', section:'basic', input:'text', auto:true, id:'',
       formValue:e=>e.code||'(auto)', width:14},
-    {key:'status', label:'Status', section:'basic', input:'select', options:opts(['Active','Resigned']),
+    {key:'status', label:'Status', section:'basic', input:'select', options:opts(['Active','Inactive','Resigned']),
       attrs:'onchange="toggleResignationField(this.value)"', formValue:e=>e.status||'Active', sheetOptions:['Active'], width:11},
+    {key:'inactiveFrom', label:'Inactive From', section:'basic', input:'date', sheet:false,
+      wrap:e=>inactiveWrap(e,' id="f_inactiveWrap"')},
     {key:'resignationDate', label:'Resignation Date', section:'basic', input:'date', sheet:false,
       wrap:e=>resignedWrap(e,' id="f_resignationWrap"')},
     {key:'resignReason', label:'Reason for Resignation (Optional)', section:'basic', input:'text', sheet:false, full:true,

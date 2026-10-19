@@ -2,10 +2,13 @@
 let empFilter={search:'',dept:'',status:'',unit:'',contractor:''};
 function renderEmployees(){
   const depts=db.departments;
-  // Active Employee List: resigned employees are never shown here — they live exclusively
-  // in the Resigned Employees module until they rejoin.
+  // Employee List (Active + Inactive): resigned employees are never shown here — they live
+  // exclusively in the Resigned Employees module until they rejoin. Employees are never
+  // deleted (their history is kept); mark them Inactive or Resigned instead.
   const activeEmps=db.employees.filter(e=>e.status!=='Resigned');
+  const activeCount=activeEmps.filter(e=>e.status!=='Inactive').length;
   let list=activeEmps.filter(e=>{
+    if(empFilter.status && (e.status||'Active')!==empFilter.status) return false;
     if(empFilter.search && !(`${e.name} ${e.code}`.toLowerCase().includes(empFilter.search.toLowerCase()))) return false;
     if(empFilter.dept && e.department!==empFilter.dept) return false;
     if(empFilter.unit && unitCodeOf(e.unit)!==empFilter.unit) return false;
@@ -28,7 +31,11 @@ function renderEmployees(){
       ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
       <option value="-" ${empFilter.contractor==='-'?'selected':''}>No contractor</option>
     </select>
-    <span style="font-size:12.5px;color:var(--muted);">${list.length} of ${activeEmps.length} active employee(s)</span>
+    <select onchange="empFilter.status=this.value;render('employees')">
+      <option value="">Active &amp; Inactive</option>
+      ${['Active','Inactive'].map(s=>`<option ${empFilter.status===s?'selected':''}>${s}</option>`).join('')}
+    </select>
+    <span style="font-size:12.5px;color:var(--muted);">${list.length} shown · ${activeCount} active, ${activeEmps.length-activeCount} inactive</span>
     ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openEmployeeModal()">${ico('plus')} Add Employee</button>` : ''}
   </div>
   <div class="panel">
@@ -38,10 +45,9 @@ function renderEmployees(){
       ${list.map(e=>`<tr>
         <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
         <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
-        <td>${e.mobile||'-'}</td><td><b>${fmt(calcNet(e))}</b></td><td><span class="tag ${e.status}">${e.status}</span></td>
+        <td>${e.mobile||'-'}</td><td><b>${fmt(calcNet(e))}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
-          ${hasPerm('employees','delete') ? `<button class="del" onclick="deleteEmployee('${e.code}')">${ico('trash')} Delete</button>` : ''}
         </td>
       </tr>`).join('')}
     </tbody></table>` : '<div class="empty">'+ico('search-x')+' No employees found. Try adjusting your search or filters.</div>'}
@@ -71,7 +77,6 @@ function renderResigned(){
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openRejoinModal('${e.code}')">↩️ Rejoin</button>` : ''}
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
-          ${hasPerm('employees','delete') ? `<button class="del" onclick="deleteEmployee('${e.code}')">${ico('trash')} Delete</button>` : ''}
         </td>
       </tr>`).join('')}
     </tbody></table>` : '<div class="empty">'+ico('search-x')+' No resigned employees.</div>'}
@@ -187,6 +192,10 @@ function toggleResignationField(status){
   if(wrap) wrap.style.display = status==='Resigned' ? '' : 'none';
   const reasonWrap=document.getElementById('f_resignReasonWrap');
   if(reasonWrap) reasonWrap.style.display = status==='Resigned' ? '' : 'none';
+  const inactiveWrap=document.getElementById('f_inactiveWrap');
+  if(inactiveWrap) inactiveWrap.style.display = status==='Inactive' ? '' : 'none';
+  const inactiveFrom=document.getElementById('f_inactiveFrom');
+  if(status==='Inactive' && inactiveFrom && !inactiveFrom.value) inactiveFrom.value=todayStr();
 }
 function saveEmployee(existingCode){
   // Every form field (see employeeFields() in 07b-employee-fields.js), read in one go.
@@ -198,6 +207,8 @@ function saveEmployee(existingCode){
   let resignReason = f.resignReason||'';
   if(status==='Resigned' && !resignationDate){ alert('Please enter the Resignation Date.'); return; }
   if(status!=='Resigned'){ resignationDate=''; resignReason=''; }
+  const inactiveFrom = status==='Inactive' ? (f.inactiveFrom||'') : '';
+  if(status==='Inactive' && !inactiveFrom){ alert('Please enter the Inactive From date.'); return; }
   const prior = existingCode ? db.employees.find(e=>e.code===existingCode) : null;
   const joiningVal=f.joining||'';
   const data={
@@ -207,6 +218,7 @@ function saveEmployee(existingCode){
     status,
     resignationDate,
     resignReason,
+    inactiveFrom,
     employmentHistory: prior ? (prior.employmentHistory||[]) : [],
     originalJoining: prior ? (prior.originalJoining || joiningVal) : joiningVal,
     rejoinDate: prior ? (prior.rejoinDate||'') : '',
@@ -217,13 +229,5 @@ function saveEmployee(existingCode){
   saveDB(db);
   closeModal();
   render(data.status==='Resigned' ? 'resigned' : 'employees');
-}
-function deleteEmployee(code){
-  if(!hasPerm('employees','delete')){ alert('You do not have permission to delete employees.'); return; }
-  if(!confirm('Delete this employee? This cannot be undone.')) return;
-  const wasResigned = (db.employees.find(e=>e.code===code)||{}).status==='Resigned';
-  db.employees=db.employees.filter(e=>e.code!==code);
-  saveDB(db);
-  render(wasResigned ? 'resigned' : 'employees');
 }
 
