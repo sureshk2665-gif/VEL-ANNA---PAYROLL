@@ -162,3 +162,6 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
   .attCalGrid{grid-auto-rows:56px;}
 }
 
+/* Day status filled from Employee Time Entry (nothing marked on this screen) */
+.attCalCell .attTETag{display:inline-flex;margin-left:4px;vertical-align:-1px;color:var(--accent);opacity:.8;}
+.attCalCell .attTETag svg{width:11px;height:11px;}

@@ -98,13 +98,28 @@ function removeHolidayDate(dateVal){
   render('payrollprocess');
 }
 // Single source of truth for "what is this employee's status on this date" — used everywhere
-// attendance is displayed or summarized. A Holiday Calendar date always wins: it shows/counts
-// as 'NOPH' for every employee automatically, regardless of what (if anything) is stored.
+// attendance is displayed or summarized (Attendance, Payroll, Dashboard). In order:
+//   1. a Holiday Calendar date shows/counts as 'NOPH' for every employee;
+//   2. a mark made on the Attendance screen;
+//   3. otherwise Employee Time Entry — see timeEntryAttStatus().
 function getAttStatus(date, code){
   const t=getHolidayType(date);
   if(t) return t;
   const s=db.attendance[date]?.[code] || '';
-  return s==='PaidLeave' ? 'LossOfPay' : s; // NOPL (paid leave) was removed — any old NOPL mark counts as Loss Of Pay
+  if(s) return s==='PaidLeave' ? 'LossOfPay' : s; // NOPL (paid leave) was removed — any old NOPL mark counts as Loss Of Pay
+  return timeEntryAttStatus(date, code);
+}
+// A day's status from Employee Time Entry: its Employee Leave (Loss of Pay / Half Day), else
+// Present when an In Time was entered, else '' (not marked).
+function timeEntryAttStatus(date, code){
+  const lv=typeof teGetLeave==='function' ? teGetLeave(date, code) : null;
+  if(lv) return lv.type==='Half Day' ? 'HalfDay' : 'LossOfPay';
+  const te=db.timeEntries && db.timeEntries[date] && db.timeEntries[date][code];
+  return te && te.inH!=='' && te.inH!==undefined && te.inH!==null ? 'Present' : '';
+}
+// True when the status shown for this day comes from Employee Time Entry (nothing marked here).
+function attIsFromTimeEntry(date, code){
+  return !getHolidayType(date) && !(db.attendance[date]?.[code]) && !!timeEntryAttStatus(date, code);
 }
 
 function attendanceSummary(code, ym){
@@ -269,7 +284,7 @@ function renderAttendanceDay(){
         return `<div class="attQuickRow ${!val?'unmarked':''}">
           <div class="attQuickEmp">
             <div class="empName">${e.name}</div>
-            <div class="empSub">${e.code} · ${e.department||'-'}${val?` · ${isHolidayToday?`<span class="tag ${val}" style="padding:1px 7px;">${STATUS_LABEL[val]}</span>`:STATUS_LABEL[val]}`:' · Not marked'}</div>
+            <div class="empSub">${e.code} · ${e.department||'-'}${val?` · ${isHolidayToday?`<span class="tag ${val}" style="padding:1px 7px;">${STATUS_LABEL[val]}</span>`:STATUS_LABEL[val]+(attIsFromTimeEntry(attDate, e.code)?' (from Time Entry)':'')}`:' · Not marked'}</div>
           </div>
           <div class="attQuickBtns">
             ${QUICK_STATUS.map(s=>`<button type="button" class="attQBtn sel-${s} ${val===s?'active':''}" ${(hasPerm('attendance','edit') && !isHolidayToday)?'':'disabled'} onclick="setCellStatus('${attDate}','${e.code}','${val===s?'':s}')">${STATUS_LABEL[s]}</button>`).join('')}
@@ -335,8 +350,9 @@ function fillEmployeeMonthPresent(code){
     const dt=dateStr(attMonth,d);
     if(isHolidayDate(dt)) continue; // Holiday Calendar (NOPH) dates are locked
     if(isSunday(attMonth,d)) continue; // Sundays are outside NOWD and are never marked Present
+    if(getAttStatus(dt, code)) continue; // already marked, or filled from Employee Time Entry
     if(!db.attendance[dt]) db.attendance[dt]={};
-    if(!db.attendance[dt][code]) db.attendance[dt][code]='Present';
+    db.attendance[dt][code]='Present';
   }
   saveDB(db);
   render('attendance');
@@ -461,9 +477,10 @@ function renderAttendanceEmployee(){
     const val=getAttStatus(dt, attEmpCode);
     const dtIsHoliday=isHolidayDate(dt);
     const optionList = dtIsHoliday ? [val] : STATUS_LIST;
-    cells.push(`<div class="attCalCell st-${val} ${isSunday(attMonth,d)?'sun':''}">
-      <div class="dNum">${d} <span style="font-weight:400;color:var(--muted);">${weekdayShort(attMonth,d)}</span></div>
-      <select ${(editable && !dtIsHoliday)?'':'disabled'} onchange="setCellStatus('${dt}','${attEmpCode}',this.value)" title="${dtIsHoliday?STATUS_LABEL[val]+' — Holiday Calendar, locked':(val?STATUS_LABEL[val]:'Not marked')}">
+    const fromTE = attIsFromTimeEntry(dt, attEmpCode);
+    cells.push(`<div class="attCalCell st-${val} ${isSunday(attMonth,d)?'sun':''} ${fromTE?'fromTE':''}">
+      <div class="dNum">${d} <span style="font-weight:400;color:var(--muted);">${weekdayShort(attMonth,d)}</span>${fromTE?`<span class="attTETag" title="From Employee Time Entry">${ico('clock')}</span>`:''}</div>
+      <select ${(editable && !dtIsHoliday)?'':'disabled'} onchange="setCellStatus('${dt}','${attEmpCode}',this.value)" title="${dtIsHoliday?STATUS_LABEL[val]+' — Holiday Calendar, locked':fromTE?STATUS_LABEL[val]+' — from Employee Time Entry (pick a status here to override)':(val?STATUS_LABEL[val]:'Not marked')}">
         ${!dtIsHoliday?`<option value="" ${!val?'selected':''}>—</option>`:''}
         ${optionList.map(st=>`<option value="${st}" ${val===st?'selected':''}>${STATUS_LABEL[st]}</option>`).join('')}
       </select>
@@ -589,7 +606,7 @@ function renderAttendanceGrid(){
               const val=getAttStatus(dt, e.code);
               const dtIsHoliday=isHolidayDate(dt);
               const optionList = dtIsHoliday ? [val] : STATUS_LIST;
-              return `<td class="${val?('cellStatus-'+val):''}" title="${dtIsHoliday?STATUS_LABEL[val]+' — Holiday Calendar, locked':(val?STATUS_LABEL[val]:'')}">
+              return `<td class="${val?('cellStatus-'+val):''}" title="${dtIsHoliday?STATUS_LABEL[val]+' — Holiday Calendar, locked':attIsFromTimeEntry(dt, e.code)?STATUS_LABEL[val]+' — from Employee Time Entry':(val?STATUS_LABEL[val]:'')}">
                 <select class="cellSel" ${(hasPerm('attendance','edit') && !dtIsHoliday)?'':'disabled'} onchange="setCellStatus('${dt}','${e.code}',this.value)">
                   ${!dtIsHoliday?`<option value="" ${!val?'selected':''}>—</option>`:''}
                   ${optionList.map(s=>`<option value="${s}" ${val===s?'selected':''}>${STATUS_LABEL[s].slice(0,3)}</option>`).join('')}
@@ -662,8 +679,9 @@ function fillUnmarkedPresent(){
       const dt=dateStr(attMonth,d);
       if(isHolidayDate(dt)) continue; // Holiday Calendar (NOPH) dates are locked
       if(isSunday(attMonth,d)) continue; // Sundays are outside NOWD and are never marked Present
+      if(getAttStatus(dt, e.code)) continue; // already marked, or filled from Employee Time Entry
       if(!db.attendance[dt]) db.attendance[dt]={};
-      if(!db.attendance[dt][e.code]) db.attendance[dt][e.code]='Present';
+      db.attendance[dt][e.code]='Present';
     }
   });
   saveDB(db);
