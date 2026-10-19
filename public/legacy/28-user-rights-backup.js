@@ -187,6 +187,7 @@ function restoreData(file){
         return;
       }
       db=incoming;
+      applyCompanyBranding();
       alert('Data restored successfully and saved to the database.');
       render('softwareadmin');
     }catch(err){
@@ -339,6 +340,7 @@ function saveCompanySettings(){
   });
   syncLegacyUnitFields();
   saveDB(db);
+  applyCompanyBranding();
   alert('Saved.');
 }
 async function changePassword(){

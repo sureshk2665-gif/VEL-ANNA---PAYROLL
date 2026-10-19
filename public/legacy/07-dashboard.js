@@ -33,7 +33,7 @@ function renderDashboard(){
     <div class="stat" style="--stat-color:#0891b2;"><div class="statTop"><div class="statIcon">${ico('trending-up')}</div></div><div class="n">${attPct}%</div><div class="l">Attendance %</div></div>
   </div>
   <div class="toolbar no-print">
-    <button class="btn" onclick="render('employees');openAddEmployeeChooser()">${ico('plus')} Add Employee</button>
+    <button class="btn" onclick="render('employees');openEmployeeModal()">${ico('plus')} Add Employee</button>
     <button class="btn secondary" onclick="render('attendance')">${ico('zap')} Mark Attendance</button>
     <button class="btn secondary" onclick="render('payroll')">${ico('credit-card')} Generate Payroll</button>
   </div>

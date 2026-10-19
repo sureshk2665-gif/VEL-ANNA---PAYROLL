@@ -111,6 +111,7 @@ function showApp(){
   document.getElementById('app').style.display='block';
   const badge=document.getElementById('currentUserBadge');
   if(badge && currentUser) { badge.innerHTML=ico('user'); badge.append(' '+(currentUser.name||currentUser.username)+(currentUser.role?' ('+currentUser.role+')':'')); }
+  applyCompanyBranding();
   refreshNavVisibility();
   const firstAllowed=PERMISSION_MODULES.map(m=>m.key).find(k=>canOpenModule(k))||'dashboard';
   render(firstAllowed);
@@ -143,9 +144,7 @@ async function logout(){
   showLogin();
 }
 window.addEventListener('DOMContentLoaded',()=>{
-  const sideLogo=document.querySelector('.sidebarBrand img');
-  const loginLogo=document.getElementById('loginLogo');
-  if(sideLogo && loginLogo) loginLogo.src=sideLogo.src;
+  applyCompanyBranding(); // last-seen company name/logo on the login screen
 
   document.getElementById('loginPass').addEventListener('keydown',e=>{ if(e.key==='Enter') attemptLogin(); });
   document.getElementById('loginUser').addEventListener('keydown',e=>{ if(e.key==='Enter') attemptLogin(); });

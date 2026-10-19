@@ -27,9 +27,7 @@
 body.dark .stat .statIcon{color:color-mix(in srgb, var(--stat-color, var(--accent)) 60%, #fff);}
 .reportCardIcon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);color:var(--accent);}
 .reportCardIcon .ico{width:21px;height:21px;}
-body.dark .reportCardIcon,body.dark .addEmpChoiceIcon{color:color-mix(in srgb, var(--accent) 55%, #fff);}
-.addEmpChoiceIcon{color:var(--accent);}
-.addEmpChoiceIcon .ico{width:24px;height:24px;}
+body.dark .reportCardIcon{color:color-mix(in srgb, var(--accent) 55%, #fff);}
 .bulkImportDoneIcon{color:var(--st-present-text);}
 
 /* Headings, tabs and chips: tint the icon with the accent */
