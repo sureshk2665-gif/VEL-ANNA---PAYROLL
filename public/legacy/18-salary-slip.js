@@ -40,7 +40,7 @@ function openSlip(code, ym){
       <colgroup><col style="width:24%"><col style="width:15%"><col style="width:15%"><col style="width:30%"><col style="width:16%"></colgroup>
       <tr style="background:#0f6b5c;color:#fff;"><th style="text-align:center;">DETAILS</th><th style="text-align:center;">SCALE</th><th style="text-align:center;">EARNED</th><th style="text-align:center;">DEDUCTIONS</th><th style="text-align:center;">AMOUNT (₹)</th></tr>
       <tr><td style="text-align:left;">Basic</td><td>${fmt(e.basic).replace('₹','')}</td><td>${fmt(r.basicE).replace('₹','')}</td><td style="text-align:left;">ESI</td><td>${fmt(r.esi).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;">HRA</td><td>${fmt(e.hra).replace('₹','')}</td><td>${fmt(r.hraE).replace('₹','')}</td><td style="text-align:left;">Tax</td><td>${fmt(r.tax).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;">HRA</td><td>${fmt(e.hra).replace('₹','')}</td><td>${fmt(r.hraE).replace('₹','')}</td><td style="text-align:left;">PF</td><td>${fmt(r.pf).replace('₹','')}</td></tr>
       <tr><td style="text-align:left;">Over Time</td><td></td><td>${fmt(r.otAmount).replace('₹','')}</td><td style="text-align:left;">Canteen (${r.canteenTokens||0} × ₹${r.canteenTokenPrice||0})</td><td>${fmt(r.canteen).replace('₹','')}</td></tr>
       <tr><td style="text-align:left;">Other Allowance</td><td></td><td>${fmt(r.otherAllowance).replace('₹','')}</td><td style="text-align:left;">Advance</td><td>${fmt(r.advance).replace('₹','')}</td></tr>
       <tr><td></td><td></td><td></td><td style="text-align:left;">Others</td><td>${fmt(r.otherDed).replace('₹','')}</td></tr>
@@ -85,7 +85,7 @@ function slipCardHTML(e, r, ym){
       <colgroup><col style="width:25%"><col style="width:11%"><col style="width:12%"><col style="width:32%"><col style="width:20%"></colgroup>
       <tr class="hd"><th>DETAILS</th><th>SCALE</th><th>EARNED</th><th>DEDUCTIONS</th><th>AMT ₹</th></tr>
       <tr><td>Basic</td><td class="amt">${fmt(e.basic).replace('₹','')}</td><td class="amt">${fmt(r.basicE).replace('₹','')}</td><td>ESI</td><td class="amt">${fmt(r.esi).replace('₹','')}</td></tr>
-      <tr><td>HRA</td><td class="amt">${fmt(e.hra).replace('₹','')}</td><td class="amt">${fmt(r.hraE).replace('₹','')}</td><td>Tax</td><td class="amt">${fmt(r.tax).replace('₹','')}</td></tr>
+      <tr><td>HRA</td><td class="amt">${fmt(e.hra).replace('₹','')}</td><td class="amt">${fmt(r.hraE).replace('₹','')}</td><td>PF</td><td class="amt">${fmt(r.pf).replace('₹','')}</td></tr>
       <tr><td>OT</td><td class="amt"></td><td class="amt">${fmt(r.otAmount).replace('₹','')}</td><td>Canteen (${r.canteenTokens||0} tkn)</td><td class="amt">${fmt(r.canteen).replace('₹','')}</td></tr>
       <tr><td>Other Allw.</td><td class="amt"></td><td class="amt">${fmt(r.otherAllowance).replace('₹','')}</td><td>Advance</td><td class="amt">${fmt(r.advance).replace('₹','')}</td></tr>
       <tr><td></td><td class="amt"></td><td class="amt"></td><td>Others</td><td class="amt">${fmt(r.otherDed).replace('₹','')}</td></tr>
