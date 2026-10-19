@@ -17,10 +17,9 @@ let editIncId=''; // id of increment record currently being edited (inline edit 
 // 60% Basic / 40% HRA split (HRA absorbs any rounding remainder). Conveyance and Washing are no
 // longer part of the salary structure and always stay 0.
 // Salary is a daily wage: after an increment changes Basic/HRA (per day), the Daily Wage is their
-// sum and the OT rate follows from it.
+// sum (Payroll derives the OT rate from it).
 function syncDailyWage(emp){
   emp.dailyWage=Math.round(((+emp.basic||0)+(+emp.hra||0))*100)/100;
-  emp.otRate=dailyWageSplit(emp.dailyWage).otRate;
 }
 function splitIncrementAmount(amount){
   amount=Math.round(Number(amount)||0);

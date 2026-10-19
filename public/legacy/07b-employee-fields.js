@@ -76,16 +76,15 @@ function employeeFields(){
     {key:'esiNo', label:'ESI Number', section:'bank', input:'text', width:16},
     {key:'uan', label:'UAN Number', section:'bank', input:'text', width:16},
     // ---- Salary Details ----
-    // Daily wage (TOTAL per day). Basic, HRA and the OT rate follow from it automatically —
-    // see dailyWageSplit(); the Excel template carries the same formulas (sheetFormula).
+    // Daily wage (TOTAL per day). Basic and HRA follow from it automatically — see
+    // dailyWageSplit(); the Excel template carries the same formulas (sheetFormula). The OT rate is
+    // not part of the employee record: Payroll works it out (Daily Wage ÷ 8 × 1.5).
     {key:'dailyWage', label:'Daily Wage — TOTAL (₹ per day)', section:'salary', input:'number',
       attrs:'oninput="updateWageSplit(this.value)"', formValue:e=>e.dailyWage||0, width:16},
     {key:'basic', label:'Basic / day (60%)', section:'salary', input:'number', auto:true,
       title:'Basic = 60% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*60%,2)', width:13},
     {key:'hra', label:'HRA / day (40%)', section:'salary', input:'number', auto:true,
       title:'HRA = 40% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*40%,2)', width:13},
-    {key:'otRate', label:'OT Rate / hr (TOTAL ÷ 8 × 1.5)', section:'salary', input:'number', auto:true,
-      title:'OT rate per hour = Daily Wage ÷ 8 hours × 1.5', sheetFormula:'ROUND({dailyWage}/8*1.5,0)', width:14},
     {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:opts(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.
     // PF / ESI Deduction are set in the form only — not in the bulk-import sheet (new employees
@@ -105,14 +104,20 @@ function employeeFields(){
   ];
 }
 // Daily wage → Basic (60%), HRA (40%) and OT rate per hour (wage ÷ 8 × 1.5), same as the sheet.
+// The OT rate is used by Payroll only; employee records store dailyWage / basic / hra
+// (employeeWageFields()).
 function dailyWageSplit(wage){
   const w=Math.max(0, +wage||0);
   return { dailyWage:w, basic:Math.round(w*0.6*100)/100, hra:Math.round(w*0.4*100)/100, otRate:Math.round(w/8*1.5) };
 }
-// Live update of the read-only Basic / HRA / OT fields while the Daily Wage is typed in the form.
+function employeeWageFields(wage){
+  const s=dailyWageSplit(wage);
+  return { dailyWage:s.dailyWage, basic:s.basic, hra:s.hra };
+}
+// Live update of the read-only Basic / HRA fields while the Daily Wage is typed in the form.
 function updateWageSplit(v){
   const s=dailyWageSplit(v);
-  [['f_basic',s.basic],['f_hra',s.hra],['f_otRate',s.otRate]].forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
+  [['f_basic',s.basic],['f_hra',s.hra]].forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
 }
 function employeeFieldId(f){ return f.id===undefined ? 'f_'+f.key : f.id; }
 function employeeFieldOptions(f){ return typeof f.options==='function' ? f.options() : (f.options||[]); }

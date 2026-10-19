@@ -51,6 +51,7 @@ function renderPayrollProcess(){
       <div><label>Canteen Token Price (₹ per token)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${s.canteenTokenPrice}"></div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-top:10px;">Each employee's usual number of canteen tokens per month is set in their Employee form; it can be changed for a single month on the <b>Attendance</b> screen. Tokens × this price is deducted from salary. A new price applies to payroll generated from now on.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:6px;"><b>Wages &amp; OT (daily wage):</b> Basic = 60% and HRA = 40% of each employee's Daily Wage, paid for Present + Half Day × 0.5 + NOPL + Holidays. OT rate per hour = Daily Wage ÷ 8 × 1.5, worked out here during payroll — OT hours are entered monthly on the <b>Attendance</b> screen. GROSS = Basic + OT; Total Earnings = GROSS + HRA.</p>
     <div class="modalActions"><button class="btn" onclick="savePayrollConstants()">Save</button></div>
   </div>` : ''}
   <p class="syncNote">All payroll processing — generating payroll, viewing salary slips and printing — is done from the <b>Payroll</b> screen. This Payroll Process screen only holds the working-day rule and the payroll constants used by that processing.</p>`;
