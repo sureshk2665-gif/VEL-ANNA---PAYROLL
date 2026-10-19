@@ -188,6 +188,7 @@ function restoreData(file){
       }
       db=incoming;
       // Older backups pre-date the contractor list / numbered units — convert them like initDB().
+      ensureDepartments();
       ensureContractors();
       ensureUnits();
       await saveDB(db);
