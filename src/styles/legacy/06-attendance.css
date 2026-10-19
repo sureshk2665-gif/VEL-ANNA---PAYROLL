@@ -50,7 +50,6 @@ table.attGrid select.daySel{width:100%;height:22px;border:none;background:transp
 table.attGrid td.cellStatus-Present{background:var(--st-present-bg);border-left:3px solid var(--st-present-border);}
 table.attGrid td.cellStatus-Absent,table.attGrid td.cellStatus-LossOfPay{background:var(--st-lop-bg);border-left:3px solid var(--st-lop-border);}
 table.attGrid td.cellStatus-HalfDay{background:var(--st-half-bg);border-left:3px solid var(--st-half-border);}
-table.attGrid td.cellStatus-PaidLeave{background:var(--st-nopl-bg);border-left:3px solid var(--st-nopl-border);}
 table.attGrid td.cellStatus-NOPH{background:var(--st-noph-bg);border-left:3px solid var(--st-noph-border);}
 table.attGrid td.sumCell{font-weight:600;background:var(--card);}
 table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);border-radius:4px;text-align:center;font-size:11px;background:var(--paper);color:var(--ink);}
@@ -84,7 +83,6 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
 .attQBtn.sel-Present{background:var(--st-present-bg);border-color:var(--st-present-border);color:var(--st-present-text);}
 .attQBtn.sel-LossOfPay{background:var(--st-lop-bg);border-color:var(--st-lop-border);color:var(--st-lop-text);}
 .attQBtn.sel-HalfDay{background:var(--st-half-bg);border-color:var(--st-half-border);color:var(--st-half-text);}
-.attQBtn.sel-PaidLeave{background:var(--st-nopl-bg);border-color:var(--st-nopl-border);color:var(--st-nopl-text);}
 .attQBtn.active{outline:2px solid var(--ink);outline-offset:-2px;}
 .attQuickOT{width:56px;height:30px;border:1px solid var(--line);border-radius:6px;text-align:center;font-size:11px;background:var(--paper);color:var(--ink);}
 .attQuickOTWrap{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--muted);}
@@ -94,7 +92,7 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
    Layout: a slim top bar (employee / month / actions — the controls used every
    time) spans the full width for one-glance access, then the stage body splits
    into a narrow left column holding everything auto-calculated/system-derived
-   (completion tracker, live summary totals, NOPL/advance/canteen figures) and a
+   (completion tracker, live summary totals, advance/canteen figures) and a
    wide right column holding the actual data-entry surface (calendar + the few
    editable monthly figures), so the whole workflow fits one viewport. */
 .attStage{display:flex;flex-direction:column;height:100%;min-height:0;gap:6px;}
@@ -138,7 +136,6 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
 .attCalCell.st-Present{border-left-color:var(--st-present-border);background:var(--st-present-bg);}
 .attCalCell.st-LossOfPay{border-left-color:var(--st-lop-border);background:var(--st-lop-bg);}
 .attCalCell.st-HalfDay{border-left-color:var(--st-half-border);background:var(--st-half-bg);}
-.attCalCell.st-PaidLeave{border-left-color:var(--st-nopl-border);background:var(--st-nopl-bg);}
 .attCalCell.st-NOPH{border-left-color:var(--st-noph-border);background:var(--st-noph-bg);}
 .attCalCell.blank{border:none;background:transparent;}
 .attCalCell .dNum{font-size:10.5px;font-weight:700;line-height:1.1;}
@@ -146,7 +143,6 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
 .attCalCell.st-Present select{background:var(--st-present-bg);color:var(--st-present-text);}
 .attCalCell.st-LossOfPay select{background:var(--st-lop-bg);color:var(--st-lop-text);}
 .attCalCell.st-HalfDay select{background:var(--st-half-bg);color:var(--st-half-text);}
-.attCalCell.st-PaidLeave select{background:var(--st-nopl-bg);color:var(--st-nopl-text);}
 .attCalCell.st-NOPH select{background:var(--st-noph-bg);color:var(--st-noph-text);}
 .attEntryRow{flex-shrink:0;display:flex;flex-wrap:wrap;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:9px;padding:3px 10px;}
 .attEntryField{display:flex;flex-direction:column;gap:1px;flex:1 1 130px;min-width:110px;}

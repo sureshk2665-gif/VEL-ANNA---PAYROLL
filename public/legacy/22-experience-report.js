@@ -54,10 +54,24 @@ function experienceReportRows(fy, dept, desig, status){
     }))
     .sort((a,b)=>a.Code.localeCompare(b.Code,undefined,{numeric:true}));
 }
-function payrollReportRows(){
-  const rec=db.payroll[payMonth]||{};
-  return Object.values(rec).map(r=>{
+// Payroll rows for the report hub — LIVE (payrollMonthRecords): every employee on the roll that
+// month, sorted by code. Identity (name, unit, contractor, payment mode) comes from the current
+// employee record, falling back to the payroll record. Legacy months may lack newer fields (-> 0).
+function payrollReportRows(ym){
+  const list=payrollMonthRecords(ym||payMonth)||[];
+  const n=v=>Number(v)||0;
+  return list.map(r=>{
     const e=db.employees.find(x=>x.code===r.code);
-    return {Code:r.code,Name:r.name,WorkingUnit:unitLabel(e&&e.unit),UnitCode:unitCodeOf(e&&e.unit),Contractor:contractorName(e)||'-',PaymentMode:(e&&e.mode)||'-',DaysWorked:r.daysWorking,LOP:r.lopDays,Earnings:r.earningsTotal,Deductions:r.deductionsTotal,ESI:r.esi||0,PF:r.pf||0,Canteen:r.canteen||0,Late:r.lateDeduction||0,NetSalary:r.netSalary};
+    const unit=e?e.unit:r.unit;
+    const contractor=e?(e.contractor||''):(r.contractor||'');
+    const row={Code:r.code,Name:(e&&e.name)||r.name||'-',WorkingUnit:unitLabel(unit),UnitCode:unitCodeOf(unit),Contractor:contractorName(contractor)||'-',PaymentMode:(e&&e.mode)||r.mode||'-',
+      Present:n(r.presentDays),NOPH:n(r.holidayDays),HalfDay:n(r.halfDayCount),LOP:n(r.lopDays),PaidDays:n(r.daysWorking),OTHrs:n(r.otHours),LateMin:n(r.lateMinutes),
+      Gross:n(r.grossSalary),Earnings:n(r.earningsTotal),ESI:n(r.esi),PF:n(r.pf),Canteen:n(r.canteen),Late:n(r.lateDeduction),Advance:n(r.advance),OtherDed:n(r.otherDed)+n(r.tax),
+      Deductions:n(r.deductionsTotal),NetSalary:n(r.netSalary)};
+    // Kept for compatibility (same as PaidDays) plus the contractor code for filtering — not
+    // enumerable, so tables/exports built from Object.keys() don't show them as columns.
+    Object.defineProperty(row,'DaysWorked',{value:row.PaidDays,enumerable:false});
+    Object.defineProperty(row,'ContractorCode',{value:contractor,enumerable:false});
+    return row;
   });
 }

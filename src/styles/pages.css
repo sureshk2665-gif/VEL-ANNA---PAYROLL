@@ -11,7 +11,6 @@ body.dark{
   --st-present-bg:#13301f; --st-present-text:#86efac; --st-present-border:#2f7a4c;
   --st-half-bg:#33270f;    --st-half-text:#fcd34d;    --st-half-border:#8a6a1c;
   --st-lop-bg:#381818;     --st-lop-text:#fca5a5;     --st-lop-border:#8a3a3a;
-  --st-nopl-bg:#16233d;    --st-nopl-text:#93c5fd;    --st-nopl-border:#35548a;
   --st-noph-bg:#2a1a3b;    --st-noph-text:#d8b4fe;    --st-noph-border:#6b3f8f;
   --st-sunday-bg:#1a2130;  --st-sunday-border:#2c3546;
 }
