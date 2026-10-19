@@ -14,7 +14,7 @@ let teDwFocus=null;           // {r,c} to re-focus after a full render (e.g. dat
 
 function teDwCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teDwUnlocked(){ return teDwCanEdit() && teGridEditMode; }
-function teDwEmployees(){ return activeEmployeesForTE(); }
+function teDwEmployees(){ return teFilteredEmployees(); } // narrowed by the Unit / Contractor filter
 
 /* ---- Day totals ---- */
 function teDwTotals(dt){
@@ -221,17 +221,17 @@ function teDwRefreshSel(){
   const cnt=document.getElementById('teDwSelCount'); if(cnt) cnt.textContent=n+' selected';
   const btn=document.getElementById('teDwApply'); if(btn) btn.disabled=!n;
   const all=document.getElementById('teDwAll');
-  if(all){ const boxes=[...document.querySelectorAll('#teDwGrid .teDwChk input:not(:disabled)')]; all.checked=!!boxes.length && boxes.every(b=>b.checked); all.indeterminate=n>0 && !all.checked; }
+  if(all){ const boxes=[...document.querySelectorAll('#teDwGrid tbody .teDwChk input:not(:disabled)')]; all.checked=!!boxes.length && boxes.every(b=>b.checked); all.indeterminate=n>0 && !all.checked; }
 }
 function teDwToggleSel(code, on){ if(on) teDwSel.add(code); else teDwSel.delete(code); teDwRefreshSel(); }
 function teDwToggleAll(on){
-  document.querySelectorAll('#teDwGrid .teDwChk input:not(:disabled)').forEach(b=>{ b.checked=on; const code=b.closest('tr').dataset.code; if(on) teDwSel.add(code); else teDwSel.delete(code); });
+  document.querySelectorAll('#teDwGrid tbody .teDwChk input:not(:disabled)').forEach(b=>{ b.checked=on; const code=b.closest('tr').dataset.code; if(on) teDwSel.add(code); else teDwSel.delete(code); });
   teDwRefreshSel();
 }
 function teDwApplyShift(){
   if(!teDwUnlocked()) return;
   const s=TE_SHIFTS.find(x=>x.key===teDwBulkShift); if(!s){ alert('Choose a shift first.'); return; }
-  const codes=[...teDwSel].filter(code=>!teEwRowModel(code, teGridDate).onLeave);
+  const codes=[...teDwSel].filter(code=>code && (db.employees||[]).some(e=>e.code===code) && !teEwRowModel(code, teGridDate).onLeave);
   if(!codes.length) return;
   const filled=codes.filter(code=>{ const md=teEwRowModel(code, teGridDate); return md.hasIn||md.hasOut; }).length;
   if(filled && !confirm(`${filled} of the ${codes.length} selected employee(s) already have a time on ${fmtDate(teGridDate)}. Replace it with ${teShiftLabel(s)}?`)) return;
@@ -275,7 +275,7 @@ function renderTEDateGrid(){
       </div>
     </div>
     <div class="teDwBanner">
-      <div><b>Time entries — ${fmtDate(dt)}</b> <span style="color:var(--muted);">${dayName}</span>${dayTag}</div>
+      <div><b>Time entries — ${fmtDate(dt)}</b> <span style="color:var(--muted);">${dayName}</span>${dayTag}${teFilterText()?` <span class="teDwFilterTag">${ico('building')} ${teEsc(teFilterText())}</span>`:''}</div>
       <div style="font-size:12px;color:var(--muted);">${unlocked?'Unlocked for editing · click a name to open that employee\'s month':'Locked — click '+ico('pencil')+' Edit to enter time'}</div>
     </div>
     <div class="teStatRow" id="teDwStats">${teDwStatsHtml(t)}</div>
@@ -305,7 +305,7 @@ function renderTEDateGrid(){
         <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>OT</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>
       </tr></thead>
-      <tbody>${emps.map((e,i)=>teDwRowHtml(e,i,dt,unlocked)).join('') || `<tr><td colspan="14"><div class="empty">No active employees.</div></td></tr>`}</tbody>
+      <tbody>${emps.map((e,i)=>teDwRowHtml(e,i,dt,unlocked)).join('') || `<tr><td colspan="14"><div class="empty">${teFilterText()?'No active employees in '+teEsc(teFilterText())+'.':'No active employees.'}</div></td></tr>`}</tbody>
     </table></div>
     <p class="syncNote">Shifts: <b>First</b> 7:00 AM – 3:30 PM · <b>General</b> 9:00 AM – 5:30 PM · <b>Second</b> 3:30 PM – 12:00 AM (8 working hours + 30-minute break; time beyond that is OT). Sundays and booked holidays count as full-day OT. Setting <b>Attendance</b> to Loss of Pay, Half Day or NOPL records an Employee Leave; set it back to <b>Auto</b> to remove it. This is the same data as the Employee-wise view.</p>
   </div>`;

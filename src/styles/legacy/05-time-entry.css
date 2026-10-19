@@ -117,3 +117,14 @@ table.teEwGrid tr.teDwFlash td{animation:teDwFlash 1.6s ease-out;}
 .panel table.teEwGrid input.teEwTime.in{border-color:var(--te-in-border);}
 .panel table.teEwGrid input.teEwTime.out{border-color:var(--te-out-border);}
 .panel table.teEwGrid input.teEwTime:disabled{background:transparent;border-color:transparent;}
+/* Unit / Contractor filter bar (whole Time Entry page) */
+.teFilterBar{display:flex;align-items:center;gap:10px 14px;flex-wrap:wrap;margin:0 0 14px;}
+.teFilterLbl{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);}
+.teFilterLbl svg{width:15px;height:15px;}
+.teFilterLbl select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit;font-size:13px;font-weight:600;}
+.teFilterCount{font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.teDwFilterTag{display:inline-flex;align-items:center;gap:4px;margin-left:8px;padding:1px 9px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:600;}
+.teDwFilterTag svg{width:12px;height:12px;}
+.teFilterClear{display:inline-flex;align-items:center;gap:3px;border:0;background:none;padding:2px 4px;color:var(--accent);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:6px;}
+.teFilterClear:hover{background:var(--hover);}
+.teFilterClear svg{width:13px;height:13px;}
