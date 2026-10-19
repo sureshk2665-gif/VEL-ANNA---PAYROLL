@@ -99,6 +99,7 @@ async function resetAllData(){
   fresh.users=db.users;
   await saveDB(fresh);
   db=fresh;
+  applyCompanyBranding();
   render('dashboard');
 }
 
