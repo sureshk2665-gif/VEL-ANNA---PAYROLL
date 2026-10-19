@@ -30,12 +30,12 @@ function openSlip(code, ym){
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
         <td>LOP ${r.lopDays}</td>
-        <td>OT HOURS ${r.otHours} &nbsp;·&nbsp; LATE ${r.lateMinutes||0} MIN</td>
+        <td>OT HOURS ${r.otHours}</td>
       </tr>
       <tr>
         <td>Paid days ${r.daysWorking}</td>
         <td>NOPH ${r.noph}</td>
-        <td>NOPL Taken (this month) ${r.leaveDays}</td>
+        <td>LATE ${r.lateMinutes||0} MIN</td>
       </tr>
       <tr>
         <td>MODE ${e.mode||'-'}</td>
@@ -85,8 +85,8 @@ function slipCardHTML(e, r, ym){
     </div>
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</div>
     <table class="slipMeta">
-      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours} · LATE ${r.lateMinutes||0}m</td></tr>
-      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>NOPL Taken ${r.leaveDays}</td></tr>
+      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours}</td></tr>
+      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
       <tr><td>MODE ${e.mode||'-'}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
     </table>
     <table class="slipBody">
