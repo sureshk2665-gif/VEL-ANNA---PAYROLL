@@ -26,7 +26,7 @@ function employeeFieldSections(){
   return [
     {key:'basic',  title:'Basic Information'},
     {key:'bank',   title:'Bank &amp; Statutory Details'},
-    {key:'salary', title:'Salary Details (Monthly ₹ — "Scale")'}
+    {key:'salary', title:'Salary Details (Daily Wage ₹)'}
   ];
 }
 function employeeFields(){
@@ -77,14 +77,17 @@ function employeeFields(){
     {key:'uan', label:'UAN Number', section:'bank', input:'text', width:16},
     // ---- Salary Details ----
     // Daily wage (TOTAL per day). Basic and HRA follow from it automatically — see
-    // dailyWageSplit(); the Excel template carries the same formulas (sheetFormula). The OT rate is
-    // not part of the employee record: Payroll works it out (Daily Wage ÷ 8 × 1.5).
+    // dailyWageSplit(); the Excel template carries the same formulas (sheetFormula). The 1-hour OT
+    // rate is only SHOWN (displayOnly — never stored): Payroll works it out itself (Daily Wage ÷ 8 × 1.5).
     {key:'dailyWage', label:'Daily Wage — TOTAL (₹ per day)', section:'salary', input:'number',
       attrs:'oninput="updateWageSplit(this.value)"', formValue:e=>e.dailyWage||0, width:16},
     {key:'basic', label:'Basic / day (60%)', section:'salary', input:'number', auto:true,
       title:'Basic = 60% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*60%,2)', width:13},
     {key:'hra', label:'HRA / day (40%)', section:'salary', input:'number', auto:true,
       title:'HRA = 40% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*40%,2)', width:13},
+    {key:'otRate', label:'OT Rate — 1 hour (₹)', section:'salary', input:'number', auto:true, displayOnly:true,
+      title:'1-hour OT rate = Daily Wage ÷ 8 × 1.5 (shown for reference; Payroll calculates OT from OT hours entered in Attendance)',
+      formValue:e=>dailyWageSplit(e.dailyWage).otRate, sheetFormula:'ROUND({dailyWage}/8*1.5,0)', width:13},
     {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:opts(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.
     // PF / ESI Deduction are set in the form only — not in the bulk-import sheet (new employees
@@ -114,10 +117,10 @@ function employeeWageFields(wage){
   const s=dailyWageSplit(wage);
   return { dailyWage:s.dailyWage, basic:s.basic, hra:s.hra };
 }
-// Live update of the read-only Basic / HRA fields while the Daily Wage is typed in the form.
+// Live update of the read-only Basic / HRA / 1-hour OT rate while the Daily Wage is typed in the form.
 function updateWageSplit(v){
   const s=dailyWageSplit(v);
-  [['f_basic',s.basic],['f_hra',s.hra]].forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
+  [['f_basic',s.basic],['f_hra',s.hra],['f_otRate',s.otRate]].forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
 }
 function employeeFieldId(f){ return f.id===undefined ? 'f_'+f.key : f.id; }
 function employeeFieldOptions(f){ return typeof f.options==='function' ? f.options() : (f.options||[]); }
@@ -160,7 +163,7 @@ function readEmployeeFormFields(){
   employeeFields().forEach(f=>{
     const id=employeeFieldId(f);
     const el=id ? document.getElementById(id) : null;
-    if(!el) return;
+    if(!el || f.displayOnly) return; // displayOnly fields (1-hour OT rate) are shown, never saved
     const raw=el.value;
     const v = f.readValue ? f.readValue(raw) : (f.input==='number' ? (+raw||0) : raw);
     if(v && typeof v==='object' && !Array.isArray(v)) Object.assign(out, v); else out[f.key]=v;
@@ -181,7 +184,7 @@ function employeeSheetFields(){
 function employeeRecordFromSheet(values){
   const out={};
   employeeFields().forEach(f=>{
-    if(f.key==='code') return;
+    if(f.key==='code' || f.displayOnly) return;
     let raw = f.auto ? (f.input==='number' ? 0 : '') : values[f.key];
     if(raw===undefined || raw===null) raw = f.input==='number' ? 0 : '';
     if(f.input==='number'){ out[f.key]=+raw||0; return; }
