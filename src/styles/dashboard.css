@@ -1,5 +1,5 @@
 /* =====================================================================================
-   DASHBOARD & SHELL — floating top bar (breadcrumb, search, user chip), app launcher,
+   DASHBOARD & SHELL — floating top bar (title, search, user chip), app launcher,
    KPI cards with trend charts, and the app's motion. Screen only; printing is untouched.
    Motion is short and eased (no bounces); everything is off under prefers-reduced-motion.
    ===================================================================================== */
@@ -22,11 +22,6 @@
 .topbar{flex-wrap:nowrap;}
 .topTitle{min-width:0;flex:1 1 auto;}
 .topTitle .pageSubtitle{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.crumbs{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-bottom:1px;}
-.crumbHome{background:none;border:0;padding:0;color:var(--muted);font:inherit;cursor:pointer;transition:color .15s ease;}
-.crumbHome:hover{color:var(--accent);}
-#pageCrumb{color:var(--ink);font-weight:600;}
-.crumbSep{opacity:.5;}
 .topbar h1{font-size:20px;}
 .topbar .pageSubtitle{font-size:12.5px;margin-top:2px;}
 .topActions{flex-wrap:nowrap;justify-content:flex-end;flex:none;}

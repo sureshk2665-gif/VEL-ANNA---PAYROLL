@@ -135,3 +135,23 @@ input[type=file]::file-selector-button:hover{border-color:color-mix(in srgb,var(
 }
 
 } /* @media screen */
+
+/* Highlight colour taken from the company logo (applyLogoAccent() in 03-company-logo-status.js
+   sets --accent on <body>); the soft tint follows it in light and dark mode. */
+@media screen {
+  body.logoAccent{--accent-soft:color-mix(in srgb, var(--accent) 13%, #fff);
+    --ring:0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent);
+    --hover:color-mix(in srgb, var(--accent) 6%, transparent);}
+  body.dark.logoAccent{--accent-soft:color-mix(in srgb, var(--accent) 24%, #121826);
+    --hover:color-mix(in srgb, var(--accent) 14%, transparent);}
+}
+
+/* Attendance: unit tabs (All Units / UNIT 1 / UNIT 2 / …) */
+@media screen {
+  .attUnitTabs{display:flex;flex-wrap:wrap;gap:4px;padding:4px;background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-sm);flex-shrink:0;align-self:flex-start;}
+  .attUnitTab{border:0;background:none;color:color-mix(in srgb,var(--ink) 75%,transparent);font:inherit;font-size:12.5px;font-weight:650;letter-spacing:.02em;padding:7px 14px;border-radius:9px;cursor:pointer;transition:background .18s ease,color .18s ease,box-shadow .18s ease;}
+  .attUnitTab:hover:not(:disabled):not(.active){background:var(--hover);color:var(--ink);}
+  .attUnitTab.active{background:var(--accent);color:#fff;box-shadow:0 4px 10px -4px var(--accent);}
+  .attUnitTab:disabled{cursor:not-allowed;opacity:.55;}
+  .attUnitTab.active:disabled{opacity:.8;}
+}

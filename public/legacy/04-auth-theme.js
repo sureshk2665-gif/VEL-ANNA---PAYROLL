@@ -179,18 +179,10 @@ function toggleTheme(){
   document.body.classList.toggle('dark');
   localStorage.setItem('hrms_dark', document.body.classList.contains('dark') ? '1' : '0');
 }
-function setColorTheme(name){
-  document.body.classList.forEach(c=>{ if(c.startsWith('theme-')) document.body.classList.remove(c); });
-  if(name && name!=='teal') document.body.classList.add('theme-'+name);
-  localStorage.setItem('hrms_theme', name);
-}
+// The highlight colour comes from the company logo (applyLogoAccent() in 03-company-logo-status.js);
+// the old per-browser colour themes (Teal, Ocean, …) are gone.
 (function applySavedTheme(){
   if(localStorage.getItem('hrms_dark')==='1') document.body.classList.add('dark');
-  const savedTheme=localStorage.getItem('hrms_theme')||'teal';
-  if(savedTheme!=='teal') document.body.classList.add('theme-'+savedTheme);
-  window.addEventListener('DOMContentLoaded',()=>{
-    const picker=document.getElementById('themePicker');
-    if(picker) picker.value=savedTheme;
-  });
+  try{ localStorage.removeItem('hrms_theme'); }catch(e){}
 })();
 

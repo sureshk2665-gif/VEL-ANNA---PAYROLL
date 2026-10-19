@@ -45,7 +45,11 @@ function applyCompanyBranding(){
   if(currentUser){
     // Signed in: the saved company details are authoritative — remember them for the login screen.
     brand={ name:db.companyName||'', logo:db.companyLogo||'' };
-    try{ localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(brand)); }catch(e){}
+    try{
+      const prev=JSON.parse(localStorage.getItem(BRANDING_CACHE_KEY)||'{}');
+      if(prev && prev.logo===brand.logo){ brand.accent=prev.accent; brand.accentFor=prev.accentFor; }
+      localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(brand));
+    }catch(e){}
   }else{
     try{ brand=JSON.parse(localStorage.getItem(BRANDING_CACHE_KEY)||'null'); }catch(e){ brand=null; }
   }
@@ -60,12 +64,72 @@ function applyCompanyBranding(){
     const badge=img.closest('.logoBadge');
     if(badge) badge.style.display = logo ? '' : 'none';
   });
+  applyLogoAccent(logo, brand);
   let favicon=document.querySelector('link[rel="icon"]');
   if(logo){
     if(!favicon){ favicon=document.createElement('link'); favicon.rel='icon'; document.head.appendChild(favicon); }
     favicon.href=logo;
   }else if(favicon) favicon.remove();
   document.title=name;
+}
+/* ---- Highlight colour from the logo ----
+   The UI accent (active menu item, buttons, focus rings, chips…) is taken from the company logo:
+   its dominant saturated colour, darkened if needed so white text on it stays readable. A logo
+   with no real colour (black/white/grey) keeps the default teal. The result is cached with the
+   branding so the login screen shows it straight away. Screen only — printouts keep their own. */
+let _accentFor=null;
+function setUiAccent(hex){
+  const b=document.body;
+  if(hex){ b.style.setProperty('--accent', hex); b.classList.add('logoAccent'); }
+  else { b.style.removeProperty('--accent'); b.classList.remove('logoAccent'); }
+}
+function applyLogoAccent(logo, brand){
+  if(!logo){ _accentFor=null; setUiAccent(''); return; }
+  if(brand && brand.accentFor===logo.length+':'+logo.slice(-32)){ setUiAccent(brand.accent||''); return; }
+  const key=logo.length+':'+logo.slice(-32);
+  if(_accentFor===key) return;
+  _accentFor=key;
+  const img=new Image();
+  img.onload=()=>{
+    let hex='';
+    try{ hex=dominantLogoColor(img); }catch(e){ hex=''; }
+    if(_accentFor!==key) return; // a newer logo arrived meanwhile
+    setUiAccent(hex);
+    if(currentUser){
+      try{
+        const cached=JSON.parse(localStorage.getItem(BRANDING_CACHE_KEY)||'{}');
+        cached.accent=hex; cached.accentFor=key;
+        localStorage.setItem(BRANDING_CACHE_KEY, JSON.stringify(cached));
+      }catch(e){}
+    }
+  };
+  img.src=logo;
+}
+function dominantLogoColor(img){
+  const N=64, c=document.createElement('canvas'); c.width=N; c.height=N;
+  const ctx=c.getContext('2d', {willReadFrequently:true});
+  ctx.drawImage(img,0,0,N,N);
+  const px=ctx.getImageData(0,0,N,N).data;
+  const buckets=new Array(24).fill(null).map(()=>({w:0,r:0,g:0,b:0}));
+  for(let i=0;i<px.length;i+=4){
+    if(px[i+3]<160) continue;
+    const r=px[i]/255, g=px[i+1]/255, b=px[i+2]/255;
+    const max=Math.max(r,g,b), min=Math.min(r,g,b), l=(max+min)/2, d=max-min;
+    if(d<0.12 || l>0.92 || l<0.08) continue; // white, black, grey
+    const s=d/(1-Math.abs(2*l-1));
+    if(s<0.28) continue;
+    let h = max===r ? ((g-b)/d)%6 : max===g ? (b-r)/d+2 : (r-g)/d+4;
+    h=(h*60+360)%360;
+    const k=buckets[Math.floor(h/15)], w=s*(1-Math.abs(l-0.5));
+    k.w+=w; k.r+=px[i]*w; k.g+=px[i+1]*w; k.b+=px[i+2]*w;
+  }
+  const best=buckets.reduce((a,b)=>b.w>a.w?b:a);
+  if(best.w<1) return ''; // no real colour in the logo
+  let r=best.r/best.w, g=best.g/best.w, b=best.b/best.w;
+  // Darken until white text on it has at least ~4.5:1 contrast.
+  const lum=(r,g,b)=>[r,g,b].map(v=>{v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);}).reduce((s,v,i)=>s+v*[0.2126,0.7152,0.0722][i],0);
+  for(let n=0;n<30 && (1.05/(lum(r,g,b)+0.05))<4.5;n++){ r*=0.93; g*=0.93; b*=0.93; }
+  return '#'+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');
 }
 // File-name prefix from the company name ("MF GROUP & CONTRACTORS" → "MF-GROUP-CONTRACTORS"),
 // used for downloaded backups and the Excel template.
