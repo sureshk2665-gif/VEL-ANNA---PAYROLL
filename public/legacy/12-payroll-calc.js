@@ -27,33 +27,32 @@ function computePayrollForEmployee(e, ym){
   const attSum = attendanceSummary(e.code, ym);
   const lopDays = adj.lopOverride!==null ? adj.lopOverride : attSum.lopEquivalent;
   const noplTaken = attSum.leave;
-  // NOPH is already excluded from NOWD's denominator (NOWD = Total − Sundays − NOPH), so it
-  // must NOT also be added back into the Days Worked numerator — doing so double-counts NOPH
-  // (both shrinking NOWD and inflating Days Worked) and lets earnings exceed the Scale Salary.
-  // NOPL, unlike NOPH, is NOT subtracted from NOWD, so it correctly stays in this sum.
-  const daysWorking = Math.max(0, (attSum.present + attSum.halfDay*0.5) + noplTaken);
-  // Earnings use the dynamic calendar NOWD (Total Days − Sundays − Holidays) as the
-  // per-day rate divisor, i.e. factor = Days Worked / NOWD.
-  // Days Worked here = Present + Half-Day(0.5) + NOPL Taken (daysWorking, computed above).
-  // NOPH is NOT added back separately here (it is already excluded from NOWD's denominator,
-  // so adding it again in the numerator would double-count it).
-  // NOTE: OT rate below intentionally keeps the FIXED 26-day standard divisor and is
-  // NOT affected by this change.
-  const payableDaysForEarnings = daysWorking;
-  const factor = nowd ? Math.max(0, payableDaysForEarnings) / nowd : 0;
+  // DAILY WAGE payroll (as in the company's model sheet):
+  //   Paid days  = Present + Half Day × 0.5 + NOPL (paid leave) + Holidays (NOPH) while on the roll
+  //   Basic      = Basic/day × Paid days        HRA = HRA/day × Paid days
+  //   OT         = OT rate/hr (Daily Wage ÷ 8 × 1.5) × OT hours
+  //   GROSS      = Basic + OT                    Total Earnings = GROSS + HRA (+ one-off allowance)
+  // Sundays are never paid days. NOWD is still shown for reference only.
+  let holidaysPaid=0;
+  for(let d=1; d<=daysInMonth(ym); d++){
+    const ds=dateStr(ym,d);
+    if(!isSunday(ym,d) && getHolidayType(ds)==='NOPH' && isEmpOnRollOn(e, ds)) holidaysPaid++;
+  }
+  const workedDays = attSum.present + attSum.halfDay*0.5 + noplTaken;
+  const daysWorking = Math.max(0, workedDays + holidaysPaid);
+  const wage = dailyWageSplit(e.dailyWage || ((e.basic||0)+(e.hra||0)));
 
-  // Salary structure: Basic + HRA (the only salary components kept in the Employee form).
-  const basicE=Math.round((e.basic||0)*factor);
-  const hraE=Math.round((e.hra||0)*factor);
-  // OT rate = (Basic / No. of Working Days / 8 hours) x 2 (double rate), as per standard formula
-  const otPerHourRate = ((e.basic||0)/26/8)*2;
+  const basicE=Math.round(wage.basic*daysWorking);
+  const hraE=Math.round(wage.hra*daysWorking);
+  const otPerHourRate = wage.otRate;
   const otAmount=Math.round((adj.otHours||0)*otPerHourRate);
   const otherAllowance=adj.otherAllowanceOneOff||0; // one-off, entered on the Attendance screen
 
-  const scaleTotal=(e.basic||0)+(e.hra||0);
-  const earningsTotal = basicE+hraE+otAmount+otherAllowance;
+  const scaleTotal=wage.dailyWage; // per day
+  const grossSalary = basicE+otAmount; // GROSS = Basic + OT
+  const earningsTotal = grossSalary+hraE+otherAllowance;
 
-  const esiWages = earningsTotal;
+  const esiWages = grossSalary; // ESI on GROSS (Basic + OT)
   const esi = e.esiApplicable ? Math.round(esiWages*s.esiRate) : 0;
   const esiEmployer = e.esiApplicable ? Math.round(esiWages*(s.esiEmployerRate!==undefined?s.esiEmployerRate:0.0325)) : 0;
   // PF Wages = Basic (as processed this month). PF is only applicable when the employee's PF
@@ -81,7 +80,8 @@ function computePayrollForEmployee(e, ym){
     unmarkedDays:attSum.unmarked,
     noph:attSum.holiday, otHours:adj.otHours||0, otPerHourRate:Math.round(otPerHourRate*100)/100,
     basicE,hraE,otAmount,otherAllowance,
-    scaleTotal, earningsTotal,
+    dailyWage:wage.dailyWage, basicPerDay:wage.basic, hraPerDay:wage.hra, holidaysPaid,
+    scaleTotal, grossSalary, earningsTotal,
     esi, esiEmployer, esiWages, pf, pfEmployer, pfWages, pfNo:e.pfNo||'', uan:e.uan||'', tax, canteen, canteenTokens, canteenTokenPrice:tokenPrice,
     advance, otherDed, deductionsTotal,
     netSalary: Math.round(netSalary),

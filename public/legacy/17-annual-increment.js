@@ -16,6 +16,12 @@ let incHistoryEmpCode=''; // '' = show every employee's history; else filter to 
 let editIncId=''; // id of increment record currently being edited (inline edit form), '' = none
 // 60% Basic / 40% HRA split (HRA absorbs any rounding remainder). Conveyance and Washing are no
 // longer part of the salary structure and always stay 0.
+// Salary is a daily wage: after an increment changes Basic/HRA (per day), the Daily Wage is their
+// sum and the OT rate follows from it.
+function syncDailyWage(emp){
+  emp.dailyWage=Math.round(((+emp.basic||0)+(+emp.hra||0))*100)/100;
+  emp.otRate=dailyWageSplit(emp.dailyWage).otRate;
+}
 function splitIncrementAmount(amount){
   amount=Math.round(Number(amount)||0);
   const basic=Math.round(amount*0.60);
@@ -42,14 +48,14 @@ function renderIncrement(){
         <div class="formGrid">
           <div><label>Financial Year</label><input id="inc_fy" value="${defaultFY}" disabled></div>
           <div><label>Increment Effective Date *</label><input type="date" id="inc_effDate" value="${today}" onchange="updateIncrementFyLabels(this.value);recalcIncrement();" required></div>
-          <div><label>Total Increment Amount (₹) *</label><input type="number" id="inc_amount" value="0" min="0" oninput="recalcIncrement()" required></div>
+          <div><label>Total Increment Amount (₹ per day) *</label><input type="number" id="inc_amount" value="0" min="0" oninput="recalcIncrement()" required></div>
           <div class="full"><label>Remarks</label><input id="inc_remarks" placeholder="Optional note (e.g. performance increment, promotion, etc.)"></div>
         </div>
 
         <fieldset style="margin-top:14px;"><legend>Previous Year's Salary Structure — FY <span id="inc_prevFyLabel">${previousFinancialYear(defaultFY)}</span> (editable)</legend>
         <div class="formGrid">
-          <div><label>Basic Salary</label><input type="number" id="inc_prevBasic" value="${prevBasic}" oninput="recalcIncrement()"></div>
-          <div><label>HRA</label><input type="number" id="inc_prevHra" value="${prevHra}" oninput="recalcIncrement()"></div>
+          <div><label>Basic / day</label><input type="number" id="inc_prevBasic" value="${prevBasic}" oninput="recalcIncrement()"></div>
+          <div><label>HRA / day</label><input type="number" id="inc_prevHra" value="${prevHra}" oninput="recalcIncrement()"></div>
           <input type="hidden" id="inc_prevConv" value="0">
           <input type="hidden" id="inc_prevWash" value="0">
         </div></fieldset>
@@ -64,11 +70,11 @@ function renderIncrement(){
 
         <fieldset style="margin-top:14px;"><legend>Current Year's Revised Salary Structure — FY <span id="inc_currFyLabel">${defaultFY}</span> (editable, effective from ${fmtDate(today)})</legend>
         <div class="formGrid">
-          <div><label>Revised Basic Salary</label><input type="number" id="inc_revBasic" value="${prevBasic}" oninput="recalcIncrementGross()"></div>
-          <div><label>Revised HRA</label><input type="number" id="inc_revHra" value="${prevHra}" oninput="recalcIncrementGross()"></div>
+          <div><label>Revised Basic / day</label><input type="number" id="inc_revBasic" value="${prevBasic}" oninput="recalcIncrementGross()"></div>
+          <div><label>Revised HRA / day</label><input type="number" id="inc_revHra" value="${prevHra}" oninput="recalcIncrementGross()"></div>
           <input type="hidden" id="inc_revConv" value="0">
           <input type="hidden" id="inc_revWash" value="0">
-          <div><label>Revised Gross (Basic+HRA)</label><input type="number" id="inc_revGross" value="${prevBasic+prevHra}" disabled></div>
+          <div><label>Revised Daily Wage (Basic+HRA)</label><input type="number" id="inc_revGross" value="${prevBasic+prevHra}" disabled></div>
         </div></fieldset>
 
         <div class="modalActions">
@@ -92,25 +98,25 @@ function renderIncrement(){
       <form id="editIncForm">
         <div class="formGrid">
           <div><label>Effective Date *</label><input type="date" id="edit_effDate" value="${editRec.effectiveDate}" required></div>
-          <div><label>Total Increment Amount (₹) *</label><input type="number" id="edit_amount" value="${editRec.incrementAmount}" min="0" oninput="recalcEditIncrement()" required></div>
+          <div><label>Total Increment Amount (₹ per day) *</label><input type="number" id="edit_amount" value="${editRec.incrementAmount}" min="0" oninput="recalcEditIncrement()" required></div>
           <div class="full"><label>Remarks</label><input id="edit_remarks" value="${(editRec.remarks||'').replace(/"/g,'&quot;')}" placeholder="Optional note"></div>
         </div>
 
         <fieldset style="margin-top:14px;"><legend>Previous Year's Salary Structure (editable)</legend>
         <div class="formGrid">
-          <div><label>Basic Salary</label><input type="number" id="edit_prevBasic" value="${editRec.prevBasic}" oninput="recalcEditIncrement()"></div>
-          <div><label>HRA</label><input type="number" id="edit_prevHra" value="${editRec.prevHra}" oninput="recalcEditIncrement()"></div>
+          <div><label>Basic / day</label><input type="number" id="edit_prevBasic" value="${editRec.prevBasic}" oninput="recalcEditIncrement()"></div>
+          <div><label>HRA / day</label><input type="number" id="edit_prevHra" value="${editRec.prevHra}" oninput="recalcEditIncrement()"></div>
           <input type="hidden" id="edit_prevConv" value="0">
           <input type="hidden" id="edit_prevWash" value="0">
         </div></fieldset>
 
         <fieldset style="margin-top:14px;"><legend>Revised Salary Structure (editable)</legend>
         <div class="formGrid">
-          <div><label>Revised Basic Salary</label><input type="number" id="edit_revBasic" value="${editRec.revisedBasic}" oninput="recalcEditIncrementGross()"></div>
-          <div><label>Revised HRA</label><input type="number" id="edit_revHra" value="${editRec.revisedHra}" oninput="recalcEditIncrementGross()"></div>
+          <div><label>Revised Basic / day</label><input type="number" id="edit_revBasic" value="${editRec.revisedBasic}" oninput="recalcEditIncrementGross()"></div>
+          <div><label>Revised HRA / day</label><input type="number" id="edit_revHra" value="${editRec.revisedHra}" oninput="recalcEditIncrementGross()"></div>
           <input type="hidden" id="edit_revConv" value="0">
           <input type="hidden" id="edit_revWash" value="0">
-          <div><label>Revised Gross</label><input type="number" id="edit_revGross" value="${editRec.revisedGross}" disabled></div>
+          <div><label>Revised Daily Wage</label><input type="number" id="edit_revGross" value="${editRec.revisedGross}" disabled></div>
         </div></fieldset>
 
         <p class="syncNote">Saving updates this audit record only. If this was the employee's most recent increment, their live salary structure (used for future payroll) is also updated to match the Revised figures above.</p>
@@ -255,6 +261,7 @@ function saveIncrementRecord(){
   // are frozen snapshots and are never touched, so past figures remain unchanged.
   emp.basic=record.revisedBasic;
   emp.hra=record.revisedHra;
+  syncDailyWage(emp);
   emp.conveyance=record.revisedConveyance;
   emp.washing=record.revisedWashing;
   if(!Array.isArray(emp.incrementHistory)) emp.incrementHistory=[];
@@ -330,7 +337,7 @@ function saveEditedIncrementRecord(){
   const siblingsAfter=db.increments.filter(r=>r.empCode===rec.empCode).sort((a,b)=>a.effectiveDate.localeCompare(b.effectiveDate));
   const isLatestNow = siblingsAfter.length && siblingsAfter[siblingsAfter.length-1].id===rec.id;
   if(emp && (wasLatest || isLatestNow) && isLatestNow){
-    emp.basic=rec.revisedBasic; emp.hra=rec.revisedHra; emp.conveyance=rec.revisedConveyance; emp.washing=rec.revisedWashing;
+    emp.basic=rec.revisedBasic; emp.hra=rec.revisedHra; emp.conveyance=rec.revisedConveyance; emp.washing=rec.revisedWashing; syncDailyWage(emp);
   }
 
   saveDB(db);
@@ -354,9 +361,9 @@ function deleteIncrementRecord(id){
     const wasLatest = !remaining.length || rec.effectiveDate >= (remaining[remaining.length-1].effectiveDate);
     if(wasLatest && remaining.length){
       const last=remaining[remaining.length-1];
-      emp.basic=last.revisedBasic; emp.hra=last.revisedHra; emp.conveyance=last.revisedConveyance; emp.washing=last.revisedWashing;
+      emp.basic=last.revisedBasic; emp.hra=last.revisedHra; emp.conveyance=last.revisedConveyance; emp.washing=last.revisedWashing; syncDailyWage(emp);
     } else if(wasLatest && !remaining.length){
-      emp.basic=rec.prevBasic; emp.hra=rec.prevHra; emp.conveyance=rec.prevConveyance; emp.washing=rec.prevWashing;
+      emp.basic=rec.prevBasic; emp.hra=rec.prevHra; emp.conveyance=rec.prevConveyance; emp.washing=rec.prevWashing; syncDailyWage(emp);
     }
   }
   saveDB(db);

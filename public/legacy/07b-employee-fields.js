@@ -76,17 +76,25 @@ function employeeFields(){
     {key:'esiNo', label:'ESI Number', section:'bank', input:'text', width:16},
     {key:'uan', label:'UAN Number', section:'bank', input:'text', width:16},
     // ---- Salary Details ----
-    {key:'basic', label:'Basic Salary', section:'salary', input:'number', width:13},
-    {key:'hra', label:'HRA', section:'salary', input:'number', width:10},
-    {key:'otRate', label:'OT Rate (auto: Basic ÷ 26 ÷ 8 hrs × 2)', section:'salary', input:'number', auto:true,
-      title:'OT rate is auto-calculated from Basic salary ÷ 26 ÷ 8 hrs × 2 and is no longer entered manually.', width:16},
+    // Daily wage (TOTAL per day). Basic, HRA and the OT rate follow from it automatically —
+    // see dailyWageSplit(); the Excel template carries the same formulas (sheetFormula).
+    {key:'dailyWage', label:'Daily Wage — TOTAL (₹ per day)', section:'salary', input:'number',
+      attrs:'oninput="updateWageSplit(this.value)"', formValue:e=>e.dailyWage||0, width:16},
+    {key:'basic', label:'Basic / day (60%)', section:'salary', input:'number', auto:true,
+      title:'Basic = 60% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*60%,2)', width:13},
+    {key:'hra', label:'HRA / day (40%)', section:'salary', input:'number', auto:true,
+      title:'HRA = 40% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*40%,2)', width:13},
+    {key:'otRate', label:'OT Rate / hr (TOTAL ÷ 8 × 1.5)', section:'salary', input:'number', auto:true,
+      title:'OT rate per hour = Daily Wage ÷ 8 hours × 1.5', sheetFormula:'ROUND({dailyWage}/8*1.5,0)', width:14},
     {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:opts(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.
-    {key:'pfDeduction', label:'PF Deduction', section:'salary', input:'select', id:'f_pfApplicable',
+    // PF / ESI Deduction are set in the form only — not in the bulk-import sheet (new employees
+    // start at Yes; Payroll calculates the amounts).
+    {key:'pfDeduction', label:'PF Deduction', section:'salary', input:'select', id:'f_pfApplicable', sheet:false,
       options:[{value:'yes',label:'Yes'},{value:'no',label:'Exempted'},{value:'nil',label:'Nil'}],
       formValue:e=>e.pfDeduction || (e.pfApplicable===false ? 'no' : 'yes'),
       readValue:v=>({pfDeduction:v, pfApplicable:v==='yes'}), width:13},
-    {key:'esiApplicable', label:'ESI Deduction', section:'salary', input:'select',
+    {key:'esiApplicable', label:'ESI Deduction', section:'salary', input:'select', sheet:false,
       options:[{value:'yes',label:'Yes'},{value:'no',label:'Exempted'}],
       formValue:e=>e.esiApplicable===false ? 'no' : 'yes',
       readValue:v=>v==='yes', width:13},
@@ -95,6 +103,16 @@ function employeeFields(){
     {key:'canteenTokens', label:'Canteen Tokens (per month)', section:'salary', input:'number',
       title:'Number of canteen tokens this employee buys each month. Deducted from salary at the Canteen Token Price set in Payroll Process.', width:14}
   ];
+}
+// Daily wage → Basic (60%), HRA (40%) and OT rate per hour (wage ÷ 8 × 1.5), same as the sheet.
+function dailyWageSplit(wage){
+  const w=Math.max(0, +wage||0);
+  return { dailyWage:w, basic:Math.round(w*0.6*100)/100, hra:Math.round(w*0.4*100)/100, otRate:Math.round(w/8*1.5) };
+}
+// Live update of the read-only Basic / HRA / OT fields while the Daily Wage is typed in the form.
+function updateWageSplit(v){
+  const s=dailyWageSplit(v);
+  [['f_basic',s.basic],['f_hra',s.hra],['f_otRate',s.otRate]].forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
 }
 function employeeFieldId(f){ return f.id===undefined ? 'f_'+f.key : f.id; }
 function employeeFieldOptions(f){ return typeof f.options==='function' ? f.options() : (f.options||[]); }
@@ -147,7 +165,7 @@ function readEmployeeFormFields(){
 // Field list for the Bulk Import template (React side): only sheet columns, with resolved options.
 function employeeSheetFields(){
   return employeeFields().filter(f=>f.sheet!==false).map(f=>({
-    key:f.key, label:f.label, input:f.input, auto:!!f.auto, required:!!f.required, width:f.width||14,
+    key:f.key, label:f.label, input:f.input, auto:!!f.auto, required:!!f.required, width:f.width||14, formula:f.sheetFormula||'',
     options: f.input==='select'
       ? employeeFieldOptions(f).filter(o=>!f.sheetOptions || f.sheetOptions.includes(o.value)).map(o=>({value:o.value, label:String(o.label), aliases:o.aliases||[]}))
       : undefined
