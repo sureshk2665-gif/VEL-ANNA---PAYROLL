@@ -110,7 +110,15 @@ function showApp(){
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
   const badge=document.getElementById('currentUserBadge');
-  if(badge && currentUser) { badge.innerHTML=ico('user'); badge.append(' '+(currentUser.name||currentUser.username)+(currentUser.role?' ('+currentUser.role+')':'')); }
+  if(badge && currentUser){
+    // User chip: initials avatar, name and role (built with text nodes — names are user input).
+    const name=currentUser.name||currentUser.username;
+    badge.innerHTML='<span class="ucAvatar"></span><span class="ucText"><span class="ucName"></span><span class="ucRole"></span></span>';
+    badge.querySelector('.ucAvatar').textContent=initials(name);
+    badge.querySelector('.ucName').textContent=name;
+    badge.querySelector('.ucRole').textContent=currentUser.role||'';
+    badge.title=name+(currentUser.role?' ('+currentUser.role+')':'');
+  }
   applyCompanyBranding();
   refreshNavVisibility();
   const firstAllowed=PERMISSION_MODULES.map(m=>m.key).find(k=>canOpenModule(k))||'dashboard';
