@@ -48,10 +48,9 @@ function renderPayrollProcess(){
       <div><label>PF Rate — Employer (e.g. 0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
       <div><label>ESI Rate — Employee (e.g. 0.0075 = 0.75%)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
       <div><label>ESI Rate — Employer (e.g. 0.0325 = 3.25%)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
-      <div><label>Canteen — Lunch Rate (per token ₹)</label><input type="number" step="0.01" id="s_canteenLunchRate" value="${s.canteenLunchRate}"></div>
-      <div><label>Canteen — Dinner Rate (per token ₹)</label><input type="number" step="0.01" id="s_canteenDinnerRate" value="${s.canteenDinnerRate}"></div>
+      <div><label>Canteen Token Price (₹ per token)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${s.canteenTokenPrice}"></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:10px;">Lunch and Dinner token counts are entered per employee, per month, on the <b>Attendance</b> screen, and are automatically deducted from salary at the rates above.</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:10px;">Each employee's usual number of canteen tokens per month is set in their Employee form; it can be changed for a single month on the <b>Attendance</b> screen. Tokens × this price is deducted from salary. A new price applies to payroll generated from now on.</p>
     <div class="modalActions"><button class="btn" onclick="savePayrollConstants()">Save</button></div>
   </div>` : ''}
   <p class="syncNote">All payroll processing — generating payroll, viewing salary slips and printing — is done from the <b>Payroll</b> screen. This Payroll Process screen only holds the working-day rule and the payroll constants used by that processing.</p>`;

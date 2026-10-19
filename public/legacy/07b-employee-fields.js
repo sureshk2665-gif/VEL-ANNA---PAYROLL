@@ -78,12 +78,6 @@ function employeeFields(){
     // ---- Salary Details ----
     {key:'basic', label:'Basic Salary', section:'salary', input:'number', width:13},
     {key:'hra', label:'HRA', section:'salary', input:'number', width:10},
-    {key:'da', label:'DA', section:'salary', input:'number', width:10},
-    {key:'special', label:'Special Allowance', section:'salary', input:'number', width:12},
-    {key:'medical', label:'Medical Allowance', section:'salary', input:'number', width:12},
-    {key:'conveyance', label:'Conveyance', section:'salary', input:'number', width:12},
-    {key:'washing', label:'Washing Allowance', section:'salary', input:'number', width:12},
-    {key:'other', label:'Other Allowance', section:'salary', input:'number', width:12},
     {key:'otRate', label:'OT Rate (auto: Basic ÷ 26 ÷ 8 hrs × 2)', section:'salary', input:'number', auto:true,
       title:'OT rate is auto-calculated from Basic salary ÷ 26 ÷ 8 hrs × 2 and is no longer entered manually.', width:16},
     {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:opts(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
@@ -96,14 +90,10 @@ function employeeFields(){
       options:[{value:'yes',label:'Yes'},{value:'no',label:'Exempted'}],
       formValue:e=>e.esiApplicable===false ? 'no' : 'yes',
       readValue:v=>v==='yes', width:13},
-    {key:'pt', label:'Professional Tax / Income Tax', section:'salary', input:'number', width:14},
-    {key:'canteenRate', label:'Canteen Rate (per day ₹) — not used in payroll', section:'salary', input:'number', auto:true,
-      title:'Fixed per-day canteen deduction has been removed from payroll. Only Lunch/Dinner tokens are deducted now.', width:16},
-    {key:'rent', label:'Rent Deduction (monthly)', section:'salary', input:'number', width:13},
-    {key:'otherDed', label:'Other Deductions (fixed)', section:'salary', input:'number', width:13},
-    {key:'clBalance', label:'CL Balance', section:'salary', input:'number', width:10},
-    {key:'noplBalance', label:'NOPL Balance (Opening)', section:'salary', input:'number',
-      title:'Opening NOPL (Paid Leave) balance. Paid Leave marked in Attendance is auto-deducted from this to get the balance shown on the Salary Slip.', width:12}
+    // Canteen tokens bought each month — deducted at the Canteen Token Price (Payroll Process).
+    // This is the usual monthly count; it can be changed for a single month on the Attendance screen.
+    {key:'canteenTokens', label:'Canteen Tokens (per month)', section:'salary', input:'number',
+      title:'Number of canteen tokens this employee buys each month. Deducted from salary at the Canteen Token Price set in Payroll Process.', width:14}
   ];
 }
 function employeeFieldId(f){ return f.id===undefined ? 'f_'+f.key : f.id; }

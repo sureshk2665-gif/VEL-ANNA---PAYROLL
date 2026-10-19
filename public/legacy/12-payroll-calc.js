@@ -9,6 +9,16 @@ function getAdj(ym, code){
   if(db.payrollAdjustments[ym][code].otherDedOneOff===undefined) db.payrollAdjustments[ym][code].otherDedOneOff=0;
   return db.payrollAdjustments[ym][code];
 }
+// Canteen tokens for an employee in a month: the month's own figure if one was entered on the
+// Attendance screen, otherwise the employee's usual monthly count (Employee form).
+function canteenTokensFor(e, ym){
+  const adj=getAdj(ym, e.code);
+  return (adj.canteenTokens!==undefined && adj.canteenTokens!==null) ? (+adj.canteenTokens||0) : (+e.canteenTokens||0);
+}
+function canteenTokenPrice(){
+  const p=getSettings().canteenTokenPrice;
+  return p===undefined ? 150 : (+p||0);
+}
 function computePayrollForEmployee(e, ym){
   const s=getSettings();
   // NOWD is auto-calculated for the payroll month: Total Days − Sundays − Holidays.
@@ -32,47 +42,35 @@ function computePayrollForEmployee(e, ym){
   const payableDaysForEarnings = daysWorking;
   const factor = nowd ? Math.max(0, payableDaysForEarnings) / nowd : 0;
 
+  // Salary structure: Basic + HRA (the only salary components kept in the Employee form).
   const basicE=Math.round((e.basic||0)*factor);
   const hraE=Math.round((e.hra||0)*factor);
-  const conveyanceE=Math.round((e.conveyance||0)*factor);
-  const washingE=Math.round((e.washing||0)*factor);
-  const daE=Math.round((e.da||0)*factor);
-  const specialE=Math.round((e.special||0)*factor);
-  const medicalE=Math.round((e.medical||0)*factor);
   // OT rate = (Basic / No. of Working Days / 8 hours) x 2 (double rate), as per standard formula
   const otPerHourRate = ((e.basic||0)/26/8)*2;
   const otAmount=Math.round((adj.otHours||0)*otPerHourRate);
-  const otherAllowance=(e.other||0)+(adj.otherAllowanceOneOff||0);
+  const otherAllowance=adj.otherAllowanceOneOff||0; // one-off, entered on the Attendance screen
 
-  const scaleTotal=(e.basic||0)+(e.hra||0)+(e.da||0)+(e.special||0)+(e.medical||0)+(e.conveyance||0)+(e.washing||0);
-  const earningsTotal = basicE+hraE+daE+specialE+medicalE+conveyanceE+washingE+otAmount+otherAllowance;
+  const scaleTotal=(e.basic||0)+(e.hra||0);
+  const earningsTotal = basicE+hraE+otAmount+otherAllowance;
 
-  // ESI is not applicable on Washing Allowance, so compute ESI wages excluding it
-  const esiWages = earningsTotal - washingE;
+  const esiWages = earningsTotal;
   const esi = e.esiApplicable ? Math.round(esiWages*s.esiRate) : 0;
   const esiEmployer = e.esiApplicable ? Math.round(esiWages*(s.esiEmployerRate!==undefined?s.esiEmployerRate:0.0325)) : 0;
-  // PF Wages = Basic + DA (as processed this month). PF is only applicable when the
-  // employee's PF Deduction flag is enabled — Exempted/Nil employees show 0, but will
-  // start appearing with real figures automatically the moment PF is enabled for them.
-  const pfWages = basicE + daE;
+  // PF Wages = Basic (as processed this month). PF is only applicable when the employee's PF
+  // Deduction flag is enabled — Exempted/Nil employees show 0.
+  const pfWages = basicE;
   const pf = e.pfApplicable ? Math.round(pfWages*s.pfRate) : 0;
   const pfEmployer = e.pfApplicable ? Math.round(pfWages*(s.pfEmployerRate!==undefined?s.pfEmployerRate:0.12)) : 0;
-  const lunchTokens = adj.lunchTokens||0;
-  const dinnerTokens = adj.dinnerTokens||0;
-  const lunchRate = s.canteenLunchRate!==undefined ? s.canteenLunchRate : 18;
-  const dinnerRate = s.canteenDinnerRate!==undefined ? s.canteenDinnerRate : 13.5;
-  const canteenLunchAmt = Math.round(lunchTokens*lunchRate*100)/100;
-  const canteenDinnerAmt = Math.round(dinnerTokens*dinnerRate*100)/100;
-  const canteen = Math.round((canteenLunchAmt+canteenDinnerAmt)*100)/100;
+  // Canteen: tokens bought this month × the Canteen Token Price (Payroll Process).
+  const canteenTokens = canteenTokensFor(e, ym);
+  const tokenPrice = canteenTokenPrice();
+  const canteen = Math.round(canteenTokens*tokenPrice*100)/100;
   const tax = adj.tax||0;
-  const rent = e.rent||0;
-  // Advance deduction = any manual advance entered for the month + whatever the Salary Advance
-  // module's auto-generated recovery schedule says is due this month (stops automatically once
-  // the full advance has been recovered).
-  const scheduledAdvance = scheduledAdvanceDeduction(e.code, ym);
-  const advance = scheduledAdvance;
-  const otherDed = (e.otherDed||0) + (adj.otherDedOneOff||0);
-  const deductionsTotal = esi+tax+rent+canteen+advance+otherDed;
+  // Advance deduction = whatever the Salary Advance module's auto-generated recovery schedule says
+  // is due this month (stops automatically once the full advance has been recovered).
+  const advance = scheduledAdvanceDeduction(e.code, ym);
+  const otherDed = adj.otherDedOneOff||0; // one-off, entered on the Attendance screen
+  const deductionsTotal = esi+tax+canteen+advance+otherDed;
   const netSalary = Math.max(0, earningsTotal - deductionsTotal);
 
   return {
@@ -82,15 +80,10 @@ function computePayrollForEmployee(e, ym){
     presentPlusHalf: Math.round((attSum.present + attSum.halfDay*0.5)*100)/100,
     unmarkedDays:attSum.unmarked,
     noph:attSum.holiday, otHours:adj.otHours||0, otPerHourRate:Math.round(otPerHourRate*100)/100,
-    basicE,hraE,daE,specialE,medicalE,conveyanceE,washingE,otAmount,otherAllowance,
+    basicE,hraE,otAmount,otherAllowance,
     scaleTotal, earningsTotal,
-    esi, esiEmployer, esiWages, pf, pfEmployer, pfWages, pfNo:e.pfNo||'', uan:e.uan||'', tax, rent, canteen, lunchTokens, dinnerTokens, lunchRate, dinnerRate, canteenLunchAmt, canteenDinnerAmt,
+    esi, esiEmployer, esiWages, pf, pfEmployer, pfWages, pfNo:e.pfNo||'', uan:e.uan||'', tax, canteen, canteenTokens, canteenTokenPrice:tokenPrice,
     advance, otherDed, deductionsTotal,
-    clBalance:e.clBalance||0,
-    // NOPL Balance: employee's opening NOPL (Paid Leave) balance minus all Casual Leave /
-    // Paid Leave marked in Attendance up to and including this payroll month.
-    noplBalance: Math.max(0, (e.noplBalance||0) - noplUsedUpto(e.code, ym)),
-    noplBalanceOpening: e.noplBalance||0,
     netSalary: Math.round(netSalary),
     generatedAt:new Date().toISOString()
   };

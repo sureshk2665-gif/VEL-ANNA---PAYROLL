@@ -104,6 +104,7 @@ function getSettings(){
   if(db.settings.pfEmployerRate===undefined) db.settings.pfEmployerRate=0.12;
   if(db.settings.canteenLunchRate===undefined) db.settings.canteenLunchRate=18;
   if(db.settings.canteenDinnerRate===undefined) db.settings.canteenDinnerRate=13.5;
+  if(db.settings.canteenTokenPrice===undefined) db.settings.canteenTokenPrice=150; // ₹ per canteen token
   return db.settings;
 }
 

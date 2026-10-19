@@ -429,9 +429,9 @@ function renderAttendanceEmployee(){
   const adj = getAdj(attMonth, attEmpCode);
   const otVal = adj.otHours||0;
   const s = getSettings();
-  const lunchRate = s.canteenLunchRate!==undefined?s.canteenLunchRate:18;
-  const dinnerRate = s.canteenDinnerRate!==undefined?s.canteenDinnerRate:13.5;
-  const canteenAmt = Math.round(((adj.lunchTokens||0)*lunchRate + (adj.dinnerTokens||0)*dinnerRate)*100)/100;
+  const tokenPrice = canteenTokenPrice();
+  const monthTokens = canteenTokensFor(emp, attMonth);
+  const canteenAmt = Math.round(monthTokens*tokenPrice*100)/100;
   const scheduledAdv = scheduledAdvanceDeduction(attEmpCode, attMonth);
   const advDetails = scheduledAdvanceDetails(attEmpCode, attMonth);
   const empAllAdvances = ensureSalaryAdvances().filter(a=>a.empCode===attEmpCode);
@@ -455,11 +455,6 @@ function renderAttendanceEmployee(){
       </select>
     </div>`);
   }
-  // NOPL Balance shown here is fetched directly from the Payroll module's generated
-  // record for this employee+month (db.payroll[ym][code].noplBalance) — Payroll is the
-  // single source of truth for this figure; nothing is recalculated here.
-  const payrollRec = (db.payroll[attMonth] || {})[attEmpCode];
-  const noplBal = payrollRec ? payrollRec.noplBalance : 0;
   const advTip = advDetails.length ? advDetails.map(x=>`${x.advance.reason||'Advance'}: ₹${x.row.amount}`).join(' | ') : 'No salary advance scheduled this month';
 
   // ---- Top bar: the controls used on every visit — employee, month, edit/save, quick fills ----
@@ -470,7 +465,6 @@ function renderAttendanceEmployee(){
       ${attUnitOptionsHTML()}
       <select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttEmpCode(this.value)" title="Select employee">${empOpts}</select>
       ${emp && emp.department ? `<span class="attDayLabel" style="font-weight:400;color:var(--muted);">${emp.department}</span>`:''}
-      <div class="empField" title="NOPL Balance as per the last generated Payroll for ${monthLabel(attMonth)}. Regenerate Payroll to refresh this figure."><span>NOPL Bal.</span><b><span class="tag PaidLeave" style="padding:1px 8px;font-size:11.5px;">${noplBal}</span></b></div>
     </div>
     <div class="sep"></div>
     <div class="grp">
@@ -511,7 +505,7 @@ function renderAttendanceEmployee(){
     <div class="autoCard">
       <h4>${ico('credit-card')} System-Calculated</h4>
       <div class="autoRow" title="${advTip}"><span>Scheduled Advance</span><b>₹${scheduledAdv}</b></div>
-      <div class="autoRow" title="Lunch Tokens × ₹${lunchRate} + Dinner Tokens × ₹${dinnerRate}"><span>Canteen Deduction</span><b>₹${canteenAmt}</b></div>
+      <div class="autoRow" title="${monthTokens} token(s) × ₹${tokenPrice}"><span>Canteen Deduction</span><b>₹${canteenAmt}</b></div>
     </div>
   </div>`;
 
@@ -526,8 +520,7 @@ function renderAttendanceEmployee(){
     </div>
     <div class="attEntryRow">
       <div class="attEntryField"><label>OT Hours</label><input type="number" value="${otVal}" min="0" step="0.5" ${editable?'':'disabled'} onchange="setMonthlyOT('${attEmpCode}',+this.value)"></div>
-      <div class="attEntryField"><label>Lunch Tokens (₹${lunchRate}/tkn)</label><input type="number" value="${adj.lunchTokens||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','lunchTokens',this.value)"></div>
-      <div class="attEntryField"><label>Dinner Tokens (₹${dinnerRate}/tkn)</label><input type="number" value="${adj.dinnerTokens||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','dinnerTokens',this.value)"></div>
+      <div class="attEntryField" title="Usual monthly tokens come from the Employee form (${+emp.canteenTokens||0}); change it here for this month only."><label>Canteen Tokens (₹${tokenPrice}/tkn)</label><input type="number" value="${monthTokens}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','canteenTokens',this.value)"></div>
       <div class="attEntryField"><label>Other Allowance (₹)</label><input type="number" value="${adj.otherAllowanceOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherAllowanceOneOff',this.value)"></div>
       <div class="attEntryField"><label>Other Deduction (₹)</label><input type="number" value="${adj.otherDedOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherDedOneOff',this.value)"></div>
     </div>

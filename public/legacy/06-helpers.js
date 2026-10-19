@@ -46,15 +46,13 @@ function isEmpOnRollInMonth(e, ym){
   return ym <= monthKey(e.resignationDate);
 }
 function calcGross(e){
-  return (Number(e.basic)||0)+(Number(e.hra)||0)+(Number(e.da)||0)+(Number(e.special)||0)+(Number(e.medical)||0)+(Number(e.conveyance)||0)+(Number(e.washing)||0)+(Number(e.other)||0);
+  return (Number(e.basic)||0)+(Number(e.hra)||0);
 }
 function calcNet(e){
   const gross=calcGross(e);
-  const esiWages=gross-(Number(e.washing)||0);
-  const esi = e.esiApplicable ? Math.round(esiWages*getSettings().esiRate) : 0;
-  const pfWages=(Number(e.basic)||0)+(Number(e.da)||0);
-  const pf = e.pfApplicable ? Math.round(pfWages*getSettings().pfRate) : 0;
-  const ded=pf+esi+(Number(e.pt)||0)+(Number(e.otherDed)||0)+(Number(e.rent)||0);
+  const esi = e.esiApplicable ? Math.round(gross*getSettings().esiRate) : 0;
+  const pf = e.pfApplicable ? Math.round((Number(e.basic)||0)*getSettings().pfRate) : 0;
+  const ded=pf+esi;
   return gross-ded;
 }
 function amountInWords(num){
