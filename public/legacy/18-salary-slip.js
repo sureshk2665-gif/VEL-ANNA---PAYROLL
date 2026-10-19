@@ -4,6 +4,13 @@ function monthLabel(ym){
   const names=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return names[+m-1]+'-'+y;
 }
+// Pay slip heading: the employee's contractor name (no company name or logo). An employee with
+// no contractor keeps the company name and logo.
+function slipHeadingHtml(e, logoSize, h2Style){
+  const c=contractorName(e);
+  if(c) return `<h2${h2Style?` style="${h2Style}"`:''}>${c.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))}</h2>`;
+  return `${companyLogoImgHtml(logoSize)}<h2${h2Style?` style="${h2Style}"`:''}>${db.companyName||'YOUR COMPANY PVT LTD'}</h2>`;
+}
 function openSlip(code, ym){
   const e=db.employees.find(x=>x.code===code);
   if(!e){ alert('No payroll record found.'); return; }
@@ -15,7 +22,7 @@ function openSlip(code, ym){
   document.getElementById('modalContent').innerHTML=`
   <div class="slip" id="slipPrintArea">
     <div style="text-align:center;border-bottom:1px solid #1c2430;padding-bottom:8px;margin-bottom:10px;">
-      <div style="display:flex;align-items:center;justify-content:center;gap:10px;">${companyLogoImgHtml(36)}<h2 style="margin:0;font-size:24px;">${db.companyName||'YOUR COMPANY PVT LTD'}</h2></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:10px;">${slipHeadingHtml(e, 36, 'margin:0;font-size:24px;')}</div>
       <p style="margin:2px 0;font-size:17px;">${unitAddress(e.unit)}</p>
     </div>
     <p style="margin:4px 0;font-weight:600;font-size:19px;white-space:normal;overflow:visible;line-height:1.4;">EMP.CODE ${e.code} &nbsp;|&nbsp; ${e.name} &nbsp;|&nbsp; <span style="font-weight:400;">${e.designation||'-'}</span> &nbsp;|&nbsp; <span style="font-weight:400;font-size:14px;">${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</span></p>
@@ -23,12 +30,12 @@ function openSlip(code, ym){
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
         <td>LOP ${r.lopDays}</td>
-        <td>OT HOURS ${r.otHours} &nbsp;·&nbsp; LATE ${r.lateMinutes||0} MIN</td>
+        <td>OT HOURS ${r.otHours}</td>
       </tr>
       <tr>
         <td>Paid days ${r.daysWorking}</td>
         <td>NOPH ${r.noph}</td>
-        <td>NOPL Taken (this month) ${r.leaveDays}</td>
+        <td>LATE ${r.lateMinutes||0} MIN</td>
       </tr>
       <tr>
         <td>MODE ${e.mode||'-'}</td>
@@ -72,14 +79,14 @@ function slipCardHTML(e, r, ym){
   return `
   <div class="slipCard">
     <div class="slipHead">
-      <div style="display:flex;align-items:center;justify-content:center;gap:8px;">${companyLogoImgHtml(22)}<h2>${db.companyName||'YOUR COMPANY PVT LTD'}</h2></div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:8px;">${slipHeadingHtml(e, 22)}</div>
       <p>${unitAddress(e.unit)}</p>
       <p class="slipTitle">Salary Slip — ${monthLabel(ym)}</p>
     </div>
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</div>
     <table class="slipMeta">
-      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours} · LATE ${r.lateMinutes||0}m</td></tr>
-      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>NOPL Taken ${r.leaveDays}</td></tr>
+      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours}</td></tr>
+      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
       <tr><td>MODE ${e.mode||'-'}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
     </table>
     <table class="slipBody">
