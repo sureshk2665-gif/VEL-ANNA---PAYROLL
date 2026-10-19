@@ -39,7 +39,7 @@ function renderPayroll(){
     ${hasPerm('payroll','print') ? `<button class="btn secondary" onclick="openPaySlipDialog()" title="Print pay slips by month, unit, contractor or employee">${ico('printer')} Print Pay Slips…</button>` : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — see Payroll Process)</span>
   </div>
-  <p class="syncNote">Working days, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)} — days entered in Employee Time Entry count there too. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
+  <p class="syncNote">Working days, holidays, half-days and LOP are pulled automatically from the Attendance module for ${monthLabel(payMonth)} — days entered in Employee Time Entry count there too — and OT hours and Late minutes from Employee Time Entry. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
 
   <div class="panel">
     ${existing ? `<div class="tableScrollWrap"><table class="payrollTable"><thead><tr>

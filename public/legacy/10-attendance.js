@@ -280,7 +280,7 @@ function renderAttendanceDay(){
     <div class="attQuickList">
       ${active.map(e=>{
         const val=getAttStatus(attDate, e.code);
-        const otVal=getAdj(attMonth, e.code).otHours||0;
+        const otVal=otHoursFor(e, attMonth);
         return `<div class="attQuickRow ${!val?'unmarked':''}">
           <div class="attQuickEmp">
             <div class="empName">${e.name}</div>
@@ -290,7 +290,7 @@ function renderAttendanceDay(){
             ${QUICK_STATUS.map(s=>`<button type="button" class="attQBtn sel-${s} ${val===s?'active':''}" ${(hasPerm('attendance','edit') && !isHolidayToday)?'':'disabled'} onclick="setCellStatus('${attDate}','${e.code}','${val===s?'':s}')">${STATUS_LABEL[s]}</button>`).join('')}
           </div>
           <div class="attQuickOTWrap">OT hrs
-            <input type="number" class="attQuickOT" value="${otVal}" min="0" step="0.5" ${hasPerm('attendance','edit')?'':'disabled'} onchange="setMonthlyOT('${e.code}',+this.value)" title="Overtime hours for ${monthLabel(attMonth)} (monthly total)">
+            <input type="number" class="attQuickOT" value="${otVal}" min="0" step="any" ${hasPerm('attendance','edit')?'':'disabled'} onchange="setMonthlyOT('${e.code}',this)" title="${attOTTip(e)}">
           </div>
         </div>`;
       }).join('')}
@@ -457,7 +457,7 @@ function renderAttendanceEmployee(){
   const dim = daysInMonth(attMonth);
   const sum = attendanceSummary(attEmpCode, attMonth);
   const adj = getAdj(attMonth, attEmpCode);
-  const otVal = adj.otHours||0;
+  const otVal = otHoursFor(emp, attMonth);
   const s = getSettings();
   const tokenPrice = canteenTokenPrice();
   const monthTokens = canteenTokensFor(emp, attMonth);
@@ -550,7 +550,7 @@ function renderAttendanceEmployee(){
       <div class="attCalGrid" style="flex:1;">${cells.join('')}</div>
     </div>
     <div class="attEntryRow">
-      <div class="attEntryField"><label>OT Hours</label><input type="number" value="${otVal}" min="0" step="0.5" ${editable?'':'disabled'} onchange="setMonthlyOT('${attEmpCode}',+this.value)"></div>
+      <div class="attEntryField" title="${attOTTip(emp)}"><label>OT Hours</label><input type="number" value="${otVal}" min="0" step="any" ${editable?'':'disabled'} onchange="setMonthlyOT('${attEmpCode}',this)"></div>
       <div class="attEntryField" title="Usual monthly tokens come from the Employee form (${+emp.canteenTokens||0}); change it here for this month only."><label>Canteen Tokens (₹${tokenPrice}/tkn)</label><input type="number" value="${monthTokens}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','canteenTokens',this.value)"></div>
       <div class="attEntryField"><label>Other Allowance (₹)</label><input type="number" value="${adj.otherAllowanceOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherAllowanceOneOff',this.value)"></div>
       <div class="attEntryField"><label>Other Deduction (₹)</label><input type="number" value="${adj.otherDedOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherDedOneOff',this.value)"></div>
@@ -591,7 +591,7 @@ function renderAttendanceGrid(){
       <tbody>
         ${active.length ? active.map(e=>{
           const sum=attendanceSummary(e.code, attMonth);
-          const otVal=getAdj(attMonth, e.code).otHours||0;
+          const otVal=otHoursFor(e, attMonth);
           return `<tr>
             <td class="empCell">
               <div class="empName">${e.name}</div>
@@ -617,7 +617,7 @@ function renderAttendanceGrid(){
             <td class="sumCell">${sum.holiday}</td>
             <td class="sumCell">${sum.halfDay}</td>
             <td class="sumCell">${sum.lop}</td>
-            <td><input type="number" class="otInput" style="width:100%;height:20px;font-size:9px;" value="${otVal}" min="0" step="0.5" ${hasPerm('attendance','edit')?'':'disabled'} onchange="setMonthlyOT('${e.code}',+this.value)"></td>
+            <td><input type="number" class="otInput" style="width:100%;height:20px;font-size:9px;" value="${otVal}" min="0" step="any" ${hasPerm('attendance','edit')?'':'disabled'} onchange="setMonthlyOT('${e.code}',this)" title="${attOTTip(e)}"></td>
           </tr>`;
         }).join('') : `<tr><td colspan="${dayCols.length+6}" style="text-align:center;padding:12px;color:var(--muted);">No employees match your search.</td></tr>`}
       </tbody>
@@ -637,7 +637,7 @@ function renderAttendanceGrid(){
       </tfoot>
     </table>
     </div>
-    <p class="syncNote">Changes save instantly and flow straight into Payroll — working days, holidays, half-days and LOP are calculated automatically from this grid, and OT hours entered here are used directly in salary processing. No need to re-enter attendance data on the Payroll page. Untick "Fit all days on screen" for a wider, easier-to-read scrollable view.</p>
+    <p class="syncNote">Changes save instantly and flow straight into Payroll — working days, holidays, half-days and LOP are calculated automatically from this grid, and OT hours come from Employee Time Entry (a number typed here overrides it for the month). No need to re-enter attendance data on the Payroll page. Untick "Fit all days on screen" for a wider, easier-to-read scrollable view.</p>
     `}
   </div>`;
 }
@@ -695,11 +695,22 @@ function clearMonthAttendance(){
   saveDB(db);
   render('attendance');
 }
-function setMonthlyOT(code, hours){
+// OT hours for one month: a typed number (0 included) overrides Employee Time Entry's total; a
+// blank box goes back to the Time Entry figure.
+function setMonthlyOT(code, inp){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   const a=getAdj(attMonth, code);
-  a.otHours = hours||0;
+  if(String(inp.value).trim()===''){ a.otTyped=false; a.otHours=0; }
+  else { a.otTyped=true; a.otHours=Math.max(0, +inp.value||0); }
   saveDB(db);
+  const emp=db.employees.find(x=>x.code===code);
+  if(emp){ inp.value=otHoursFor(emp, attMonth); inp.title=attOTTip(emp); }
+}
+function attOTTip(emp){
+  const te=typeof teMonthOTMinutes==='function' ? Math.round(teMonthOTMinutes(emp.code, attMonth)/60*100)/100 : 0;
+  return otTypedFor(getAdj(attMonth, emp.code))
+    ? `Typed for ${monthLabel(attMonth)} (Employee Time Entry has ${te} hrs). Clear the box to use Time Entry.`
+    : `From Employee Time Entry: ${te} hrs in ${monthLabel(attMonth)}. Type a number to use it instead for this month.`;
 }
 // Manual per-employee, per-month adjustments (OT hours, LOP override, advance, tax, other allowance one-off)
 

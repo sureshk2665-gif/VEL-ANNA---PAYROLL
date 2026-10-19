@@ -26,6 +26,15 @@ function lateMinutesFor(e, ym){
   if(adj.lateMinutes!==undefined && adj.lateMinutes!==null && adj.lateMinutes!=='') return +adj.lateMinutes||0;
   return typeof teMonthLateMinutes==='function' ? teMonthLateMinutes(e.code, ym) : 0;
 }
+// OT hours for the month: hours typed on the Attendance screen for that month if any (otTyped),
+// otherwise the month's OT total from Employee Time Entry. Older months saved before Time Entry fed
+// OT keep any non-zero figure that was typed then.
+function otTypedFor(adj){ return adj.otTyped===undefined ? (+adj.otHours>0) : !!adj.otTyped; }
+function otHoursFor(e, ym){
+  const adj=getAdj(ym, e.code);
+  if(otTypedFor(adj)) return +adj.otHours||0;
+  return typeof teMonthOTMinutes==='function' ? Math.round(teMonthOTMinutes(e.code, ym)/60*100)/100 : 0;
+}
 function lateGraceMinutes(){
   const g=getSettings().lateGraceMinutes;
   return g===undefined ? 120 : Math.max(0, +g||0);
@@ -48,7 +57,7 @@ function computePayrollForEmployee(e, ym){
   // DAILY WAGE payroll (as in the company's model sheet):
   //   Paid days  = Present + Half Day × 0.5 + Holidays (NOPH) while on the roll (no paid leave / NOPL)
   //   Basic      = Basic/day × Paid days        HRA = HRA/day × Paid days
-  //   OT         = OT rate/hr (Daily Wage ÷ 8 × 1.5) × OT hours
+  //   OT         = OT rate/hr (Daily Wage ÷ 8 × 1.5) × OT hours (from Employee Time Entry — otHoursFor)
   //   GROSS      = Basic + OT                    Total Earnings = GROSS + HRA (+ one-off allowance)
   // Sundays are never paid days. NOWD is still shown for reference only.
   let holidaysPaid=0;
@@ -63,7 +72,8 @@ function computePayrollForEmployee(e, ym){
   const basicE=Math.round(wage.basic*daysWorking);
   const hraE=Math.round(wage.hra*daysWorking);
   const otPerHourRate = wage.otRate;
-  const otAmount=Math.round((adj.otHours||0)*otPerHourRate);
+  const otHours = otHoursFor(e, ym);
+  const otAmount=Math.round(otHours*otPerHourRate);
   const otherAllowance=adj.otherAllowanceOneOff||0; // one-off, entered on the Attendance screen
 
   const scaleTotal=wage.dailyWage; // per day
@@ -98,7 +108,7 @@ function computePayrollForEmployee(e, ym){
     presentDays:attSum.present, leaveDays:attSum.leave, holidayDays:attSum.holiday, halfDayCount:attSum.halfDay,
     presentPlusHalf: Math.round((attSum.present + attSum.halfDay*0.5)*100)/100,
     unmarkedDays:attSum.unmarked,
-    noph:attSum.holiday, otHours:adj.otHours||0, otPerHourRate:Math.round(otPerHourRate*100)/100,
+    noph:attSum.holiday, otHours, otPerHourRate:Math.round(otPerHourRate*100)/100,
     basicE,hraE,otAmount,otherAllowance,
     dailyWage:wage.dailyWage, basicPerDay:wage.basic, hraPerDay:wage.hra, holidaysPaid,
     scaleTotal, grossSalary, earningsTotal,

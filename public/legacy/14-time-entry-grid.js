@@ -695,7 +695,7 @@ function renderTESummaryTab(){
         <button class="btn secondary" onclick="printTESummary('${teSummaryMonth}')">${ico('printer')} Print</button>
       </div>
     </div>
-    <p class="syncNote">This is a read-only, month-level roll-up of what's recorded in the Time Entry and Employee Leave tabs above — one row per active employee, with their working days, leave days, and Working / Late / OT hours totalled for the selected month. Days with an In Time count as Present (and leave as Loss of Pay / Half Day) in Attendance and Payroll, unless a different status is marked on the Attendance screen.</p>
+    <p class="syncNote">This is a read-only, month-level roll-up of what's recorded in the Time Entry and Employee Leave tabs above — one row per active employee, with their working days, leave days, and Working / Late / OT hours totalled for the selected month. Days with an In Time count as Present (and leave as Loss of Pay / Half Day) in Attendance and Payroll, unless a different status is marked on the Attendance screen. The month's OT hours and Late minutes are used in Payroll too.</p>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:18px;">
       <div class="stat"><div class="statTop"><span class="statIcon">${ico('users')}</span></div><div class="n">${rows.length}</div><div class="l">Active Employees</div></div>
       <div class="stat"><div class="statTop"><span class="statIcon">${ico('circle-check')}</span></div><div class="n">${totalPresent}</div><div class="l">Total Present-Days</div></div>
