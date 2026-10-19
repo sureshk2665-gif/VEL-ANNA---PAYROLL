@@ -7,6 +7,12 @@ const SHEET_NAME = 'Employees';
 const DATA_ROWS = 1000; // rows (2..1001) that get dropdowns / formats
 const loadExcelJS = () => import('exceljs').then((m) => m.default || m);
 
+// Excel (and Google Sheets / LibreOffice) turn text that ENDS in a number into a series when it is
+// dragged down: "Unit-1" → Unit-2, Unit-3 … An invisible zero-width space after the number keeps
+// the dropdown text looking the same ("Unit-1") but makes dragging copy it. Stripped on import.
+const NO_SERIES = '\u200B';
+const dragSafe = (label) => (/\d$/.test(label) ? label + NO_SERIES : label);
+
 const columnLetter = (n) => {
   let s = '';
   for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
@@ -55,8 +61,11 @@ export async function buildTemplate(columns, ctx = {}) {
     const range = `${letter}2:${letter}${DATA_ROWS + 1}`;
     if (col.auto) return;
     if (col.type === 'list') {
-      const options = optionsOf(col);
+      const options = optionsOf(col).map(dragSafe);
       if (!options.length) return;
+      // A typed "Unit-1" (without the invisible character) is still fine — import accepts it — so
+      // those columns only warn instead of blocking typed values.
+      const hasDragSafe = options.some((o) => o.endsWith(NO_SERIES));
       // Write the choices straight into the dropdown ("A,B,C") — this shows an arrow in Excel,
       // Google Sheets, WPS and LibreOffice alike. Excel limits that to 255 characters, so very
       // long lists (e.g. many departments) fall back to a range on the hidden Lists sheet.
@@ -78,8 +87,9 @@ export async function buildTemplate(columns, ctx = {}) {
         promptTitle: col.header,
         prompt: 'Choose from the list ▼',
         showErrorMessage: true,
+        errorStyle: hasDragSafe ? 'warning' : 'stop',
         errorTitle: col.header,
-        error: `Choose a value from the list: ${options.join(', ')}`,
+        error: `Choose a value from the list: ${optionsOf(col).join(', ')}`,
       });
     } else if (col.type === 'date') {
       // DD-MM-YYYY on every cell of the column (not only the column style), so Excel, Google
@@ -154,6 +164,7 @@ export async function buildTemplate(columns, ctx = {}) {
     ['PF / ESI', 'Not needed here: new employees start with PF and ESI deduction = Yes, and Payroll calculates the amounts. Change it later in the Employee form if someone is exempted.'],
     ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
     ['Dates', 'Date of Birth and Joining Date: DD-MM-YYYY (e.g. 25-04-2024). Selecting a cell in those columns shows the format.'],
+    ['Copying down', 'Dragging a dropdown value (e.g. Unit-1) down copies the same value. To copy the SAME date down, hold Ctrl while dragging — otherwise Excel counts the dates up.'],
     ['Amounts', 'Numbers only. Canteen Tokens = tokens bought per month.'],
     ['Department', 'Must be one of the departments set up in the app: ' + ((ctx.departments || []).join(', ') || '(none yet)')],
     ['Designation', 'Must be one of the designations set up in the app (Admin → Designations): ' + ((ctx.designations || []).join(', ') || '(none yet)')],
@@ -169,9 +180,11 @@ export async function buildTemplate(columns, ctx = {}) {
   return new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 }
 
-// Plain value of a cell (ExcelJS gives objects for formulas, links and rich text).
+// Plain value of a cell (ExcelJS gives objects for formulas, links and rich text). The invisible
+// "no series" character added to dropdown values is removed here.
 function cellValue(v) {
   if (v === null || v === undefined) return '';
+  if (typeof v === 'string') return v.replace(/\u200B/g, '');
   if (v instanceof Date) return v;
   if (typeof v === 'object') {
     if ('result' in v) return cellValue(v.result);
