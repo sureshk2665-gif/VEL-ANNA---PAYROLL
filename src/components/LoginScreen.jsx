@@ -1,4 +1,4 @@
-import { APP_NAME, LOGO_SRC } from '../config/brand.js';
+import { APP_NAME } from '../config/brand.js';
 import { callLegacy } from '../legacyBridge.js';
 
 // Username + Password sign-in, checked by Supabase Auth. The Enter-key handlers, status messages
@@ -8,8 +8,8 @@ export default function LoginScreen() {
   return (
     <div id="loginScreen">
       <div className="loginBox">
-        <div className="logoBadge">
-          <img src={LOGO_SRC} alt="VIPL Logo" id="loginLogo" />
+        <div className="logoBadge" style={{ display: 'none' }}>
+          <img alt="Company Logo" id="loginLogo" />
         </div>
         <h1 className="loginTitle">{APP_NAME}</h1>
 

@@ -32,18 +32,15 @@ function removeCompanyLogo(){
    Shows the Company Name + Logo saved in Software Admin in the sidebar, on the login screen, in
    the browser tab title and as the tab icon — for every user. The login screen is shown before
    any data can be read (RLS), so the last-seen name/logo is also kept in this browser's
-   localStorage and applied at startup; with nothing cached the built-in VIPL name/logo is used. */
-const BRANDING_CACHE_KEY='vipl_company_branding';
-let _defaultBranding=null;
+   localStorage and applied at startup; with nothing cached a plain "Payroll" title and no logo
+   are shown (never another company's name/logo). */
+const BRANDING_CACHE_KEY='vipl_company_branding'; // storage key only — never shown
+const DEFAULT_BRAND_NAME='Payroll';
 function applyCompanyBranding(){
   const sideImg=document.querySelector('.sidebarBrand img');
   const sideName=document.querySelector('.sidebarBrand h2');
   const loginImg=document.getElementById('loginLogo');
   const loginName=document.querySelector('.loginTitle');
-  const favicon=document.querySelector('link[rel="icon"]');
-  if(!_defaultBranding){
-    _defaultBranding={ name:(sideName&&sideName.textContent)||document.title, logo:(sideImg&&sideImg.getAttribute('src'))||'' };
-  }
   let brand=null;
   if(currentUser){
     // Signed in: the saved company details are authoritative — remember them for the login screen.
@@ -52,13 +49,28 @@ function applyCompanyBranding(){
   }else{
     try{ brand=JSON.parse(localStorage.getItem(BRANDING_CACHE_KEY)||'null'); }catch(e){ brand=null; }
   }
-  const name=(brand && brand.name) || _defaultBranding.name;
-  const logo=(brand && brand.logo) || _defaultBranding.logo;
+  const name=(brand && brand.name) || DEFAULT_BRAND_NAME;
+  const logo=(brand && brand.logo) || '';
   if(sideName) sideName.textContent=name;
   if(loginName) loginName.textContent=name;
-  [sideImg, loginImg].forEach(img=>{ if(img){ img.src=logo; img.alt=name+' Logo'; } });
-  if(favicon) favicon.href=logo;
+  // No company logo → hide the logo badge instead of showing a placeholder.
+  [sideImg, loginImg].forEach(img=>{
+    if(!img) return;
+    if(logo){ img.src=logo; img.alt=name+' Logo'; } else img.removeAttribute('src');
+    const badge=img.closest('.logoBadge');
+    if(badge) badge.style.display = logo ? '' : 'none';
+  });
+  let favicon=document.querySelector('link[rel="icon"]');
+  if(logo){
+    if(!favicon){ favicon=document.createElement('link'); favicon.rel='icon'; document.head.appendChild(favicon); }
+    favicon.href=logo;
+  }else if(favicon) favicon.remove();
   document.title=name;
+}
+// File-name prefix from the company name ("MF GROUP & CONTRACTORS" → "MF-GROUP-CONTRACTORS"),
+// used for downloaded backups and the Excel template.
+function companyFilePrefix(){
+  return String(db.companyName||'').trim().replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'') || DEFAULT_BRAND_NAME;
 }
 
 // Attendance module supports exactly these 4 manually-selectable statuses.

@@ -132,6 +132,7 @@ function employeeImportContext(){
   return {
     canAdd: isSoftwareAdmin(),
     companyName: db.companyName||'',
+    filePrefix: companyFilePrefix(),
     username: currentUser ? currentUser.username : '',
     departments: (db.departments||[]).slice(),
     fields: employeeSheetFields(),

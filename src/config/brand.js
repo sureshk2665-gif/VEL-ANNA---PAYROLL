@@ -1,3 +1,4 @@
-// Files in /public are served as-is; BASE_URL keeps the path correct for any deploy sub-folder.
-export const LOGO_SRC = `${import.meta.env.BASE_URL}assets/vipl-logo.png`;
-export const APP_NAME = 'VIPL Payroll';
+// Shown only until the company name/logo saved in Software Admin is known (see
+// applyCompanyBranding() in public/legacy/03-company-logo-status.js, which also hides the
+// logo badge while there is no company logo).
+export const APP_NAME = 'Payroll';

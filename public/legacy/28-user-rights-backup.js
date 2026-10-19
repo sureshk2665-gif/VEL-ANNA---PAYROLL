@@ -140,7 +140,7 @@ function backupData(){
   if(!isSoftwareAdmin() && !isAdmin()){ alert('Only the Admin or Software Admin can access data backup.'); return; }
   try{
     const payload={
-      app:'VIPL Payroll',
+      app:db.companyName||DEFAULT_BRAND_NAME,
       dbKey:DB_KEY,
       exportedAt:new Date().toISOString(),
       data:db
@@ -151,7 +151,7 @@ function backupData(){
     const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     const a=document.createElement('a');
     a.href=url;
-    a.download=`VIPL-Payroll-Backup-${stamp}.json`;
+    a.download=`${companyFilePrefix()}-Payroll-Backup-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -172,7 +172,7 @@ function restoreData(file){
       const parsed=JSON.parse(e.target.result);
       const incoming = (parsed && typeof parsed==='object' && 'data' in parsed) ? parsed.data : parsed;
       if(!incoming || typeof incoming!=='object' || !('employees' in incoming)){
-        alert('This file does not look like a valid VIPL Payroll backup.');
+        alert('This file does not look like a valid payroll backup.');
         return;
       }
       // Keep the current user profiles — login accounts live in Supabase Auth, not in backups —
@@ -254,14 +254,14 @@ function logBackupHistory(type, status){
 function runAutoBackup(typeLabel){
   const type = typeLabel || (db.autoBackup ? (db.autoBackup.frequency.charAt(0).toUpperCase()+db.autoBackup.frequency.slice(1)) : 'Manual Trigger');
   try{
-    const payload={ app:'VIPL Payroll', dbKey:DB_KEY, exportedAt:new Date().toISOString(), data:db };
+    const payload={ app:db.companyName||DEFAULT_BRAND_NAME, dbKey:DB_KEY, exportedAt:new Date().toISOString(), data:db };
     const json=JSON.stringify(payload,null,2);
     const blob=new Blob([json],{type:'application/json'});
     const url=URL.createObjectURL(blob);
     const stamp=new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
     const a=document.createElement('a');
     a.href=url;
-    a.download=`VIPL-Payroll-AutoBackup-${stamp}.json`;
+    a.download=`${companyFilePrefix()}-Payroll-AutoBackup-${stamp}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

@@ -77,7 +77,6 @@ src/
     shell.css                  Styles of the React shell components
     legacy/01..08-*.css        Original stylesheet, split by module
 public/
-  assets/vipl-logo.png         Logo (also the favicon)
   legacy/01..30-*.js           ERP business logic, one file per module
 original/VIPL-PAYROLL-ERP.html Original single-file version (reference only)
 ```
