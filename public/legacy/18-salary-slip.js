@@ -25,7 +25,7 @@ function openSlip(code, ym){
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;">${slipHeadingHtml(e, 36, 'margin:0;font-size:24px;')}</div>
       <p style="margin:2px 0;font-size:17px;">${unitAddress(e.unit)}</p>
     </div>
-    <p style="margin:4px 0;font-weight:600;font-size:19px;white-space:normal;overflow:visible;line-height:1.4;">EMP.CODE ${e.code} &nbsp;|&nbsp; ${e.name} &nbsp;|&nbsp; <span style="font-weight:400;">${e.designation||'-'}</span> &nbsp;|&nbsp; <span style="font-weight:400;font-size:14px;">${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</span></p>
+    <p style="margin:4px 0;font-weight:600;font-size:19px;white-space:normal;overflow:visible;line-height:1.4;">EMP.CODE ${e.code} &nbsp;|&nbsp; ${e.name} &nbsp;|&nbsp; <span style="font-weight:400;">${e.designation||'-'}</span> &nbsp;|&nbsp; <span style="font-weight:400;font-size:14px;">${unitLabel(e.unit)}</span></p>
     <table style="font-size:17px;margin-bottom:8px;">
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
@@ -83,7 +83,7 @@ function slipCardHTML(e, r, ym){
       <p>${unitAddress(e.unit)}</p>
       <p class="slipTitle">Salary Slip — ${monthLabel(ym)}</p>
     </div>
-    <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}${contractorName(e)?' &nbsp;|&nbsp; '+contractorName(e):''}</div>
+    <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}</div>
     <table class="slipMeta">
       <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays}</td><td>OT HRS ${r.otHours}</td></tr>
       <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
@@ -113,9 +113,78 @@ function slipCardHTML(e, r, ym){
     </div>
   </div>`;
 }
-// Prints the month's slips, optionally for one unit and/or one contractor ('-' = no contractor).
-function printAllSlips(unit, contractor){
+/* ---- Print Pay Slips dialog: month + Working Unit + Contractor + Employee, with a live list of
+   whose slips will print. Opens with the Payroll screen's month and filters. ---- */
+let psMonth='', psUnit='', psContractor='', psEmp='';
+function openPaySlipDialog(){
   if(!hasPerm('payroll','print')){ alert('You do not have permission to print payslips.'); return; }
+  psMonth=payMonth; psUnit=payUnitFilter; psContractor=payContractorFilter; psEmp='';
+  renderPaySlipDialog(); showModal();
+}
+// Employees whose slip the dialog would print (payroll records of the month, or — before payroll is
+// generated — everyone on the roll that month), narrowed by unit and contractor.
+function paySlipCandidates(){
+  const rec=db.payroll[psMonth];
+  const emps = rec ? Object.keys(rec).map(c=>db.employees.find(e=>e.code===c)).filter(Boolean)
+                   : db.employees.filter(e=>isEmpOnRollInMonth(e, psMonth));
+  return emps.filter(e=>(!psUnit || unitCodeOf(e.unit)===psUnit) && contractorFilterMatches(e, psContractor))
+    .sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
+}
+function setPaySlipField(field, val){
+  if(field==='month'){ if(!val) return; psMonth=val; }
+  else if(field==='unit') psUnit=val;
+  else if(field==='contractor') psContractor=val;
+  else if(field==='emp') psEmp=val;
+  renderPaySlipDialog('ps_'+field);
+}
+function renderPaySlipDialog(focusId){
+  const generated=!!db.payroll[psMonth];
+  const list=paySlipCandidates();
+  if(psEmp && !list.some(e=>e.code===psEmp)) psEmp='';
+  const printing = psEmp ? list.filter(e=>e.code===psEmp) : list;
+  const n=printing.length;
+  const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+  const sel=[psUnit?unitLabel(psUnit):'All units', psContractor?(psContractor==='-'?'No contractor':contractorName(psContractor)):'All contractors'].join(' · ');
+  const canGen=hasPerm('payroll','add')||hasPerm('payroll','edit');
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${ico('printer')} Print Pay Slips</h3>
+    <p class="psIntro">Pick the month, then narrow down by working unit, contractor or a single employee. Slips print 2 per A4 page.</p>
+    <div class="formGrid psGrid">
+      <div><label for="ps_month">Month</label><input type="month" id="ps_month" value="${psMonth}" onchange="setPaySlipField('month',this.value)"></div>
+      <div><label for="ps_unit">Working Unit</label><select id="ps_unit" onchange="setPaySlipField('unit',this.value)"><option value="">All Units</option>${unitOptionsHtml(psUnit)}</select></div>
+      <div><label for="ps_contractor">Contractor</label><select id="ps_contractor" onchange="setPaySlipField('contractor',this.value)">${contractorFilterOptionsHtml(psContractor)}</select></div>
+      <div><label for="ps_emp">Employee</label><select id="ps_emp" onchange="setPaySlipField('emp',this.value)" ${list.length?'':'disabled'}>
+        <option value="">All employees in this selection (${list.length})</option>
+        ${list.map(e=>`<option value="${esc(e.code)}" ${psEmp===e.code?'selected':''}>${esc(e.code)} — ${esc(e.name)}</option>`).join('')}
+      </select></div>
+    </div>
+    ${!generated ? `<div class="psNote warn">${ico('alert')} <div><b>Payroll for ${monthLabel(psMonth)} hasn't been generated yet.</b> Generate it first, then print.${canGen?'':' Ask someone with Payroll rights to generate it.'}</div>
+        ${canGen?`<button type="button" class="btn" onclick="psGenerate()">${ico('settings')} Generate Payroll for ${monthLabel(psMonth)}</button>`:''}</div>`
+      : `<div class="psNote">
+        <div class="psSum"><b>${n} pay slip${n===1?'':'s'}</b> · ${monthLabel(psMonth)} · ${psEmp?esc(printing[0].name):esc(sel)}${n?` · ${Math.ceil(n/2)} page${Math.ceil(n/2)===1?'':'s'}`:''}</div>
+        ${n?`<div class="psList">${printing.map(e=>`<span class="psChip" title="${esc(unitLabel(e.unit))}${contractorName(e)?' · '+esc(contractorName(e)):''}">${esc(e.code)} · ${esc(e.name)}</span>`).join('')}</div>`
+          :`<div class="psEmpty">No employees match this selection.</div>`}
+      </div>`}
+    <div class="modalActions">
+      <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn" ${generated&&n?'':'disabled'} onclick="psPrint()">${ico('printer')} Print ${n&&generated?n+' ':''}Pay Slip${n===1?'':'s'}</button>
+    </div>`;
+  if(focusId){ const el=document.getElementById(focusId); if(el) el.focus(); }
+}
+function psGenerate(){
+  if(!generatePayrollFor(psMonth)) return;
+  payMonth=psMonth; render('payroll'); // show the month just generated behind the dialog
+  renderPaySlipDialog();
+}
+function psPrint(){
+  printAllSlips(psUnit, psContractor, psMonth, psEmp);
+}
+// Prints a month's slips (default: the Payroll screen's month), optionally for one unit, one
+// contractor ('-' = no contractor) and/or one employee.
+function printAllSlips(unit, contractor, ym, empCode){
+  if(!hasPerm('payroll','print')){ alert('You do not have permission to print payslips.'); return; }
+  ym = ym || payMonth;
+  const payMonth = ym; // the rest of this function prints the chosen month
   const existing = db.payroll[payMonth];
   if(!existing){ alert('Generate payroll first.'); return; }
   // Recompute every record live from current Attendance data before printing,
@@ -130,9 +199,10 @@ function printAllSlips(unit, contractor){
   // matching unitLabel()'s own fallback elsewhere in the app).
   let records = Object.values(existing).filter(r=>{
     const e=db.employees.find(x=>x.code===r.code);
-    return (!unit || unitCodeOf(e && e.unit) === unit) && contractorFilterMatches(e, contractor);
-  });
-  const sel = [unit?unitLabel(unit):'', contractor?(contractor==='-'?'No contractor':contractorName(contractor)):''].filter(Boolean).join(' · ');
+    return (!unit || unitCodeOf(e && e.unit) === unit) && contractorFilterMatches(e, contractor) && (!empCode || r.code===empCode);
+  }).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
+  const one = empCode && db.employees.find(x=>x.code===empCode);
+  const sel = [unit?unitLabel(unit):'', contractor?(contractor==='-'?'No contractor':contractorName(contractor)):'', one?`${one.code} ${one.name}`:''].filter(Boolean).join(' · ');
   const unitTitle = sel ? ` — ${sel}` : '';
   if(!records.length){ alert(sel ? `No payroll records to print for ${sel}.` : 'No payroll records to print.'); return; }
   const perPage = 2;

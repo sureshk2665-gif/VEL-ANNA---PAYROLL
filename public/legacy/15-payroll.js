@@ -36,7 +36,7 @@ function renderPayroll(){
     <select onchange="payContractorFilter=this.value;render('payroll')" title="Filter by contractor">
       ${contractorFilterOptionsHtml(payContractorFilter)}
     </select>
-    ${existing && hasPerm('payroll','print') ? `<button class="btn secondary" ${rows.length?'':'disabled'} onclick="printAllSlips(payUnitFilter, payContractorFilter)">${ico('printer')} Print Pay Slips${filtered?' — '+selText:' (All)'}</button>` : ''}
+    ${hasPerm('payroll','print') ? `<button class="btn secondary" onclick="openPaySlipDialog()" title="Print pay slips by month, unit, contractor or employee">${ico('printer')} Print Pay Slips…</button>` : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — see Payroll Process)</span>
   </div>
   <p class="syncNote">Working days, holidays, half-days, LOP and OT hours are pulled automatically from the Attendance module for ${monthLabel(payMonth)}. Mark attendance first, then Generate / Regenerate Payroll to sync the latest figures.${unmarkedTotal?` <b>${unmarkedTotal} employee-day(s) this month are still unmarked in Attendance.</b>`:''}</p>
@@ -55,13 +55,17 @@ function renderPayroll(){
   </div>`;
 }
 function generatePayroll(){
-  if(!hasPerm('payroll','add') && !hasPerm('payroll','edit')){ alert('You do not have permission to generate payroll.'); return; }
-  const active=db.employees.filter(e=>isEmpOnRollInMonth(e,payMonth));
-  if(!active.length){ alert('No active employees.'); return; }
+  if(generatePayrollFor(payMonth)) render('payroll');
+}
+// Generates (or regenerates) payroll for every on-roll employee of a month. Returns true on success.
+function generatePayrollFor(ym){
+  if(!hasPerm('payroll','add') && !hasPerm('payroll','edit')){ alert('You do not have permission to generate payroll.'); return false; }
+  const active=db.employees.filter(e=>isEmpOnRollInMonth(e,ym));
+  if(!active.length){ alert('No active employees.'); return false; }
   const rec={};
-  active.forEach(e=>{ rec[e.code]=computePayrollForEmployee(e,payMonth); });
-  db.payroll[payMonth]=rec;
+  active.forEach(e=>{ rec[e.code]=computePayrollForEmployee(e,ym); });
+  db.payroll[ym]=rec;
   saveDB(db);
-  render('payroll');
+  return true;
 }
 
