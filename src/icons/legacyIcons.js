@@ -2,7 +2,7 @@ import {
   Ban, Bookmark, Building2, Cake, Calculator, Calendar, CalendarDays, CalendarRange, ChartColumn, Check,
   CircleArrowDown, CircleArrowUp, CircleCheck, CircleDashed, CircleX, Clock, ClipboardList, Contrast,
   Copy, CreditCard, Database, DoorOpen, Download, Factory, FileSpreadsheet, FileText, Folder, Gift,
-  HeartPulse, History, KeyRound, Landmark, Leaf, LogIn, LogOut, Lock, Moon, OctagonMinus, PenLine,
+  HeartPulse, History, KeyRound, Landmark, Leaf, LogIn, LogOut, Lock, Moon, OctagonMinus, PenLine, Percent, ShieldCheck,
   Pencil, Pin, Plus, Printer, Save, Search, SearchX, Settings, ShieldX, Sun, Sunrise, Tag, Timer,
   TreePalm, TrendingUp, Trash2, TriangleAlert, Undo2, Upload, User, UserPlus, Users, Wallet, X, Zap,
 } from 'lucide';
@@ -23,7 +23,7 @@ const ICONS = {
   'leaf': Leaf, 'log-in': LogIn, 'log-out': LogOut, 'lock': Lock, 'moon': Moon,
   'octagon-minus': OctagonMinus, 'pen-line': PenLine, 'pencil': Pencil, 'pin': Pin, 'plus': Plus,
   'printer': Printer, 'save': Save, 'search': Search, 'search-x': SearchX, 'settings': Settings,
-  'shield-x': ShieldX, 'sun': Sun, 'sunrise': Sunrise, 'tag': Tag, 'timer': Timer, 'palm': TreePalm,
+  'shield-x': ShieldX, 'shield-check': ShieldCheck, 'percent': Percent, 'sun': Sun, 'sunrise': Sunrise, 'tag': Tag, 'timer': Timer, 'palm': TreePalm,
   'trending-up': TrendingUp, 'trash': Trash2, 'alert': TriangleAlert, 'undo': Undo2, 'upload': Upload,
   'user': User, 'user-plus': UserPlus, 'users': Users, 'wallet': Wallet, 'x': X, 'zap': Zap,
 };
