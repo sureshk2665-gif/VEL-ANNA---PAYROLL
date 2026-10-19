@@ -14,15 +14,13 @@ function previousFinancialYear(fyLabel){
 let incEmpCode=''; // employee currently selected for the "Add Increment" form
 let incHistoryEmpCode=''; // '' = show every employee's history; else filter to one employee code
 let editIncId=''; // id of increment record currently being edited (inline edit form), '' = none
-// 60% Basic / 20% HRA / 10% Conveyance / 10% Washing Allowance split.
-// Rounded so the four parts always add back to the exact total (Washing absorbs the remainder).
+// 60% Basic / 40% HRA split (HRA absorbs any rounding remainder). Conveyance and Washing are no
+// longer part of the salary structure and always stay 0.
 function splitIncrementAmount(amount){
   amount=Math.round(Number(amount)||0);
   const basic=Math.round(amount*0.60);
-  const hra=Math.round(amount*0.20);
-  const conveyance=Math.round(amount*0.10);
-  const washing=amount-basic-hra-conveyance; // absorbs any rounding remainder
-  return {basic,hra,conveyance,washing};
+  const hra=amount-basic;
+  return {basic,hra,conveyance:0,washing:0};
 }
 function renderIncrement(){
   const activeEmployees=db.employees.filter(e=>e.status!=='Resigned').sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
@@ -52,25 +50,25 @@ function renderIncrement(){
         <div class="formGrid">
           <div><label>Basic Salary</label><input type="number" id="inc_prevBasic" value="${prevBasic}" oninput="recalcIncrement()"></div>
           <div><label>HRA</label><input type="number" id="inc_prevHra" value="${prevHra}" oninput="recalcIncrement()"></div>
-          <div><label>Conveyance</label><input type="number" id="inc_prevConv" value="${prevConv}" oninput="recalcIncrement()"></div>
-          <div><label>Washing Allowance</label><input type="number" id="inc_prevWash" value="${prevWash}" oninput="recalcIncrement()"></div>
+          <input type="hidden" id="inc_prevConv" value="0">
+          <input type="hidden" id="inc_prevWash" value="0">
         </div></fieldset>
 
-        <fieldset style="margin-top:14px;"><legend>Increment Distribution (auto: 60% Basic / 20% HRA / 10% Conveyance / 10% Washing)</legend>
+        <fieldset style="margin-top:14px;"><legend>Increment Distribution (auto: 60% Basic / 40% HRA)</legend>
         <div class="formGrid">
           <div><label>Increment – Basic</label><input type="number" id="inc_addBasic" value="0" disabled></div>
           <div><label>Increment – HRA</label><input type="number" id="inc_addHra" value="0" disabled></div>
-          <div><label>Increment – Conveyance</label><input type="number" id="inc_addConv" value="0" disabled></div>
-          <div><label>Increment – Washing</label><input type="number" id="inc_addWash" value="0" disabled></div>
+          <input type="hidden" id="inc_addConv" value="0">
+          <input type="hidden" id="inc_addWash" value="0">
         </div></fieldset>
 
         <fieldset style="margin-top:14px;"><legend>Current Year's Revised Salary Structure — FY <span id="inc_currFyLabel">${defaultFY}</span> (editable, effective from ${fmtDate(today)})</legend>
         <div class="formGrid">
           <div><label>Revised Basic Salary</label><input type="number" id="inc_revBasic" value="${prevBasic}" oninput="recalcIncrementGross()"></div>
           <div><label>Revised HRA</label><input type="number" id="inc_revHra" value="${prevHra}" oninput="recalcIncrementGross()"></div>
-          <div><label>Revised Conveyance</label><input type="number" id="inc_revConv" value="${prevConv}" oninput="recalcIncrementGross()"></div>
-          <div><label>Revised Washing Allowance</label><input type="number" id="inc_revWash" value="${prevWash}" oninput="recalcIncrementGross()"></div>
-          <div><label>Revised Gross (Basic+HRA+Conv.+Washing)</label><input type="number" id="inc_revGross" value="${prevBasic+prevHra+prevConv+prevWash}" disabled></div>
+          <input type="hidden" id="inc_revConv" value="0">
+          <input type="hidden" id="inc_revWash" value="0">
+          <div><label>Revised Gross (Basic+HRA)</label><input type="number" id="inc_revGross" value="${prevBasic+prevHra}" disabled></div>
         </div></fieldset>
 
         <div class="modalActions">
@@ -102,16 +100,16 @@ function renderIncrement(){
         <div class="formGrid">
           <div><label>Basic Salary</label><input type="number" id="edit_prevBasic" value="${editRec.prevBasic}" oninput="recalcEditIncrement()"></div>
           <div><label>HRA</label><input type="number" id="edit_prevHra" value="${editRec.prevHra}" oninput="recalcEditIncrement()"></div>
-          <div><label>Conveyance</label><input type="number" id="edit_prevConv" value="${editRec.prevConveyance}" oninput="recalcEditIncrement()"></div>
-          <div><label>Washing Allowance</label><input type="number" id="edit_prevWash" value="${editRec.prevWashing}" oninput="recalcEditIncrement()"></div>
+          <input type="hidden" id="edit_prevConv" value="0">
+          <input type="hidden" id="edit_prevWash" value="0">
         </div></fieldset>
 
         <fieldset style="margin-top:14px;"><legend>Revised Salary Structure (editable)</legend>
         <div class="formGrid">
           <div><label>Revised Basic Salary</label><input type="number" id="edit_revBasic" value="${editRec.revisedBasic}" oninput="recalcEditIncrementGross()"></div>
           <div><label>Revised HRA</label><input type="number" id="edit_revHra" value="${editRec.revisedHra}" oninput="recalcEditIncrementGross()"></div>
-          <div><label>Revised Conveyance</label><input type="number" id="edit_revConv" value="${editRec.revisedConveyance}" oninput="recalcEditIncrementGross()"></div>
-          <div><label>Revised Washing Allowance</label><input type="number" id="edit_revWash" value="${editRec.revisedWashing}" oninput="recalcEditIncrementGross()"></div>
+          <input type="hidden" id="edit_revConv" value="0">
+          <input type="hidden" id="edit_revWash" value="0">
           <div><label>Revised Gross</label><input type="number" id="edit_revGross" value="${editRec.revisedGross}" disabled></div>
         </div></fieldset>
 
@@ -128,7 +126,7 @@ function renderIncrement(){
   return `
   <div class="panel">
     <h3>${ico('trending-up')} Annual Increment</h3>
-    <p class="syncNote">Select an employee to record their annual increment. The system auto-splits the Total Increment Amount as 60% Basic, 20% HRA, 10% Conveyance and 10% Washing Allowance — you can still edit any figure before saving. Saving updates the employee's salary structure for all <b>future</b> payroll; past payroll and reports already generated are never changed.</p>
+    <p class="syncNote">Select an employee to record their annual increment. The system auto-splits the Total Increment Amount as 60% Basic and 40% HRA — you can still edit any figure before saving. Saving updates the employee's salary structure for all <b>future</b> payroll; past payroll and reports already generated are never changed.</p>
     <div class="toolbar">
       <select id="inc_empPicker" onchange="incEmpCode=this.value;render('increment')">
         <option value="">— Select Employee —</option>
@@ -157,23 +155,23 @@ function renderIncrement(){
     <div class="tableScrollWrap"><table class="incHistTable"><thead>
       <tr class="groupRow">
         <th colspan="4"></th>
-        <th colspan="4" class="prevYearGroup">Previous Year Salary</th>
+        <th colspan="2" class="prevYearGroup">Previous Year Salary</th>
         <th class="deltaGroup">Change</th>
-        <th colspan="5" class="currYearGroup">Current Year (Revised) Salary</th>
+        <th colspan="3" class="currYearGroup">Current Year (Revised) Salary</th>
         <th colspan="${(canEdit||canDelete)?2:1}"></th>
       </tr>
       <tr class="colRow">
       <th>Fin. Year</th><th>Emp Code</th><th>Name</th><th>Effective Date</th>
-      <th class="num prevYearCol">Basic</th><th class="num prevYearCol">HRA</th><th class="num prevYearCol">Conv.</th><th class="num prevYearCol">Washing</th>
+      <th class="num prevYearCol">Basic</th><th class="num prevYearCol">HRA</th>
       <th class="num">Increment Amt</th>
-      <th class="num currYearCol">Basic</th><th class="num currYearCol">HRA</th><th class="num currYearCol">Conv.</th><th class="num currYearCol">Washing</th><th class="num currYearCol">Gross</th>
+      <th class="num currYearCol">Basic</th><th class="num currYearCol">HRA</th><th class="num currYearCol">Gross</th>
       <th>Remarks</th>${(canEdit||canDelete)?'<th></th>':''}
     </tr></thead><tbody>
       ${historyRows.map(r=>`<tr>
         <td>${r.financialYear}</td><td>${r.empCode}</td><td>${r.empName}</td><td>${fmtDate(r.effectiveDate)}</td>
-        <td class="num prevYearCol">${fmt(r.prevBasic)}</td><td class="num prevYearCol">${fmt(r.prevHra)}</td><td class="num prevYearCol">${fmt(r.prevConveyance)}</td><td class="num prevYearCol">${fmt(r.prevWashing)}</td>
+        <td class="num prevYearCol">${fmt(r.prevBasic)}</td><td class="num prevYearCol">${fmt(r.prevHra)}</td>
         <td class="num deltaCol">+${fmt(r.incrementAmount)}</td>
-        <td class="num currYearCol">${fmt(r.revisedBasic)}</td><td class="num currYearCol">${fmt(r.revisedHra)}</td><td class="num currYearCol">${fmt(r.revisedConveyance)}</td><td class="num currYearCol">${fmt(r.revisedWashing)}</td><td class="num currYearCol"><b>${fmt(r.revisedGross)}</b></td>
+        <td class="num currYearCol">${fmt(r.revisedBasic)}</td><td class="num currYearCol">${fmt(r.revisedHra)}</td><td class="num currYearCol"><b>${fmt(r.revisedGross)}</b></td>
         <td>${r.remarks||'-'}</td>
         ${(canEdit||canDelete)?`<td class="rowActions">${canEdit?`<button onclick="editIncId='${r.id}';render('increment')">${ico('pencil')} Edit</button>`:''}${canDelete?`<button onclick="deleteIncrementRecord('${r.id}')">${ico('trash')} Delete</button>`:''}</td>`:''}
       </tr>`).join('')}
@@ -371,9 +369,9 @@ function printIncrementHistory(){
     .sort((a,b)=> (a.empCode||'').localeCompare(b.empCode||'',undefined,{numeric:true}) || (b.effectiveDate||'').localeCompare(a.effectiveDate||''))
     .map(r=>({
       FinancialYear:r.financialYear, EmpCode:r.empCode, Name:r.empName, EffectiveDate:fmtDate(r.effectiveDate),
-      PrevBasic:r.prevBasic, PrevHRA:r.prevHra, PrevConveyance:r.prevConveyance, PrevWashing:r.prevWashing,
+      PrevBasic:r.prevBasic, PrevHRA:r.prevHra,
       IncrementAmount:r.incrementAmount,
-      RevisedBasic:r.revisedBasic, RevisedHRA:r.revisedHra, RevisedConveyance:r.revisedConveyance, RevisedWashing:r.revisedWashing, RevisedGross:r.revisedGross,
+      RevisedBasic:r.revisedBasic, RevisedHRA:r.revisedHra, RevisedGross:r.revisedGross,
       Remarks:r.remarks||'-'
     }));
   if(!rows.length){ alert('No increment records to print.'); return; }

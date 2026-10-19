@@ -310,8 +310,8 @@ function savePayrollConstants(){
   s.esiEmployerRate=+document.getElementById('s_esiEmployerRate').value||0.0325;
   s.pfRate=+document.getElementById('s_pfRate').value||0.12;
   s.pfEmployerRate=+document.getElementById('s_pfEmployerRate').value||0.12;
-  s.canteenLunchRate=+document.getElementById('s_canteenLunchRate').value||0;
-  s.canteenDinnerRate=+document.getElementById('s_canteenDinnerRate').value||0;
+  const tp=document.getElementById('s_canteenTokenPrice').value;
+  s.canteenTokenPrice = tp==='' ? 150 : Math.max(0, +tp||0);
   saveDB(db);
   alert('Payroll constants saved.');
   render('payrollprocess');
