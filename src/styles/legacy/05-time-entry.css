@@ -84,3 +84,36 @@ select.teEwAtt:disabled{border-color:transparent;background:transparent;color:va
 fieldset{border:1px solid var(--line);border-radius:8px;margin:14px 0 0;padding:12px;}
 fieldset legend{font-size:12px;color:var(--muted);padding:0 6px;}
 
+/* ================= DATE-WISE TIME ENTRY (fast typed entry for the whole roster) ================= */
+.teDwTop{display:flex;justify-content:space-between;align-items:center;gap:10px 16px;flex-wrap:wrap;}
+.teDwGroup{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.teDwLbl{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);}
+.teDwLbl input[type=date]{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-weight:600;}
+.btn.teDwNav{min-width:34px;padding-left:0;padding-right:0;justify-content:center;font-size:18px;line-height:1;}
+.teDwFindWrap{position:relative;display:inline-flex;align-items:center;}
+.teDwFindWrap svg{position:absolute;left:9px;width:15px;height:15px;color:var(--muted);pointer-events:none;}
+.teDwFindWrap input{width:260px;max-width:60vw;padding:7px 10px 7px 30px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:13px;}
+.teDwFindWrap input:focus{outline:2px solid var(--accent);outline-offset:1px;}
+.teDwFindWrap input.bad{border-color:var(--danger)!important;box-shadow:0 0 0 2px var(--st-lop-bg);}
+.teDwBanner{display:flex;justify-content:space-between;align-items:center;gap:6px 14px;flex-wrap:wrap;margin-top:14px;padding:10px 14px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;background:var(--paper);font-size:14px;}
+.teDwBanner svg{width:13px;height:13px;vertical-align:-2px;}
+.teDwBulk{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;margin-top:14px;padding:10px 14px;border:1.5px dashed var(--accent);border-radius:10px;background:var(--accent-soft);font-size:13px;}
+.teDwBulk>b{display:inline-flex;align-items:center;gap:6px;color:var(--accent);}
+.teDwBulk>b svg{width:15px;height:15px;}
+.teDwBulk select{padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:13px;max-width:100%;}
+.teDwSelCount{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+.teDwBulkNote{font-size:12px;color:var(--muted);}
+.teDwBulkNote.ok{color:var(--st-present-text);font-weight:600;}
+table.teEwGrid th.teDwChk,table.teEwGrid td.teDwChk{width:30px;padding-left:8px;padding-right:2px;}
+.teDwChk input{width:15px;height:15px;cursor:pointer;accent-color:var(--accent);vertical-align:middle;}
+.teDwChk input:disabled{cursor:default;opacity:.35;}
+table.teEwGrid th svg{width:13px;height:13px;vertical-align:-2px;}
+@keyframes teDwFlash{0%{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent);}100%{background:transparent;box-shadow:inset 3px 0 0 transparent;}}
+table.teEwGrid tr.teDwFlash td{animation:teDwFlash 1.6s ease-out;}
+@media (max-width:640px){.teDwTop,.teDwGroup{width:100%;}.teDwFindWrap,.teDwFindWrap input{width:100%;max-width:none;}}
+/* The grids sit inside .panel, whose generic input rule (.panel input:not(…)) is more specific —
+   restate the In/Out colours and the locked look so they win. */
+.panel table.teEwGrid input.teEwTime{border-radius:6px;}
+.panel table.teEwGrid input.teEwTime.in{border-color:var(--te-in-border);}
+.panel table.teEwGrid input.teEwTime.out{border-color:var(--te-out-border);}
+.panel table.teEwGrid input.teEwTime:disabled{background:transparent;border-color:transparent;}

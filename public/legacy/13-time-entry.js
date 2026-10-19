@@ -16,15 +16,12 @@ let teCalMonth=monthKey(todayStr());
 let teSummaryMonth=monthKey(todayStr()); // month shown in the Attendance & OT Summary tab
 let teSelHolDate=null;
 let teHolRemarks='';
-let teGridSearch='';
 const TE_LEAVE_TYPES=['Loss of Pay','Half Day','NOPL'];
 let teLeaveDate=todayStr();
 let teLeaveEmp='';
 let teLeaveType=TE_LEAVE_TYPES[0];
 let teLeaveRemarks='';
 
-function teHourOpts(sel){ return Array.from({length:12},(_,i)=>i+1).map(h=>`<option value="${h}" ${String(h)===String(sel)?'selected':''}>${String(h).padStart(2,'0')}</option>`).join(''); }
-function teMinOpts(sel){ return Array.from({length:60},(_,i)=>i).map(m=>`<option value="${m}" ${String(m)===String(sel)?'selected':''}>${String(m).padStart(2,'0')}</option>`).join(''); }
 // Auto-creates a blank time-entry row for every active employee for the selected grid
 // date (defaults to the system/today's date, but works for ANY date picked via the Date
 // Selector), so the day's roster is always ready for quick entry without manually adding
@@ -44,7 +41,10 @@ function ensureTimeEntriesForDate(dateStr2){
 }
 
 function teTimeToMinutes(h,m,ap){
-  h=Number(h); m=Number(m);
+  // A blank hour means "no time entered" — not 12:00 midnight (that showed empty rows as
+  // First shift / 8:00 working / 3:30 OT).
+  if(h===''||h===null||h===undefined) return null;
+  h=Number(h); m=(m===''||m===null||m===undefined)?0:Number(m);
   if(isNaN(h)||isNaN(m)) return null;
   let hh=h%12; if(ap==='PM') hh+=12;
   return hh*60+m;
@@ -54,16 +54,27 @@ function teFmtHM(mins){
   mins=Math.max(0,Math.round(mins));
   return Math.floor(mins/60)+':'+String(mins%60).padStart(2,'0');
 }
-// Shift auto-detection + Working/Late/OT computation — purely for this module's own
-// display & print. Standard shift-start times used for the "late" comparison:
-//   First Shift: before 9:00 AM   → standard start 07:00 AM
-//   General Shift: 9:00 AM–5:29 PM → standard start 09:30 AM
-//   Second Shift: 5:30 PM onward   → standard start 05:30 PM
+// The company's shifts (8 working hours + a 30-minute break; "+ OT" = 2 hours more). Used by
+// the Bulk Shift tool in the Date-wise grid; times are minutes from midnight (> 1440 = next day).
+const TE_SHIFTS=[
+  {key:'first',    label:'First Shift',       inMin:7*60,     outMin:15*60+30},
+  {key:'firstOT',  label:'First Shift + OT',  inMin:7*60,     outMin:17*60+30},
+  {key:'general',  label:'General Shift',     inMin:9*60,     outMin:17*60+30},
+  {key:'second',   label:'Second Shift',      inMin:15*60+30, outMin:24*60},
+  {key:'secondOT', label:'Second Shift + OT', inMin:15*60+30, outMin:26*60}
+];
+function teMinToHMAP(min){ min=((min%1440)+1440)%1440; return {h:(Math.floor(min/60)%12)||12, m:min%60, ap:min>=720?'PM':'AM'}; }
+function teMinLabel(min){ const t=teMinToHMAP(min); return t.h+':'+String(t.m).padStart(2,'0')+' '+t.ap; }
+function teShiftLabel(s){ return `${s.label} (${teMinLabel(s.inMin)} – ${teMinLabel(s.outMin)})`; }
+// Shift auto-detection from the In Time — purely for this module's own display & print:
+//   First Shift   (7:00 AM – 3:30 PM):  In before 9:00 AM
+//   General Shift (9:00 AM – 5:30 PM):  In from 9:00 AM until 3:00 PM
+//   Second Shift  (3:30 PM – 12:00 AM): In from 3:00 PM
 function teDetectShift(inMin){
   if(inMin===null) return null;
   if(inMin < 9*60) return {name:'First Shift', standard:7*60};
-  if(inMin < 17*60+30) return {name:'General Shift', standard:9*60+30};
-  return {name:'Second Shift', standard:17*60+30};
+  if(inMin < 15*60) return {name:'General Shift', standard:9*60};
+  return {name:'Second Shift', standard:15*60+30};
 }
 function teIsHolidayDate(dateStr2){
   const [y,m,d]=dateStr2.split('-').map(Number);
@@ -103,19 +114,18 @@ function teCompute(entry, dateForRow){
   return {shift, late, working, ot};
 }
 function teSetTab(t){ teTab=t; render('timeentry'); }
-// Changing the Date Selector switches the whole "Time Entries" grid to that date,
-// auto-creating blank rows for every active employee on it, just like today's date does.
-// Switching dates always re-locks the grid, so each date is deliberately unlocked via Edit.
+// Changing the date switches the whole Date-wise grid to that date, auto-creating blank rows for
+// every active employee on it. The grid stays unlocked if it was, so entry can continue
+// date after date (‹ › buttons or Alt+PgUp / Alt+PgDn).
 function teSetGridDate(v){
   if(!v) return;
   teGridDate=v;
-  teGridEditMode=false;
   ensureTimeEntriesForDate(teGridDate);
   render('timeentry');
 }
 // "✏️ Edit" / "💾 Save" pair, shown right next to the Date Selector: Edit unlocks every
 // row on the selected date for in-place editing; Save re-locks the grid once the user is
-// done. Cell values already save instantly to Supabase as they're changed (teGridSet), so
+// done. Cell values already save instantly to Supabase as they're typed, so
 // Save here mainly confirms the update and returns the grid to its safer, read-only state.
 function teToggleGridEdit(){
   if(!hasPerm('timeentry','add') && !hasPerm('timeentry','edit')){ alert('You do not have permission to edit time entries.'); return; }
@@ -133,16 +143,6 @@ function teDeleteEntry(dateStr2, code){
   saveDB(db); render('timeentry');
 }
 function activeEmployeesForTE(){ return (db.employees||[]).filter(e=>e.status!=='Resigned').sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})); }
-// Inline edit for a single field of a single employee's row in the auto-created quick grid.
-function teGridSet(dateStr2, code, field, val){
-  if(!hasPerm('timeentry','add') && !hasPerm('timeentry','edit')){ alert('You do not have permission to edit time entries.'); return; }
-  if(!db.timeEntries[dateStr2]) db.timeEntries[dateStr2]={};
-  if(!db.timeEntries[dateStr2][code]) db.timeEntries[dateStr2][code]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
-  db.timeEntries[dateStr2][code][field]=val;
-  saveDB(db); render('timeentry');
-}
-function teSetGridSearch(v){ teGridSearch=v; render('timeentry'); }
-// Selecting an employee's name from the Quick Grid loads them into the Single Time Entry form below.
 /* ---------------- Employee Leave (this module's own leave log — separate from any
    Payroll leave/NOPL logic; purely a record of who is on leave and why). ---------------- */
 function teSetLeaveField(field,val){
