@@ -82,11 +82,18 @@ export async function buildTemplate(columns, ctx = {}) {
         error: `Choose a value from the list: ${options.join(', ')}`,
       });
     } else if (col.type === 'date') {
+      // DD-MM-YYYY on every cell of the column (not only the column style), so Excel, Google
+      // Sheets and LibreOffice all show dates in that format.
+      for (let r = 2; r <= DATA_ROWS + 1; r++) ws.getCell(`${letter}${r}`).numFmt = 'dd-mm-yyyy';
       ws.dataValidations.add(range, {
         type: 'date',
         operator: 'between',
         allowBlank: true,
         formulae: [new Date(Date.UTC(1900, 0, 2)), new Date(Date.UTC(2100, 11, 31))],
+        // Shown on every cell of the column: the expected format.
+        showInputMessage: true,
+        promptTitle: 'Format: DD-MM-YYYY',
+        prompt: 'Type the date as DD-MM-YYYY, e.g. 25-04-1995. Leave empty if not known.',
         showErrorMessage: true,
         errorTitle: col.header,
         error: 'Enter a date, e.g. 25-04-2024',
@@ -140,15 +147,16 @@ export async function buildTemplate(columns, ctx = {}) {
   [
     ['How to use', 'Fill one employee per row on the "Employees" sheet, starting from row 2. Do not change the header row (it is locked).'],
     ['S.No', 'Serial number (1, 2, 3…). Only used to point you to a row if something needs fixing.'],
-    ['Required', 'Only "Full Name" is required. Empty dropdown cells use the same default as the Add Employee form.'],
-    ['Dropdowns', 'Status, Gender, Department, Employment Type, Working Unit, Contractor and Payment Mode have a dropdown in every row — click a cell and use the ▼ arrow.'],
+    ['Required', 'Only "Full Name" is required. Fill whatever details you have — empty cells are left empty and can be completed later in the Employee form.'],
+    ['Dropdowns', 'Status, Gender, Department, Designation, Employment Type, Working Unit, Contractor and Payment Mode have a dropdown in every row — click a cell and use the ▼ arrow. Departments and Designations come from the lists in the app.'],
     ['Daily Wage', 'Enter the TOTAL daily wage (₹ per day). Basic = 60%, HRA = 40% and the 1-hour OT rate (Daily Wage ÷ 8 × 1.5) are calculated by the grey columns automatically. OT hours are not entered here — they are entered monthly in Attendance and paid by Payroll.'],
     ['Grey columns', 'Employee Code, Basic / day, HRA / day and OT Rate — 1 hour are calculated automatically, exactly as in the Add Employee form. They are locked and ignored on import.'],
     ['PF / ESI', 'Not needed here: new employees start with PF and ESI deduction = Yes, and Payroll calculates the amounts. Change it later in the Employee form if someone is exempted.'],
     ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
-    ['Dates', 'Use DD-MM-YYYY (e.g. 25-04-2024).'],
+    ['Dates', 'Date of Birth and Joining Date: DD-MM-YYYY (e.g. 25-04-2024). Selecting a cell in those columns shows the format.'],
     ['Amounts', 'Numbers only. Canteen Tokens = tokens bought per month.'],
-    ['Department', 'Must be one of the departments already set up in the app: ' + (ctx.departments || []).join(', ')],
+    ['Department', 'Must be one of the departments set up in the app: ' + ((ctx.departments || []).join(', ') || '(none yet)')],
+    ['Designation', 'Must be one of the designations set up in the app (Admin → Designations): ' + ((ctx.designations || []).join(', ') || '(none yet)')],
     ['After import', 'Every imported employee can be edited later from the Employees page (✏️ Edit).'],
   ].forEach((r) => {
     const row = help.addRow(r);

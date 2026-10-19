@@ -135,6 +135,7 @@ function employeeImportContext(){
     filePrefix: companyFilePrefix(),
     username: currentUser ? currentUser.username : '',
     departments: (db.departments||[]).slice(),
+    designations: designationList().slice(),
     fields: employeeSheetFields(),
     employees: (db.employees||[]).map(e=>({code:e.code, name:e.name, aadhaar:e.aadhaar||'', pan:e.pan||'', accNo:e.accNo||''}))
   };

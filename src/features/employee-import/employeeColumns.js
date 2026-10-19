@@ -10,7 +10,8 @@ const SERIAL = { key: 'serial', header: 'S.No', type: 'number', width: 7, serial
 
 export function buildColumns(fields) {
   return [SERIAL, ...(fields || []).map((f) => {
-    const col = { key: f.key, header: f.label, auto: !!f.auto, required: !!f.required, width: f.width || 14, formula: f.formula || '' };
+    const col = { key: f.key, header: f.label, altHeaders: f.altLabels || [], auto: !!f.auto, required: !!f.required,
+      blankDefault: !!f.blankDefault, width: f.width || 14, formula: f.formula || '' };
     if (f.input === 'select') {
       const opts = f.options || [];
       col.type = 'list';
@@ -88,6 +89,8 @@ export function validateRow(raw, columns) {
       if (d === null) { errors.push(`${label} is not a valid date (use DD-MM-YYYY)`); out[col.key] = ''; }
       else out[col.key] = d;
     } else if (col.type === 'list') {
+      // An empty cell stays empty (not given) — only Status falls back to its default (Active).
+      if (blank && !col.blankDefault) { out[col.key] = ''; continue; }
       let chosen = blank ? col.default : String(v);
       if (!blank && !col.accepts.some((o) => String(o).toLowerCase() === chosen.toLowerCase())) {
         errors.push(`${label} "${chosen}" is not one of: ${optionsOf(col).join(', ')}`);
@@ -134,7 +137,8 @@ export function rowsFromGrid(grid, columns) {
   const columnIndex = {};
   const missingHeaders = [];
   for (const col of columns) {
-    const i = headerIndex[norm(col.header)];
+    // Also accept the plain label (e.g. "Date of Birth") used by templates downloaded earlier.
+    const i = [col.header, ...(col.altHeaders || [])].map((h) => headerIndex[norm(h)]).find((x) => x !== undefined);
     if (i !== undefined) columnIndex[col.key] = i;
     else if (!col.serial && !col.auto) missingHeaders.push(col.header);
   }
