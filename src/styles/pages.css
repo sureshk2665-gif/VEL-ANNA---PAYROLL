@@ -1,0 +1,134 @@
+/* =====================================================================================
+   PAGES — carries the dashboard's look to every module page: filter bars as cards, KPI-style
+   stat cards, report tiles, segmented tabs, info callouts, tidy tables/inputs and a staggered
+   entrance for page sections. Screen only; print rules and print windows are untouched.
+   Motion is off under prefers-reduced-motion (see the end of this file).
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Dark mode: status colours (attendance calendar, tags, chips) ---------- */
+body.dark{
+  --st-present-bg:#13301f; --st-present-text:#86efac; --st-present-border:#2f7a4c;
+  --st-half-bg:#33270f;    --st-half-text:#fcd34d;    --st-half-border:#8a6a1c;
+  --st-lop-bg:#381818;     --st-lop-text:#fca5a5;     --st-lop-border:#8a3a3a;
+  --st-nopl-bg:#16233d;    --st-nopl-text:#93c5fd;    --st-nopl-border:#35548a;
+  --st-noph-bg:#2a1a3b;    --st-noph-text:#d8b4fe;    --st-noph-border:#6b3f8f;
+  --st-sunday-bg:#1a2130;  --st-sunday-border:#2c3546;
+}
+
+/* ---------- Filter / action bars at the top of a page ---------- */
+#pageBody > .toolbar{
+  background:var(--card);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow-sm);
+  padding:10px 12px;gap:8px;margin-bottom:16px;
+}
+#pageBody > .toolbar input,#pageBody > .toolbar select{height:38px;}
+#pageBody > .toolbar .searchWrap input{background:var(--surface-2);}
+#pageBody > .toolbar > span{font-size:12.5px;color:var(--muted);}
+.panel .toolbar{gap:8px;}
+
+/* ---------- Panels ---------- */
+.panel{border-radius:18px;padding:20px 22px;}
+.panel h3{display:flex;align-items:center;gap:8px;}
+.panel h3 > .ico{width:30px;height:30px;padding:7px;border-radius:9px;background:var(--accent-soft);color:var(--accent);box-sizing:border-box;margin-right:2px;}
+body.dark .panel h3 > .ico{background:color-mix(in srgb,var(--accent) 22%,transparent);}
+.panel h4{font-size:14px;font-weight:700;letter-spacing:-.01em;}
+
+/* Info notes under toolbars and panels */
+.syncNote{
+  position:relative;font-size:12.5px;line-height:1.5;color:color-mix(in srgb,var(--ink) 70%,transparent);
+  background:color-mix(in srgb,var(--accent) 6%,var(--card));border:1px solid color-mix(in srgb,var(--accent) 16%,var(--line));
+  border-radius:12px;padding:9px 12px 9px 14px;margin:8px 0 14px;
+}
+.syncNote::before{content:"";position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:0 3px 3px 0;background:var(--accent);}
+
+/* Empty states (not the hidden spacer cells of the Time Entry calendar) */
+.empty:not(.teCalCell){padding:42px 20px;font-size:13.5px;color:var(--muted);}
+.empty:not(.teCalCell) > .ico{display:block;width:26px;height:26px;margin:0 auto 8px;color:color-mix(in srgb,var(--muted) 70%,transparent);}
+
+/* ---------- Stat cards (Payroll, Time Entry, …) in the KPI style ---------- */
+.grid .stat{
+  position:relative;overflow:hidden;display:grid;grid-template-columns:1fr auto;grid-template-areas:"label icon" "value value";
+  align-items:center;row-gap:6px;padding:16px 18px;border-radius:18px;
+}
+.grid .stat::before{display:block;content:"";position:absolute;inset:0 0 auto 0;height:3px;opacity:1;
+  background:linear-gradient(90deg,var(--stat-color,var(--accent)),color-mix(in srgb,var(--stat-color,var(--accent)) 40%,transparent));}
+.grid .stat .statTop{grid-area:icon;margin:0;}
+.grid .stat .n{grid-area:value;font-size:26px;}
+.grid .stat .l{grid-area:label;margin:0;font-size:13px;font-weight:600;color:color-mix(in srgb,var(--ink) 75%,transparent);}
+.grid .stat .statIcon{width:34px;height:34px;border-radius:11px;}
+
+/* ---------- Report list: tiles with gradient icons ---------- */
+.reportGrid{gap:12px;}
+.reportCard{align-items:center;padding:16px;border-radius:16px;gap:14px;min-height:96px;}
+.reportCardIcon{
+  width:46px;height:46px;border-radius:14px;flex:none;color:#fff !important;
+  background:linear-gradient(150deg,color-mix(in srgb,var(--accent) 70%,#fff),var(--accent)) !important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 8px 14px -8px var(--accent);
+  transition:transform .22s var(--ease-out);
+}
+.panel:nth-of-type(2) .reportCardIcon{background:linear-gradient(150deg,#7c8cf0,#4f5bd5) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 14px -8px #4f5bd5;}
+.panel:nth-of-type(3) .reportCardIcon{background:linear-gradient(150deg,#f2a65a,#d9741c) !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 8px 14px -8px #d9741c;}
+.reportCard:hover .reportCardIcon{transform:translateY(-2px);}
+.reportCardTitle{font-size:14px;font-weight:700;letter-spacing:-.01em;}
+.reportCardDesc{font-size:12px;line-height:1.45;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.reportDetailHead{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
+
+/* ---------- Tabs as a segmented control ---------- */
+.teTabs{display:inline-flex;flex-wrap:wrap;gap:4px;padding:4px;border:1px solid var(--line);border-radius:14px;background:var(--card);box-shadow:var(--shadow-sm);border-bottom:1px solid var(--line);}
+.teTab{border:0;border-radius:10px;padding:8px 14px;transition:background .18s ease,color .18s ease,box-shadow .18s ease;}
+.teTab:hover{background:var(--hover);}
+.teTab.active{background:var(--accent);color:#fff;border-bottom-color:transparent;box-shadow:0 4px 10px -4px var(--accent);}
+.attTab{border-radius:10px;}
+
+/* ---------- Tables ---------- */
+td.empNameCell{display:table-cell;white-space:nowrap;}
+td.empNameCell .avatarChip{display:inline-flex;vertical-align:middle;margin-right:8px;}
+.reportPreview td.empNameCell{display:table-cell;}
+tbody tr{transition:background .12s ease;}
+.rowActions button{border-radius:8px;transition:background .15s ease,color .15s ease;}
+.rowActions button:hover{background:var(--hover);}
+.rowActions button.del:hover{background:color-mix(in srgb,var(--danger) 10%,transparent);}
+
+/* Text inputs inside Software Admin tables (units, contractors) — dense grids such as Time Entry
+   and Attendance keep their own compact controls. */
+.panel td input[id^="s_"]{
+  height:36px;padding:0 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);width:100%;min-width:120px;font:inherit;font-size:13.5px;
+}
+.panel td input[id^="s_"]:focus{outline:none;border-color:var(--accent);box-shadow:var(--ring);}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent);}
+
+/* File picker */
+input[type=file]{font:inherit;font-size:12.5px;color:var(--muted);}
+input[type=file]::file-selector-button{
+  font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);background:var(--surface-2);border:1px solid var(--line);
+  border-radius:10px;padding:7px 12px;margin-right:10px;cursor:pointer;transition:background .15s ease,border-color .15s ease;
+}
+input[type=file]::file-selector-button:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--line));background:var(--card);}
+
+/* Forms in panels: consistent field height */
+.panel .formGrid input:not([type=checkbox]):not([type=radio]):not([type=file]),.panel .formGrid select{height:40px;}
+.panel textarea{border-radius:10px;}
+
+/* ---------- Motion: page sections rise in, one after another ---------- */
+.pageEnter > .panel,.pageEnter > .toolbar,.pageEnter > .grid,.pageEnter > .teTabs,.pageEnter > .syncNote{animation:riseIn .42s var(--ease-out) both;}
+.pageEnter > :nth-child(2){animation-delay:.05s;}
+.pageEnter > :nth-child(3){animation-delay:.1s;}
+.pageEnter > :nth-child(4){animation-delay:.15s;}
+.pageEnter > :nth-child(5){animation-delay:.2s;}
+.pageEnter > :nth-child(n+6){animation-delay:.25s;}
+.pageEnter .grid .stat{animation:riseIn .42s var(--ease-out) both;}
+.pageEnter .grid .stat:nth-child(2){animation-delay:.05s;}
+.pageEnter .grid .stat:nth-child(3){animation-delay:.1s;}
+.pageEnter .grid .stat:nth-child(4){animation-delay:.15s;}
+.pageEnter .reportCard{animation:tileIn .4s var(--ease-out) both;}
+.pageEnter .reportGrid .reportCard:nth-child(2){animation-delay:.04s;}
+.pageEnter .reportGrid .reportCard:nth-child(3){animation-delay:.08s;}
+.pageEnter .reportGrid .reportCard:nth-child(4){animation-delay:.12s;}
+.pageEnter .reportGrid .reportCard:nth-child(n+5){animation-delay:.16s;}
+
+@media (prefers-reduced-motion:reduce){
+  .pageEnter > *,.pageEnter .grid .stat,.pageEnter .reportCard{animation:none !important;}
+  .reportCard:hover .reportCardIcon{transform:none;}
+}
+
+} /* @media screen */
