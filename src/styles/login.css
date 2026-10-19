@@ -1,0 +1,95 @@
+/* =====================================================================================
+   LOGIN SCREEN — three columns: brand + highlights | sign-in card | decorative art, with a
+   footer. Colours follow --accent (the logo colour, see applyLogoAccent()). Below 1100px the art
+   column is hidden, below 820px only the card remains. Screen only.
+   ===================================================================================== */
+@media screen {
+
+#loginScreen{
+  flex-direction:column;align-items:stretch;justify-content:space-between;padding:0;min-height:100vh;
+  background:
+    radial-gradient(900px 600px at 0% 0%, color-mix(in srgb, var(--accent) 10%, transparent), transparent 60%),
+    radial-gradient(800px 600px at 100% 100%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 60%),
+    var(--paper);
+  overflow:hidden;
+}
+.loginLayout{flex:1;display:grid;grid-template-columns:1fr minmax(360px,440px) 1fr;align-items:center;gap:40px;padding:48px 56px 24px;max-width:1500px;width:100%;margin:0 auto;}
+
+/* Left: brand, headline, highlights */
+.loginIntro{align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:0;color:var(--ink);animation:loginRise .6s var(--ease-out) both;}
+.loginBrand{display:flex;align-items:center;gap:12px;margin-bottom:auto;padding-top:4px;}
+.loginBrandLogo{width:52px !important;height:52px !important;margin:0 !important;border-radius:14px !important;box-shadow:0 0 0 1px var(--line), var(--shadow-sm) !important;}
+.loginBrand .brandName{font-size:17px;font-weight:800;letter-spacing:-.01em;line-height:1.2;max-width:260px;}
+.loginHeadline{margin:40px 0 0;font-size:clamp(30px,3.1vw,46px);line-height:1.08;font-weight:800;letter-spacing:-.035em;
+  color:color-mix(in srgb, var(--accent) 35%, #0b1220);}
+body.dark .loginHeadline{color:#eef1f6;}
+.loginLead{margin:18px 0 0;max-width:420px;font-size:16px;line-height:1.55;color:var(--muted);}
+.loginRule{display:block;width:56px;height:3px;border-radius:3px;background:var(--accent);margin:26px 0 0;}
+.loginFeatures{list-style:none;display:flex;gap:28px;margin:auto 0 0;padding:40px 0 0;}
+.loginFeatures li{display:flex;flex-direction:column;align-items:flex-start;gap:3px;}
+.lfIcon{width:44px;height:44px;border-radius:13px;display:flex;align-items:center;justify-content:center;margin-bottom:8px;
+  color:var(--accent);background:color-mix(in srgb, var(--accent) 11%, var(--card));box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);}
+.loginFeatures b{font-size:14px;font-weight:700;}
+.loginFeatures small{font-size:12.5px;color:var(--muted);}
+
+/* Centre: the card */
+#loginScreen .loginBox{width:100%;max-width:440px;justify-self:center;padding:38px 34px 30px;border-radius:26px;
+  background:color-mix(in srgb, var(--card) 94%, transparent);box-shadow:0 30px 60px -25px rgba(16,24,40,.25), 0 0 0 1px var(--line);border:0;
+  animation:loginRise .6s var(--ease-out) .08s both;}
+#loginScreen .loginBox .logoBadge{width:72px;height:72px;border-radius:20px;margin:0 auto 14px;}
+#loginScreen .loginTitle{font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin:0 0 4px;}
+#loginScreen .loginTagline{font-size:14px;margin:0 0 24px;color:var(--muted);}
+.loginLabel{display:block;font-size:13px;font-weight:600;color:color-mix(in srgb, var(--ink) 80%, transparent);margin:0 0 7px;}
+.loginField{position:relative;display:flex;align-items:center;margin-bottom:16px;}
+.loginField .lfLead{position:absolute;left:14px;color:var(--muted);pointer-events:none;transition:color .15s ease;}
+.loginField:focus-within .lfLead{color:var(--accent);}
+#loginScreen .loginBox .loginField input{height:48px;margin:0;padding:0 46px 0 44px;border-radius:13px;font-size:14.5px;background:var(--card);}
+#loginScreen .loginBox .pwToggle{
+  position:absolute;right:6px;width:36px;height:36px;margin:0;padding:0;border-radius:10px;border:0;
+  background:transparent;color:var(--muted);box-shadow:none;display:flex;align-items:center;justify-content:center;filter:none;transform:none;
+}
+#loginScreen .loginBox .pwToggle:hover{background:var(--hover);color:var(--ink);}
+.pwToggle .pwHide{display:none;}
+.pwToggle[aria-pressed="true"] .pwHide{display:block;}
+.pwToggle[aria-pressed="true"] .pwShow{display:none;}
+#loginScreen .loginErr{margin:-6px 0 10px;min-height:18px;font-size:12.5px;}
+#loginScreen .loginBox .loginSubmit{
+  height:50px;margin:4px 0 0;border-radius:13px;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--accent) 88%, #fff), var(--accent));
+  box-shadow:0 12px 24px -12px var(--accent), inset 0 1px 0 rgba(255,255,255,.2);
+}
+.loginSubmit svg{transition:transform .2s var(--ease-out);}
+.loginSubmit:hover svg{transform:translateX(3px);}
+.loginNote{display:flex;align-items:flex-start;gap:12px;margin-top:22px;padding:14px 16px;border-radius:14px;font-size:12.5px;line-height:1.5;
+  color:color-mix(in srgb, var(--ink) 75%, transparent);background:color-mix(in srgb, var(--accent) 7%, var(--card));}
+.loginNote svg{flex:none;color:var(--accent);margin-top:1px;}
+
+/* Right: decorative art */
+.loginArt{position:relative;align-self:stretch;min-height:480px;animation:loginFade 1s ease .2s both;}
+.artShapes{position:absolute;right:-40px;top:50%;transform:translateY(-50%);width:min(100%,420px);height:auto;}
+.artShapes .s1{fill:color-mix(in srgb, var(--accent) 14%, transparent);}
+.artShapes .s2{fill:color-mix(in srgb, var(--accent) 24%, transparent);}
+.artShapes .s3{fill:color-mix(in srgb, var(--accent) 9%, transparent);}
+.artShapes .s4{fill:color-mix(in srgb, var(--accent) 18%, transparent);}
+.artWords{position:absolute;top:8%;left:18%;display:flex;flex-direction:column;gap:8px;font-size:15px;font-weight:600;letter-spacing:.45em;color:color-mix(in srgb, var(--accent) 55%, var(--muted));z-index:1;}
+.artFoot{position:absolute;bottom:2%;right:6%;font-size:11px;font-weight:600;letter-spacing:.32em;line-height:1.9;color:color-mix(in srgb, var(--accent) 50%, var(--muted));z-index:1;}
+.artFoot .loginRule{width:34px;height:2px;margin:0 0 10px;}
+
+.loginFooter{padding:18px 56px;border-top:1px solid var(--line);font-size:12.5px;color:var(--muted);background:color-mix(in srgb, var(--card) 60%, transparent);}
+
+@keyframes loginRise{from{opacity:0;transform:translateY(14px);}to{opacity:1;transform:none;}}
+@keyframes loginFade{from{opacity:0;}to{opacity:1;}}
+@media (prefers-reduced-motion:reduce){ .loginIntro,#loginScreen .loginBox,.loginArt{animation:none;} .loginSubmit:hover svg{transform:none;} }
+
+@media (max-width:1100px){
+  .loginLayout{grid-template-columns:1fr minmax(340px,420px);padding:40px 36px 24px;}
+  .loginArt{display:none;}
+}
+@media (max-width:820px){
+  .loginLayout{grid-template-columns:1fr;padding:28px 16px;}
+  .loginIntro{display:none;}
+  .loginFooter{padding:14px 16px;text-align:center;}
+  #loginScreen .loginBox{padding:30px 22px 24px;}
+}
+
+} /* @media screen */

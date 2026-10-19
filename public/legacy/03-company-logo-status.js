@@ -57,8 +57,9 @@ function applyCompanyBranding(){
   const logo=(brand && brand.logo) || '';
   if(sideName) sideName.textContent=name;
   if(loginName) loginName.textContent=name;
+  document.querySelectorAll('.brandName').forEach(el=>{ el.textContent=name; }); // other places (login page)
   // No company logo → hide the logo badge instead of showing a placeholder.
-  [sideImg, loginImg].forEach(img=>{
+  [sideImg, loginImg, ...document.querySelectorAll('img.brandLogo')].forEach(img=>{
     if(!img) return;
     if(logo){ img.src=logo; img.alt=name+' Logo'; } else img.removeAttribute('src');
     const badge=img.closest('.logoBadge');
