@@ -307,16 +307,18 @@ if(document.readyState==='complete') dbReady.then(startAutoBackupWatcher);
 function savePayrollConstants(){
   if(!hasPerm('payroll','edit')){ alert('You do not have permission to edit payroll constants.'); return; }
   const s=getSettings();
-  s.esiRate=+document.getElementById('s_esiRate').value||0.0075;
-  s.esiEmployerRate=+document.getElementById('s_esiEmployerRate').value||0.0325;
-  s.pfRate=+document.getElementById('s_pfRate').value||0.12;
-  s.pfEmployerRate=+document.getElementById('s_pfEmployerRate').value||0.12;
+  // A blank box keeps the default; 0 is a valid rate (it used to snap back to the default).
+  const rate=(id,def)=>{ const v=String(document.getElementById(id).value).trim(); return v===''||isNaN(+v) ? def : Math.max(0, +v); };
+  s.esiRate=rate('s_esiRate', 0.0075);
+  s.esiEmployerRate=rate('s_esiEmployerRate', 0.0325);
+  s.pfRate=rate('s_pfRate', 0.12);
+  s.pfEmployerRate=rate('s_pfEmployerRate', 0.12);
   const tp=document.getElementById('s_canteenTokenPrice').value;
   s.canteenTokenPrice = tp==='' ? 150 : Math.max(0, +tp||0);
   const lg=document.getElementById('s_lateGraceMinutes').value;
   s.lateGraceMinutes = lg==='' ? 120 : Math.max(0, Math.round(+lg||0));
   saveDB(db);
-  alert('Payroll constants saved.');
+  alert('Payroll constants saved. They apply to months generated from now on; to apply them to a month already generated, open Payroll for that month and click Regenerate Payroll.');
   render('payrollprocess');
 }
 // Adds the next working unit (Unit-5, Unit-6, …). Existing units are never renumbered.

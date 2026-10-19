@@ -60,12 +60,13 @@ function defaultDB(){
     autoBackup:{enabled:false, frequency:'daily', time:'20:00', weekday:1, dayOfMonth:1, lastRun:null, nextRun:null},
     backupHistory:[],
     holidays:[], // Holiday Calendar — array of {date:'YYYY-MM-DD', type:'NOPH'}, deducted from NOWD like Sundays
-    // ---- Employee Time Entry (standalone module) ----
-    // Completely separate store from `attendance` and `payroll` above. Never read by
-    // computeWorkingDays(), generatePayroll(), or any payroll/salary calculation.
+    // ---- Employee Time Entry ----
+    // Payroll reads these: a day not marked on the Attendance screen takes its status from here
+    // (getAttStatus), and the month's OT hours / Late minutes come from here (otHoursFor / lateMinutesFor).
     timeEntries:{}, // {date: {empCode: {inH,inM,inAP,outH,outM,outAP}}}
-    timeHolidays:[], // [{date:'YYYY-MM-DD', remarks:''}] — booking calendar for this module only
-    timeLeaves:[], // [{date:'YYYY-MM-DD', empCode, type, remarks}] — Employee Leave log for this module only
+    timeHolidays:[], // [{date:'YYYY-MM-DD', remarks:''}] — booked dates: time worked is full-day OT (not NOWD/NOPH)
+    timeLeaves:[], // [{date:'YYYY-MM-DD', empCode, type, remarks}] — Employee Leave (Loss of Pay / Half Day)
+    payrollSettings:{}, // {ym: {pfRate, pfEmployerRate, esiRate, esiEmployerRate, canteenTokenPrice, lateGraceMinutes}} — rates fixed when a month is generated
     loginLogs:[] // Login/Logout audit trail — {id, userId (username), name, loginTime (ISO string,
                  // recorded the moment sign-in succeeds), logoutTime (ISO string,
                  // recorded on Logout — '' while the session is still open), sessionDuration
@@ -87,6 +88,20 @@ async function loadDB(){
   const fresh = defaultDB();
   await saveDB(fresh);
   return fresh;
+}
+// Saves one small change on top of the LATEST copy in the database instead of this tab's copy, so a tab
+// left open for hours cannot overwrite Time Entry / Attendance saved meanwhile from another device.
+// Used for the logout stamp. Returns true/false.
+async function patchDB(mutate){
+  try{
+    const {data, error} = await sb.from('erp_data').select('data').eq('id', DB_KEY).maybeSingle();
+    if(error || !data || !data.data){ console.error('patchDB load error:', error); return false; }
+    const latest=data.data;
+    mutate(latest);
+    const res = await sb.from('erp_data').upsert({ id: DB_KEY, data: latest, updated_at: new Date().toISOString() });
+    if(res.error){ console.error('patchDB save error:', res.error); return false; }
+    return true;
+  }catch(e){ console.error('patchDB exception:', e); return false; }
 }
 async function saveDB(dbToSave){
   // IMPORTANT: this now returns true/false and NEVER swallows errors, so callers

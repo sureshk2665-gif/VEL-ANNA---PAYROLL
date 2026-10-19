@@ -65,24 +65,26 @@ function scheduledAdvanceDetails(code, ym){
     .map(a=>({ advance:a, row:a.schedule.find(r=>r.month===ym) }))
     .filter(x=>x.row);
 }
+// An instalment counts as recovered once payroll has been generated for its month (it is deducted
+// on that month's salary slip). The schedule itself always adds up to the full advance, so summing
+// all of it showed a balance of ₹0 from the day the advance was given.
+function advanceRowRecovered(r){ return payrollGenerated(r.month); }
 function advanceRecoveredAmount(a){
-  return Math.round(a.schedule.reduce((s,r)=>s+r.amount,0)*100)/100;
+  return Math.round(a.schedule.filter(advanceRowRecovered).reduce((s,r)=>s+r.amount,0)*100)/100;
 }
-function advanceStatus(a, todayYm){
-  const lastRow=a.schedule[a.schedule.length-1];
-  return lastRow && lastRow.month <= todayYm ? 'recovered' : 'active';
+function advanceStatus(a){
+  return a.schedule.length && a.schedule.every(advanceRowRecovered) ? 'recovered' : 'active';
 }
 function renderSalaryAdvance(){
   const advances=ensureSalaryAdvances();
   const empOpts=db.employees.filter(e=>isEmpOnRollOn(e,todayStr())).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})).map(e=>`<option value="${e.code}">${e.code} - ${e.name}</option>`).join('');
   const canAdd=hasPerm('salaryadvance','add');
-  const todayYm=monthKey(todayStr());
   const rows=advances.slice().sort((a,b)=>(b.createdAt||'').localeCompare(a.createdAt||'')).map(a=>{
     const emp=db.employees.find(e=>e.code===a.empCode);
     const recovered=advanceRecoveredAmount(a);
     const balance=Math.max(0, Math.round((a.amount-recovered)*100)/100);
-    const status=advanceStatus(a, todayYm);
-    const schedRows=a.schedule.map(r=>`<tr class="${r.month<=todayYm?'paidRow':''}"><td>${monthLabel(r.month)}</td><td>${fmt(r.amount)}</td><td>${fmt(r.balance)}</td></tr>`).join('');
+    const status=advanceStatus(a);
+    const schedRows=a.schedule.map(r=>`<tr class="${advanceRowRecovered(r)?'paidRow':''}" title="${advanceRowRecovered(r)?'Deducted in '+monthLabel(r.month)+' payroll':'Payroll for '+monthLabel(r.month)+' not generated yet'}"><td>${monthLabel(r.month)}</td><td>${fmt(r.amount)}</td><td>${fmt(r.balance)}</td></tr>`).join('');
     return `<tr>
       <td>${emp?emp.name:a.empCode}</td>
       <td>${a.empCode}</td>

@@ -1,6 +1,9 @@
 /* ================= HELPERS ================= */
 function fmt(n){ return '₹'+(Math.round((n||0)*100)/100).toLocaleString('en-IN'); }
-function todayStr(){ return new Date().toISOString().slice(0,10); }
+// Today's date in the user's own time zone (toISOString() is UTC, which in India is still
+// "yesterday" until 5:30 AM — night-shift entries landed on the wrong day).
+function localDateStr(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+function todayStr(){ return localDateStr(new Date()); }
 function monthKey(d){ return d.slice(0,7); }
 function daysInMonth(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); }
 /* Display helper: converts a YYYY-MM-DD (or Date object) value into DD-MM-YYYY for

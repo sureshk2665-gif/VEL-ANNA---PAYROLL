@@ -131,7 +131,7 @@ function renderIncrement(){
   return `
   <div class="panel">
     <h3>${ico('trending-up')} Annual Increment</h3>
-    <p class="syncNote">Select an employee to record their annual increment. The system auto-splits the Total Increment Amount as 60% Basic and 40% HRA — you can still edit any figure before saving. Saving updates the employee's salary structure for all <b>future</b> payroll; past payroll and reports already generated are never changed.</p>
+    <p class="syncNote">Select an employee to record their annual increment. The system auto-splits the Total Increment Amount as 60% Basic and 40% HRA — you can still edit any figure before saving. Saving updates the employee's daily wage from the <b>Effective Date</b>: payroll, slips and reports for dates before it keep the old wage, dates from it use the new one.</p>
     <div class="toolbar">
       <select id="inc_empPicker" onchange="incEmpCode=this.value;render('increment')">
         <option value="">— Select Employee —</option>
@@ -251,13 +251,14 @@ function saveIncrementRecord(){
     revisedWashing:+document.getElementById('inc_revWash').value||0,
     revisedGross:+document.getElementById('inc_revGross').value||0,
     remarks:document.getElementById('inc_remarks').value.trim(),
+    wageUnit:'day', // Basic / HRA here are per day — payroll uses this record for the wage in force on each date (wageOnDate)
     createdAt:new Date().toISOString(),
     createdBy: currentUser?currentUser.username:''
   };
   db.increments.push(record);
-  // Update the employee's live salary structure — this is what every FUTURE payroll run,
-  // salary slip and report will pick up. Already-generated payroll months (db.payroll[ym])
-  // are frozen snapshots and are never touched, so past figures remain unchanged.
+  // Update the employee's current salary structure. Payroll prices each date with the wage in force
+  // on that date (wageOnDate reads this record's Effective Date and previous / revised figures), so
+  // months before the Effective Date keep the old wage.
   emp.basic=record.revisedBasic;
   emp.hra=record.revisedHra;
   syncDailyWage(emp);
