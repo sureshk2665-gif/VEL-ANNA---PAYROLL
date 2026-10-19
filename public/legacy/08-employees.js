@@ -18,7 +18,7 @@ function renderEmployees(){
       ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
     </select>
     <span style="font-size:12.5px;color:var(--muted);">${list.length} of ${activeEmps.length} active employee(s)</span>
-    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openAddEmployeeChooser()">+ Add Employee</button>` : ''}
+    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openEmployeeModal()">+ Add Employee</button>` : ''}
   </div>
   <div class="panel">
     ${list.length? `<table><thead><tr>
@@ -102,35 +102,19 @@ function nextEmpCode(){
   const n=db.nextEmpNum; db.nextEmpNum++; saveDB(db);
   return 'EMP'+String(n).padStart(3,'0');
 }
-/* ---- "+ Add Employee" choice: Add Manually (the form below) or Bulk Import (Excel) ----
-   The Bulk Import dialog is a React component (src/features/employee-import/BulkImportDialog.jsx);
-   it is opened with the 'vipl:open-bulk-import' event and uses the two functions below. */
-function openAddEmployeeChooser(){
-  if(!hasPerm('employees','add')){ alert('You do not have permission to do this.'); return; }
-  document.getElementById('modalContent').innerHTML = `
-    <h3>Add Employee</h3>
-    <p style="color:var(--muted);font-size:13px;margin:-4px 0 16px;">How would you like to add employees?</p>
-    <div class="addEmpChoices">
-      <button type="button" class="addEmpChoice" onclick="openEmployeeModal()">
-        <span class="addEmpChoiceIcon">✍️</span>
-        <span><b>Add Manually</b><small>Fill in the form for one employee</small></span>
-      </button>
-      <button type="button" class="addEmpChoice" onclick="openBulkImport()">
-        <span class="addEmpChoiceIcon">📥</span>
-        <span><b>Bulk Import</b><small>Upload an Excel file with one or more new employees</small></span>
-      </button>
-    </div>
-    <div class="modalActions"><button type="button" class="btn secondary" onclick="closeModal()">Cancel</button></div>`;
-  showModal();
-}
+/* ---- Bulk Import (Excel) — Software Admin only ----
+   Opened from Software Admin → Bulk Import Employees. The dialog is a React component
+   (src/features/employee-import/BulkImportDialog.jsx); it is opened with the
+   'vipl:open-bulk-import' event and uses the two functions below. */
 function openBulkImport(){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can bulk import employees.'); return; }
   closeModal();
   window.dispatchEvent(new CustomEvent('vipl:open-bulk-import'));
 }
 // What the Bulk Import dialog needs to build the template and check uploaded rows.
 function employeeImportContext(){
   return {
-    canAdd: hasPerm('employees','add'),
+    canAdd: isSoftwareAdmin(),
     username: currentUser ? currentUser.username : '',
     departments: (db.departments||[]).slice(),
     fields: employeeSheetFields(),
@@ -140,7 +124,7 @@ function employeeImportContext(){
 // Adds already-validated NEW employees (fields as produced by the import) exactly like saving the
 // Add Employee form once per employee, but with a single save at the end.
 async function importEmployees(list){
-  if(!hasPerm('employees','add')){ alert('You do not have permission to add employees.'); return null; }
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can bulk import employees.'); return null; }
   if(!Array.isArray(list) || !list.length) return null;
   const codes=[];
   const now=new Date().toISOString();

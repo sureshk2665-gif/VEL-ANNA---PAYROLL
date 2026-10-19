@@ -39,6 +39,10 @@ function renderSoftwareAdmin(){
     </div>
     <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">+ Add Unit</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
   </div>
+  <div class="panel"><h3>📥 Bulk Import Employees</h3>
+    <p style="font-size:13px;color:var(--muted);">Add many new employees at once from an Excel file: download the template, fill one row per employee, then upload it. Rows are checked before anything is added. Bulk import is available only here; other users add employees one at a time from Employees → + Add Employee.</p>
+    <div class="modalActions" style="justify-content:flex-start;"><button class="btn" onclick="openBulkImport()">📥 Bulk Import (Excel)</button></div>
+  </div>
   ${renderUserRightsPanel()}
   <div class="panel"><h3>💾 Data Backup &amp; Restore</h3>
     <p style="font-size:13px;color:var(--muted);">All data is stored locally in this browser (no server). Take a backup regularly and store the file safely — clearing browser data, reinstalling the browser, or switching devices will erase records unless you restore from a backup.</p>

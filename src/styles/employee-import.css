@@ -1,12 +1,3 @@
-/* "+ Add Employee" choice popup (legacy modal) */
-.addEmpChoices{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:6px;}
-.addEmpChoice{display:flex;align-items:center;gap:12px;text-align:left;padding:16px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);cursor:pointer;font:inherit;transition:border-color .15s,background .15s;}
-.addEmpChoice:hover{border-color:var(--accent);background:var(--accent-soft);}
-.addEmpChoice b{display:block;font-size:14px;}
-.addEmpChoice small{display:block;color:var(--muted);font-size:12px;margin-top:2px;}
-.addEmpChoiceIcon{font-size:26px;line-height:1;}
-@media (max-width:560px){ .addEmpChoices{grid-template-columns:1fr;} }
-
 /* Bulk Import dialog (React) */
 .modal.bulkImportModal{max-width:900px;width:100%;}
 .bulkImportHead{display:flex;align-items:center;justify-content:space-between;gap:12px;}

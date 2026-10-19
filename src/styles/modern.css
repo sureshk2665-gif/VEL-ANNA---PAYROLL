@@ -121,9 +121,6 @@ tr:hover td{background:var(--hover);}
 @media (prefers-reduced-motion:reduce){ .overlay.show .modal{animation:none;} .stat:hover,.reportCard:hover{transform:none;} }
 
 /* "+ Add Employee" choice cards */
-.addEmpChoice{border-radius:16px;padding:18px;box-shadow:var(--shadow-sm);transition:border-color .15s ease, box-shadow .15s ease, transform .15s ease;}
-.addEmpChoice:hover{border-color:color-mix(in srgb, var(--accent) 55%, var(--line));background:var(--card);box-shadow:var(--shadow-md);transform:translateY(-2px);}
-.addEmpChoiceIcon{width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--accent-soft);font-size:24px;flex:none;}
 .bulkImportSteps li::before{background:var(--accent);color:#fff;}
 .bulkImportTableWrap{border-radius:12px;}
 
