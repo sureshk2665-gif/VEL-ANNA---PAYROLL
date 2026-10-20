@@ -29,7 +29,7 @@ function renderEmployees(){
     <select onchange="empFilter.contractor=this.value;render('employees')">
       <option value="">All Contractors</option>
       ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-      ${anyEmployeeWithoutContractor()||empFilter.contractor==='-'?`<option value="-" ${empFilter.contractor==='-'?'selected':''}>No contractor</option>`:''}
+      <option value="-" ${empFilter.contractor==='-'?'selected':''}>Non Contractor</option>
     </select>
     <select onchange="empFilter.status=this.value;render('employees')">
       <option value="">Active &amp; Inactive</option>
@@ -44,7 +44,7 @@ function renderEmployees(){
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
         <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
-        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
+        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'Non Contractor'}</td>
         <td>${e.mobile||'-'}</td><td><b>${fmt(e.dailyWage||0)}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}

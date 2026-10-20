@@ -54,14 +54,14 @@ function acquittanceUnits(ym, filter){
   })).filter(u=>u.rows.length);
 }
 // Same, one group per contractor ('-' = employees with no contractor), optionally limited to a unit.
-// A contractor code that is no longer in the Contractor master counts as 'No Contractor', so the
+// A contractor code that is no longer in the Contractor master counts as 'Non Contractor', so the
 // contractor-wise totals always add up to the unit-wise register.
 function acquittanceContractors(ym, filter, unitFilter){
   const known=new Set(getContractors().map(c=>c.code));
   const all=acquittanceAllRows(ym)
     .filter(r=>unitFilter==='All' || r.unit===unitFilter)
     .map(r=>known.has(r.contractor) ? r : Object.assign({}, r, {contractor:''}));
-  const groups=[...getContractors().map(c=>({code:c.code, name:c.name||c.code, address:c.address||''})), {code:'', name:'No Contractor', address:''}];
+  const groups=[...getContractors().map(c=>({code:c.code, name:c.name||c.code, address:c.address||''})), {code:'', name:'Non Contractor', address:''}];
   const unitText = unitFilter==='All' ? '' : ' — '+unitLabel(unitFilter);
   return groups
     .filter(g=>filter==='All' || g.code===(filter==='-'?'':filter))
@@ -267,7 +267,7 @@ function acquittanceExcelSpec(kind, ym, filterCode, unitFilter){
   const rows=[];
   units.forEach(u=>u.rows.forEach(r=>rows.push({
     code:r.code, name:r.name, designation:r.designation||'',
-    unit:unitLabel(r.unit), contractor:(r.contractor && contractorName(r.contractor))||'No Contractor',
+    unit:unitLabel(r.unit), contractor:(r.contractor && contractorName(r.contractor))||'Non Contractor',
     days:r.days, ot:r.ot, late:r.late, gross:r.gross, ded:r.ded, net:r.net, sig:''
   })));
   const scope = isC

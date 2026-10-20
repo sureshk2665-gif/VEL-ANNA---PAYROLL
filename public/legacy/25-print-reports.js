@@ -158,12 +158,12 @@ function printPayrollReport(by){
   const allRows=payrollReportRows(payMonth);
   if(!allRows.length){ alert('No payroll records for this month.'); return; }
   // One section per working unit (see getUnits() in 06b-units.js), or per contractor
-  // (06c-contractors.js; employees without one get a "No Contractor" section).
+  // (06c-contractors.js; employees without one get a "Non Contractor" section).
   const byContractor = by==='contractor';
   const contractorOf=r=>r.ContractorCode||'';
   const sections = byContractor
     ? [...getContractors().map(c=>({title:(c.name||c.code)+(c.address?(' — '+c.address):''), rows:allRows.filter(r=>contractorOf(r)===c.code)})),
-       {title:'No Contractor', rows:allRows.filter(r=>!getContractors().some(c=>c.code===contractorOf(r)))}].filter(s=>s.rows.length || s.title!=='No Contractor')
+       {title:'Non Contractor', rows:allRows.filter(r=>!getContractors().some(c=>c.code===contractorOf(r)))}].filter(s=>s.rows.length || s.title!=='Non Contractor')
     : getUnits().map(u=>({title:unitDisplayName(u)+(u.address?(' — '+u.address):''), rows:allRows.filter(r=>r.UnitCode ? r.UnitCode===u.code : r.WorkingUnit===unitLabel(u.code))}));
   const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
   // Every mode present in the rows (incl. "Not set"), so the mode columns add up to the Total.
