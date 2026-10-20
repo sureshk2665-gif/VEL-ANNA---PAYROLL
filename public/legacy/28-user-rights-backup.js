@@ -324,11 +324,10 @@ function savePayrollConstants(){
 // Adds the next working unit (Unit-5, Unit-6, …). Existing units are never renumbered.
 function addWorkingUnit(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can add units.'); return; }
-  const name=prompt('Name of the new working unit — leave blank to add the name later (save any other changes on this page first):');
-  if(name===null) return;
-  readCompanySettingsForm(); // keep anything typed on the page
   const next=Math.max(0,...db.units.map(u=>+((String(u.code).match(/(\d+)$/)||[0,0])[1])))+1;
-  db.units.push({code:'Unit-'+next, name:name.trim(), address:''});
+  if(!confirm(`Add ${unitDisplayName({code:'Unit-'+next})}? (Save any other changes on this page first.)`)) return;
+  readCompanySettingsForm(); // keep anything typed on the page
+  db.units.push({code:'Unit-'+next, name:'', address:''});
   db.removedUnits=(db.removedUnits||[]).filter(c=>c!=='Unit-'+next);
   saveDB(db);
   render('softwareadmin');
@@ -338,7 +337,7 @@ function addWorkingUnit(){
 function deleteWorkingUnit(code){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete units.'); return; }
   const n=unitEmployeeCount(code);
-  if(n){ alert(`${code} still has ${n} employee(s) (including inactive/resigned). Move them to another unit first — Employees → Edit → Working Unit.`); return; }
+  if(n){ alert(`${unitLabel(code)} still has ${n} employee(s) (including inactive/resigned). Move them to another unit first — Employees → Edit → Working Unit.`); return; }
   if(getUnits().length<=1){ alert('At least one working unit is needed.'); return; }
   if(!confirm(`Delete ${unitLabel(code)}? It will no longer be offered anywhere.`)) return;
   readCompanySettingsForm();

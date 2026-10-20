@@ -66,7 +66,7 @@ function employeeFields(){
     {key:'empType', label:'Employment Type', section:'basic', input:'select', options:blankOpt(['Full-Time','Part-Time','Contract']), width:15},
     {key:'unit', label:'Working Unit', section:'basic', input:'select',
       // Import also accepts just the unit name or number ("Unit-1").
-      options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u), aliases:u.name?[u.name]:[]})),
+      options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u), aliases:[u.code].concat(u.name?[u.name]:[])})),
       formValue:e=>unitCodeOf(e.unit), width:16},
     // Who supplied the employee — independent of the unit (see 06c-contractors.js).
     {key:'contractor', label:'Contractor', section:'basic', input:'select',

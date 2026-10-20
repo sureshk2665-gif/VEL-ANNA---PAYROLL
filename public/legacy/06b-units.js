@@ -5,8 +5,8 @@
    are edited in Software Admin → Company Details. Older data had only unit1Name/unit2Name —
    initDB() builds db.units from those (see ensureUnits()).
 */
-// The company's units: plain numbered units (Unit-1, Unit-2, …). A unit is shown with its name
-// when the Software Admin gives it one ("Unit-1 - Main Plant"), otherwise just as "Unit-1".
+// The company's units: plain numbered units (Unit-1, Unit-2, …), shown with the company's short
+// name in front ("MF Unit-1" — unitDisplayName).
 // Contractors are a separate list (06c-contractors.js).
 const DEFAULT_UNITS = [
   {code:'Unit-1', name:'', address:''},
@@ -66,12 +66,16 @@ function unitCodeOf(unit){
 function unitEmployeeCount(code){
   return (db.employees||[]).filter(e=>unitCodeOf(e.unit)===code).length;
 }
-// "Unit-1 - SUN GROUP", or just "Unit-2" while the unit has no name. Used everywhere a unit is
-// shown: form and template dropdowns, employee list, slips, registers and reports.
+// A unit is shown with the company's short name in front: "MF Unit-1" (the first word of the
+// Company Name set in Software Admin). Used everywhere a unit is shown: form and template
+// dropdowns, employee list, attendance / time entry tabs, slips, registers, reports and Excel.
+function unitPrefix(){ return String(db.companyName||'').trim().split(/\s+/)[0] || ''; }
 function unitDisplayName(u){
-  const name=String((u && u.name) || '').trim();
-  return name && name!==u.code ? `${u.code} - ${name}` : u.code;
+  const p=unitPrefix();
+  return p ? `${p} ${u.code}` : u.code;
 }
+// Short label for the unit tabs: "MF UNIT 1".
+function unitTabLabel(u){ return unitDisplayName(u).replace(/-/g,' ').toUpperCase(); }
 function unitLabel(unit){
   const code=unitCodeOf(unit);
   return unitDisplayName(getUnits().find(x=>x.code===code) || {code});

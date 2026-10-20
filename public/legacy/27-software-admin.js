@@ -33,14 +33,13 @@ function renderSoftwareAdmin(){
       <div><label>Email</label><input id="s_companyEmail" value="${db.companyEmail||''}"></div>
     </div>
     <h4 style="margin:18px 0 4px;">Working Units</h4>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Edit a unit's name or address here and press Save — it changes everywhere the unit is shown (employee form and list, attendance, salary slips, acquittance register and reports). A unit can be deleted only while no employee (active, inactive or resigned) belongs to it.</p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Units are shown as "${unitPrefix()?unitPrefix()+' ':''}Unit-1", "${unitPrefix()?unitPrefix()+' ':''}Unit-2" … (the first word of the Company Name). Edit a unit's address here and press Save — it changes everywhere the unit is shown (employee form and list, attendance, salary slips, acquittance register and reports). A unit can be deleted only while no employee (active, inactive or resigned) belongs to it.</p>
     <div style="overflow-x:auto;">
     <table>
-      <thead><tr><th>Unit</th><th>Name</th><th>Address (printed on salary slips)</th><th>Employees</th><th></th></tr></thead>
+      <thead><tr><th>Unit</th><th>Address (printed on salary slips)</th><th>Employees</th><th></th></tr></thead>
       <tbody>
       ${getUnits().map(u=>{ const n=unitEmployeeCount(u.code); return `<tr>
-        <td><b>${u.code}</b></td>
-        <td><input id="s_unitName_${u.code}" placeholder="(no name yet — shown as ${u.code})" value="${String(u.name||'').replace(/"/g,'&quot;')}"></td>
+        <td><b>${unitDisplayName(u)}</b></td>
         <td><input id="s_unitAddress_${u.code}" placeholder="(uses the Registered Address)" value="${String(u.address||'').replace(/"/g,'&quot;')}"></td>
         <td>${n}</td>
         <td class="rowActions"><button class="del" ${n?`disabled title="Move these ${n} employee(s) to another unit first"`:''} onclick="deleteWorkingUnit('${u.code}')">${ico('trash')} Delete</button></td>
@@ -52,16 +51,15 @@ function renderSoftwareAdmin(){
     <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Contractors supply employees; any contractor can supply employees to any unit. Rename a contractor here and press Save — it changes everywhere (employee form and list, salary slips, reports, Excel template). A contractor can be deleted only while no employee (active, inactive or resigned) was supplied by them.</p>
     <div style="overflow-x:auto;">
     <table>
-      <thead><tr><th>Code</th><th>Contractor Name</th><th>Address</th><th>Phone</th><th>Employees</th><th></th></tr></thead>
+      <thead><tr><th>Contractor Name</th><th>Address</th><th>Phone</th><th>Employees</th><th></th></tr></thead>
       <tbody>
       ${getContractors().map(c=>{ const n=contractorEmployeeCount(c.code); const v=x=>String(x||'').replace(/"/g,'&quot;'); return `<tr>
-        <td><b>${c.code}</b></td>
         <td><input id="s_contractorName_${c.code}" value="${v(c.name)}"></td>
         <td><input id="s_contractorAddress_${c.code}" value="${v(c.address)}"></td>
         <td><input id="s_contractorPhone_${c.code}" value="${v(c.phone)}"></td>
         <td>${n}</td>
         <td class="rowActions"><button class="del" ${n?`disabled title="Move these ${n} employee(s) to another contractor first"`:''} onclick="deleteContractor('${c.code}')">${ico('trash')} Delete</button></td>
-      </tr>`; }).join('') || '<tr><td colspan="6" style="color:var(--muted);">No contractors yet.</td></tr>'}
+      </tr>`; }).join('') || '<tr><td colspan="5" style="color:var(--muted);">No contractors yet.</td></tr>'}
       </tbody>
     </table>
     </div>
