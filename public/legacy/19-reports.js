@@ -166,7 +166,7 @@ function renderReportDetail(key){
           <select onchange="acqContractor=this.value;render('reports')">
             <option value="All" ${acqContractor==='All'?'selected':''}>All Contractors (each on its own pages)</option>
             ${getContractors().map(c=>`<option value="${c.code}" ${acqContractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-            <option value="-" ${acqContractor==='-'?'selected':''}>No Contractor</option>
+            ${anyEmployeeWithoutContractor()||acqContractor==='-'?`<option value="-" ${acqContractor==='-'?'selected':''}>No Contractor</option>`:''}
           </select>
         </label>
         <label style="font-size:12px;color:var(--muted);">Working Unit

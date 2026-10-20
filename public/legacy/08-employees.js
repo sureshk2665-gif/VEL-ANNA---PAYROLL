@@ -29,7 +29,7 @@ function renderEmployees(){
     <select onchange="empFilter.contractor=this.value;render('employees')">
       <option value="">All Contractors</option>
       ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-      <option value="-" ${empFilter.contractor==='-'?'selected':''}>No contractor</option>
+      ${anyEmployeeWithoutContractor()||empFilter.contractor==='-'?`<option value="-" ${empFilter.contractor==='-'?'selected':''}>No contractor</option>`:''}
     </select>
     <select onchange="empFilter.status=this.value;render('employees')">
       <option value="">Active &amp; Inactive</option>
