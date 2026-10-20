@@ -10,6 +10,7 @@ const PERMISSION_MODULES=[
   {key:'payroll',label:'Payroll'},
   {key:'increment',label:'Annual Increment'},
   {key:'salaryadvance',label:'Salary Advance'},
+  {key:'contractorbill',label:'Contractors Bill'},
   {key:'reports',label:'Reports'},
   {key:'settings',label:'Admin'}
 ];
