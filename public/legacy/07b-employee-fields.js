@@ -184,9 +184,11 @@ function employeeSheetFields(){
   return employeeFields().filter(f=>f.sheet!==false).map(f=>({
     key:f.key, label:f.sheetLabel||f.label, altLabels:f.sheetLabel?[f.label]:[], input:f.input, auto:!!f.auto, required:!!f.required,
     blankDefault:!!f.blankDefault, width:f.width||14, formula:f.sheetFormula||'',
-    // The blank choice ("— Select —" / "— None —") is not offered in Excel: an empty cell means not given.
+    // Every dropdown (except Status) ends with a "None" choice that leaves the field empty — the
+    // Contractor dropdown calls it "Non Contractor". An empty cell means the same.
     options: f.input==='select'
       ? employeeFieldOptions(f).filter(o=>o.value!=='' && (!f.sheetOptions || f.sheetOptions.includes(o.value))).map(o=>({value:o.value, label:String(o.label), aliases:o.aliases||[]}))
+          .concat(f.key==='status' ? [] : [f.key==='contractor' ? {value:'', label:'Non Contractor', aliases:['None']} : {value:'', label:'None', aliases:[]}])
       : undefined
   }));
 }
