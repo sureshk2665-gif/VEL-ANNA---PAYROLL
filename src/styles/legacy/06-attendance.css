@@ -161,3 +161,46 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
 /* Day status filled from Employee Time Entry (nothing marked on this screen) */
 .attCalCell .attTETag{display:inline-flex;margin-left:4px;vertical-align:-1px;color:var(--accent);opacity:.8;}
 .attCalCell .attTETag svg{width:11px;height:11px;}
+/* Month Overview — one big box per day with employee counts */
+.attOvTotals{display:flex;flex-wrap:wrap;gap:6px;margin-left:auto;}
+.attOvPanel{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;overflow:auto;}
+.attOvGrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;}
+.attOvGrid.attOvDows{margin-bottom:4px;}
+.attOvGrid:not(.attOvDows){grid-auto-rows:minmax(118px,1fr);flex:1;}
+.attOvCell{display:flex;flex-direction:column;gap:3px;text-align:left;font:inherit;color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:7px 9px;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;min-width:0;}
+.attOvCell:hover{border-color:var(--accent);box-shadow:var(--shadow-sm);transform:translateY(-1px);}
+.attOvCell.blank{visibility:hidden;}
+.attOvCell.sun{background:var(--st-sunday-bg);}
+.attOvCell.hol{background:var(--st-noph-bg);border-color:var(--st-noph-border);}
+.attOvCell.today{box-shadow:inset 0 0 0 2px var(--accent);}
+.attOvCell.future{opacity:.6;}
+.attOvHead{display:flex;align-items:baseline;gap:5px;margin-bottom:2px;}
+.attOvHead b{font-size:16px;}
+.attOvHead span{font-size:11px;color:var(--muted);}
+.attOvHead em{margin-left:auto;font-style:normal;font-size:10.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.attOvLine{display:flex;justify-content:space-between;gap:6px;font-size:12px;padding:1px 6px;border-radius:5px;}
+.attOvLine b{font-variant-numeric:tabular-nums;}
+.attOvLine.present{background:var(--st-present-bg);color:var(--st-present-text);}
+.attOvLine.absent{background:var(--st-lop-bg);color:var(--st-lop-text);}
+.attOvLine.half{background:var(--st-half-bg);color:var(--st-half-text);}
+.attOvLine.noph{background:var(--card);color:var(--st-noph-text);}
+.attOvLine.unmarked{color:var(--muted);}
+@media (max-width:820px){ .attOvGrid:not(.attOvDows){grid-auto-rows:minmax(96px,auto);} .attOvLine{font-size:11px;padding:1px 3px;} }
+.attOvTotals .chip,.attDaySumBar .chip{padding:5px 12px;border-radius:20px;font-size:12px;font-weight:600;background:var(--accent-soft);color:var(--ink);}
+.attOvTotals .chip.ok,.attDaySumBar .chip.ok{background:var(--st-present-bg);color:var(--st-present-text);}
+.attOvTotals .chip.warn,.attDaySumBar .chip.warn{background:var(--st-half-bg);color:var(--st-half-text);}
+.attOvTotals .chip.danger,.attDaySumBar .chip.danger{background:var(--st-lop-bg);color:var(--st-lop-text);}
+.attDateBar select.empPicker{min-width:190px;max-width:260px;font-weight:600;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-family:inherit;font-size:13px;}
+/* View-only attendance */
+.attCalCell .attCalStatus{font-size:11px;font-weight:600;padding:1px 2px;}
+.attCalCell.st-Present .attCalStatus{color:var(--st-present-text);}
+.attCalCell.st-LossOfPay .attCalStatus{color:var(--st-lop-text);}
+.attCalCell.st-HalfDay .attCalStatus{color:var(--st-half-text);}
+.attCalCell.st-NOPH .attCalStatus{color:var(--st-noph-text);}
+.attOvHoliday{margin-top:4px;padding:4px 8px;border-radius:6px;background:var(--card);color:var(--st-noph-text);font-weight:700;font-size:13px;text-align:center;}
+.attDayEmpty{padding:28px 16px;text-align:center;color:var(--muted);font-size:14px;}
+.attDayEmpty.hol{color:var(--st-noph-text);background:var(--st-noph-bg);border-radius:10px;}
+.attDayEmpty svg{width:16px;height:16px;vertical-align:-3px;}
+table.attDayTable{width:100%;border-collapse:collapse;font-size:13px;}
+table.attDayTable th{color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;padding:8px 6px;border-bottom:1px solid var(--line);}
+table.attDayTable td{padding:7px 6px;border-top:1px solid var(--line);text-align:center;}
