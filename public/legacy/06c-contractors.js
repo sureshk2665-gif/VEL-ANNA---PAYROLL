@@ -40,11 +40,17 @@ function contractorFilterMatches(e, filter){
   if(!filter) return true;
   return (e && e.contractor || '') === (filter==='-' ? '' : filter);
 }
-// <option>s for a contractor filter <select>: All Contractors, each contractor, No contractor.
+// <option>s for a contractor filter <select>: All Contractors, each contractor, and "No contractor"
+// only while some employee actually has no (known) contractor — otherwise it would always be empty.
+function anyEmployeeWithoutContractor(){
+  const known=new Set(getContractors().map(c=>c.code));
+  return (db.employees||[]).some(e=>!e.contractor || !known.has(e.contractor));
+}
 function contractorFilterOptionsHtml(selected){
+  const someWithout=anyEmployeeWithoutContractor();
   return `<option value="" ${!selected?'selected':''}>All Contractors</option>`
     + getContractors().map(c=>`<option value="${c.code}" ${selected===c.code?'selected':''}>${c.name||c.code}</option>`).join('')
-    + `<option value="-" ${selected==='-'?'selected':''}>No contractor</option>`;
+    + (someWithout || selected==='-' ? `<option value="-" ${selected==='-'?'selected':''}>No contractor</option>` : '');
 }
 // How many employees (any status — active, inactive or resigned) a contractor has supplied.
 function contractorEmployeeCount(code){
