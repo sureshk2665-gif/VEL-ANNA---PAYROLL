@@ -2,7 +2,7 @@
 let attMonth = monthKey(todayStr());
 let attSearch = '';
 let attCompact = true;
-let attViewMode = 'employee'; // 'day' (quick mark) or 'employee' (employee-wise monthly calendar)
+let attViewMode = 'overview'; // 'overview' (all employees, month calendar with counts), 'day' (one day, every employee) or 'employee' (one employee's month)
 let attDate = todayStr();
 let attEmpCode = ''; // selected employee for the Employee-wise Monthly Attendance view
 let attUnitFilter = ''; // '' = all units, or a unit code ('Unit-1', 'Unit-2', …) — filters the Employee dropdown above
@@ -154,12 +154,83 @@ function attendanceSummary(code, ym){
 function attendanceLopCount(code, ym){ return attendanceSummary(code, ym).lopEquivalent; }
 
 function attTabsInline(){
+  const tab=(mode,icon,label,title)=>`<button class="attTab ${attViewMode===mode?'active':''}" ${attEditMode?'disabled':''} title="${title}" onclick="setAttView('${mode}')">${ico(icon)} ${label}</button>`;
   return `<div class="attTabsInline">
-    <button class="attTab active" style="cursor:default;" title="Monthly Attendance">${ico('calendar-days')} Monthly Attendance</button>
+    ${tab('overview','calendar-days','Month Overview','Every employee — how many are Present, Absent and on Half Day each day')}
+    ${tab('day','users','Day View','Every employee on one day — mark or change their attendance')}
+    ${tab('employee','user','Employee-wise','One employee\'s whole month')}
   </div><span class="attTabDivider"></span>`;
 }
 function renderAttendance(){
+  if(attViewMode==='day') return `<div class="attStage">${renderAttendanceDay()}</div>`;
+  if(attViewMode==='overview') return `<div class="attStage">${renderAttendanceOverview()}</div>`;
   return `<div class="attStage">${renderAttendanceEmployee()}</div>`;
+}
+// Employees counted on a date: on the roll that day and inside the Unit / Contractor filters.
+function attFilteredOnDate(date){
+  return db.employees.filter(e=>isEmpOnRollOn(e,date) && (!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
+}
+// Present / Absent (Loss Of Pay) / Half Day / NOPH / Not marked counts for one day (filters applied).
+function attDayStatusCounts(date){
+  const c={total:0, Present:0, LossOfPay:0, HalfDay:0, NOPH:0, unmarked:0};
+  attFilteredOnDate(date).forEach(e=>{
+    c.total++;
+    const s=getAttStatus(date, e.code);
+    if(s && c[s]!==undefined) c[s]++; else if(!s) c.unmarked++;
+  });
+  return c;
+}
+function openAttDay(date){ attDate=date; attMonth=monthKey(date); attViewMode='day'; render('attendance'); }
+function shiftAttMonth(delta){
+  const [y,m]=attMonth.split('-').map(Number); const d=new Date(y, m-1+delta, 1);
+  attMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('attendance');
+}
+/* ---- Month Overview: one big box per day with how many employees were Present, Absent (Loss Of
+   Pay), on Half Day, on a paid holiday or not marked yet — for the unit / contractor chosen above.
+   Click a day to open it in Day View. Counts include days filled from Employee Time Entry. ---- */
+function renderAttendanceOverview(){
+  const dim=daysInMonth(attMonth), today=todayStr();
+  const [y0,m0]=attMonth.split('-').map(Number);
+  const firstDow=(new Date(y0,m0-1,1).getDay()+6)%7; // Monday first
+  const tot={Present:0, LossOfPay:0, HalfDay:0, unmarked:0};
+  const cells=[];
+  for(let i=0;i<firstDow;i++) cells.push('<div class="attOvCell blank"></div>');
+  for(let d=1; d<=dim; d++){
+    const dt=dateStr(attMonth,d), sun=isSunday(attMonth,d), hol=getHolidayType(dt), future=dt>today;
+    const c=attDayStatusCounts(dt);
+    if(!sun){ tot.Present+=c.Present; tot.LossOfPay+=c.LossOfPay; tot.HalfDay+=c.HalfDay; if(!future && !hol) tot.unmarked+=c.unmarked; }
+    const line=(cls,label,n)=>`<div class="attOvLine ${cls}"><span>${label}</span><b>${n}</b></div>`;
+    cells.push(`<button type="button" class="attOvCell ${sun?'sun':''} ${hol?'hol':''} ${dt===today?'today':''} ${future?'future':''}" onclick="openAttDay('${dt}')" title="Open ${fmtDate(dt)} in Day View">
+      <div class="attOvHead"><b>${d}</b><span>${weekdayShort(attMonth,d)}</span>${hol?`<em>${STATUS_LABEL[hol]||hol}</em>`:sun?'<em>Sunday</em>':''}</div>
+      ${hol ? line('noph','Holiday (paid)',c.NOPH)
+        : `${line('present','Present',c.Present)}${line('absent','Absent',c.LossOfPay)}${line('half','Half Day',c.HalfDay)}${!sun&&!future?line('unmarked','Not marked',c.unmarked):''}`}
+    </button>`);
+  }
+  const emps=attFilteredOnDate(dateStr(attMonth, Math.min(dim, attMonth===monthKey(today)?Number(today.slice(8,10)):dim))).length;
+  return `${attUnitTabsHTML()}
+  <div class="attStageTop">
+    ${attTabsInline()}
+    <div class="grp">${attUnitOptionsHTML()}</div>
+    <div class="sep"></div>
+    <div class="grp">
+      <button class="navBtn" onclick="shiftAttMonth(-1)" title="Previous month">‹</button>
+      <input type="month" value="${attMonth}" onchange="if(this.value){attMonth=this.value;render('attendance');}">
+      <button class="navBtn" onclick="shiftAttMonth(1)" title="Next month">›</button>
+      <span class="attDayLabel">${monthLabel(attMonth)}</span>
+    </div>
+    <div class="attOvTotals">
+      <span class="chip">${emps} Employees</span>
+      <span class="chip ok">${tot.Present} Present</span>
+      <span class="chip danger">${tot.LossOfPay} Absent</span>
+      <span class="chip warn">${tot.HalfDay} Half Day</span>
+      <span class="chip">${tot.unmarked} Not marked</span>
+    </div>
+  </div>
+  <div class="attOvPanel">
+    <div class="attOvGrid attOvDows">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="attCalDow">${d}</div>`).join('')}</div>
+    <div class="attOvGrid">${cells.join('')}</div>
+    <p class="syncNote" style="margin:8px 0 0;">Counts are employee-days for the unit and contractor chosen above (Absent = Loss Of Pay). Days entered in Employee Time Entry are included. Click a day to see and change every employee's attendance for it.</p>
+  </div>`;
 }
 
 /* ================= ATTENDANCE COMPLETION TRACKING =================
@@ -245,24 +316,25 @@ function dayCounts(date){
 }
 
 function renderAttendanceDay(){
-  let active=db.employees.filter(e=>isEmpOnRollOn(e,attDate));
+  let active=attFilteredOnDate(attDate);
   if(attSearch) active=active.filter(e=>(`${e.name} ${e.code}`).toLowerCase().includes(attSearch.toLowerCase()));
   // Unmarked employees first, so what still needs attention is at the top.
   active=[...active].sort((a,b)=>{
-    const am=db.attendance[attDate]?.[a.code]?1:0, bm=db.attendance[attDate]?.[b.code]?1:0;
+    const am=getAttStatus(attDate,a.code)?1:0, bm=getAttStatus(attDate,b.code)?1:0;
     if(am!==bm) return am-bm;
     return a.name.localeCompare(b.name);
   });
   const dObj=new Date(attDate+'T00:00:00');
   const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dObj.getDay()];
   const dateLabel=fmtDate(attDate);
-  const c=dayCounts(attDate);
-  const allActive=db.employees.filter(e=>isEmpOnRollOn(e,attDate));
+  const c=attDayStatusCounts(attDate);
+  const allActive=active;
   const isHolidayToday=isHolidayDate(attDate);
   const todayHolidayType=getHolidayType(attDate);
-  return `
+  return `${attUnitTabsHTML()}
   <div class="attDateBar">
     ${attTabsInline()}
+    <div class="grp">${attUnitOptionsHTML()}</div>
     <button class="navBtn" onclick="shiftAttDate(-1)" title="Previous day">‹</button>
     <input type="date" value="${attDate}" onchange="setAttDate(this.value)">
     <button class="navBtn" onclick="shiftAttDate(1)" title="Next day">›</button>
@@ -272,15 +344,18 @@ function renderAttendanceDay(){
   </div>
   ${isHolidayToday ? `<p class="syncNote" style="color:var(--warn);">${ico('lock')} ${dateLabel} is set as <b>${STATUS_LABEL[todayHolidayType]}</b> in the Holiday Calendar. All employees are automatically marked ${STATUS_LABEL[todayHolidayType]} for this date and it cannot be edited here — remove it from the Holiday Calendar (Payroll → Payroll Process) to unlock.</p>` : ''}
   <div class="attDaySumBar">
-    <span class="chip">${c.total} Active Employees</span>
-    <span class="chip">${c.marked} Marked</span>
-    <span class="chip ${c.unmarked?'warn':''}">${c.unmarked} Unmarked</span>
+    <span class="chip">${c.total} Employees</span>
+    <span class="chip ok">${c.Present} Present</span>
+    <span class="chip danger">${c.LossOfPay} Absent</span>
+    <span class="chip warn">${c.HalfDay} Half Day</span>
+    ${c.NOPH?`<span class="chip">${c.NOPH} Holiday</span>`:''}
+    <span class="chip">${c.unmarked} Not marked</span>
   </div>
   <div class="attBulkBar">
-    ${hasPerm('attendance','edit') ? `<button class="btn secondary" ${isHolidayToday?'disabled':''} onclick="markAllQuick('Present')">${ico('check')} Mark All Present</button>
+    ${hasPerm('attendance','edit') ? `<button class="btn secondary" ${isHolidayToday?'disabled':''} onclick="markAllQuick('Present')">${ico('check')} Mark Not-marked as Present</button>
     <button class="btn secondary" ${isHolidayToday?'disabled':''} onclick="copyPrevDayAttendance()">Copy Previous Day</button>` : ''}
     ${hasPerm('attendance','delete') ? `<button class="btn danger" ${isHolidayToday?'disabled':''} onclick="clearDayAttendance()">Clear This Day</button>` : ''}
-    <button class="attTab" style="margin-left:auto;" onclick="setAttView('grid')">Open Month Grid →</button>
+    <button class="attTab" style="margin-left:auto;" onclick="setAttView('overview')">← Month Overview</button>
   </div>
   <div class="panel">
     ${!allActive.length ? '<div class="empty">No active employees. Add employees first.</div>' : `
@@ -304,11 +379,19 @@ function renderAttendanceDay(){
       }).join('')}
     </div>
     `}
-    <p class="syncNote">Tap a status to mark it instantly — tap the same status again to clear it. Changes save immediately and flow straight into Payroll. Need finer control, whole-month fills, or a spreadsheet-style view? Use <b>Month Grid</b> above.</p>
+    <p class="syncNote">Tap a status to mark it instantly — tap the same status again to clear it. Changes save immediately and flow straight into Payroll. Days filled from Employee Time Entry say so; picking a status here overrides them.</p>
     `}
   </div>`;
 }
-function markAllQuick(status){ setDayForAll(attDate, status); }
+// Day View bulk actions act on the employees shown (Unit / Contractor filters).
+function markAllQuick(status){
+  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
+  if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
+  if(!db.attendance[attDate]) db.attendance[attDate]={};
+  attFilteredOnDate(attDate).forEach(e=>{ if(!getAttStatus(attDate, e.code)) db.attendance[attDate][e.code]=status; }); // only the not-marked ones
+  saveDB(db);
+  render('attendance');
+}
 function copyPrevDayAttendance(){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
@@ -317,7 +400,7 @@ function copyPrevDayAttendance(){
   const src=db.attendance[prev];
   if(!src){ alert('No attendance recorded for the previous day.'); return; }
   if(!db.attendance[attDate]) db.attendance[attDate]={};
-  db.employees.filter(e=>isEmpOnRollOn(e,attDate)).forEach(e=>{
+  attFilteredOnDate(attDate).forEach(e=>{
     if(src[e.code]) db.attendance[attDate][e.code]=src[e.code];
   });
   saveDB(db);
@@ -326,8 +409,8 @@ function copyPrevDayAttendance(){
 function clearDayAttendance(){
   if(!hasPerm('attendance','delete')){ alert('You do not have permission to clear attendance.'); return; }
   if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
-  if(!confirm('Clear all attendance entries for '+attDate+'? This cannot be undone.')) return;
-  delete db.attendance[attDate];
+  if(!confirm('Clear the attendance marked on this screen for '+fmtDate(attDate)+' for the employees shown? Days from Employee Time Entry stay. This cannot be undone.')) return;
+  attFilteredOnDate(attDate).forEach(e=>{ if(db.attendance[attDate]) delete db.attendance[attDate][e.code]; });
   saveDB(db);
   render('attendance');
 }
