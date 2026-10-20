@@ -207,7 +207,7 @@ function renderTEFilterBar(){
   return `<div class="teFilterBar">
     <div class="attUnitTabs" role="tablist" aria-label="Working unit">
       ${tab('','All Units','All units')}
-      ${getUnits().map(u=>tab(u.code, String(u.code).replace('-',' ').toUpperCase(), unitDisplayName(u))).join('')}
+      ${getUnits().map(u=>tab(u.code, unitTabLabel(u), unitDisplayName(u))).join('')}
     </div>
     <label class="teFilterLbl">${ico('building')} Contractor
       <select onchange="teSetContractorFilter(this.value)" title="Filter by contractor">${contractorFilterOptionsHtml(teContractorFilter)}</select>

@@ -277,7 +277,7 @@ function printModeWiseReport(){
     return `
     <div class="reportSection">
     <h3 class="unitTitle">${title} <span class="cnt">(${rows.length} employee${rows.length>1?'s':''})</span></h3>
-    ${payrollSectionTableHTML(payrollSectionCols({h:'Working Unit', k:'UnitCode', w:7}), rows, 'Sub Total — '+title)}
+    ${payrollSectionTableHTML(payrollSectionCols({h:'Working Unit', k:'WorkingUnit', w:9}), rows, 'Sub Total — '+title)}
     </div>`;
   };
   const grandNet=sumOf(allRows,'NetSalary'), grandEarn=sumOf(allRows,'Earnings'), grandDed=sumOf(allRows,'Deductions');

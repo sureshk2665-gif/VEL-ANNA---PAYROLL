@@ -452,7 +452,7 @@ function attUnitTabsHTML(){
   const tab=(code,label,title)=>`<button type="button" role="tab" class="attUnitTab ${attUnitFilter===code?'active':''}" aria-selected="${attUnitFilter===code}" ${dis} title="${String(title).replace(/"/g,'&quot;')}" onclick="setAttUnitFilter('${code}')">${label}</button>`;
   return `<div class="attUnitTabs" role="tablist" aria-label="Working unit">
     ${tab('','All Units','All units')}
-    ${getUnits().map(u=>tab(u.code, String(u.code).replace('-',' ').toUpperCase(), unitDisplayName(u))).join('')}
+    ${getUnits().map(u=>tab(u.code, unitTabLabel(u), unitDisplayName(u))).join('')}
   </div>`;
 }
 function renderAttendanceEmployee(){
