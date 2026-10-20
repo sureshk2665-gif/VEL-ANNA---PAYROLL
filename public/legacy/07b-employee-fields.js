@@ -70,7 +70,7 @@ function employeeFields(){
       formValue:e=>unitCodeOf(e.unit), width:16},
     // Who supplied the employee — independent of the unit (see 06c-contractors.js).
     {key:'contractor', label:'Contractor', section:'basic', input:'select',
-      options:()=>[{value:'', label:'— None —'}, ...getContractors().map(c=>({value:c.code, label:c.name||c.code, aliases:[c.code]}))],
+      options:()=>[{value:'', label:'Non Contractor'}, ...getContractors().map(c=>({value:c.code, label:c.name||c.code, aliases:[c.code]}))],
       formValue:e=>e.contractor||'', width:22},
     // ---- Bank & Statutory Details ----
     {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},

@@ -333,7 +333,7 @@ function renderAttendanceDay(){
   const body = hol ? `<div class="attDayEmpty hol">${ico('palm')} <b>Holiday</b> — ${dateLabel} (${STATUS_LABEL[hol]||hol})</div>`
     : !(c.Present+c.LossOfPay+c.HalfDay) ? `<div class="attDayEmpty">No attendance recorded for ${dateLabel}.</div>`
     : `<div class="tableScrollWrap"><table class="attDayTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th><th>Contractor</th><th>In Time</th><th>Out Time</th><th>Status</th></tr></thead><tbody>
-      ${rows.map((x,i)=>{ const t=tm(x.e.code); return `<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${x.e.name}</td><td>${unitLabel(x.e.unit)}</td><td>${contractorName(x.e)||'-'}</td><td>${t.inT||'-'}</td><td>${t.outT||'-'}</td><td><span class="tag ${x.s}">${STATUS_LABEL[x.s]}</span></td></tr>`; }).join('') || `<tr><td colspan="8" class="empty">No employees match your search.</td></tr>`}
+      ${rows.map((x,i)=>{ const t=tm(x.e.code); return `<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${x.e.name}</td><td>${unitLabel(x.e.unit)}</td><td>${contractorName(x.e)||'Non Contractor'}</td><td>${t.inT||'-'}</td><td>${t.outT||'-'}</td><td><span class="tag ${x.s}">${STATUS_LABEL[x.s]}</span></td></tr>`; }).join('') || `<tr><td colspan="8" class="empty">No employees match your search.</td></tr>`}
     </tbody></table></div>`;
   return `${attUnitTabsHTML()}
   <div class="attDateBar">
