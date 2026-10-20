@@ -191,3 +191,16 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
 .attOvTotals .chip.warn,.attDaySumBar .chip.warn{background:var(--st-half-bg);color:var(--st-half-text);}
 .attOvTotals .chip.danger,.attDaySumBar .chip.danger{background:var(--st-lop-bg);color:var(--st-lop-text);}
 .attDateBar select.empPicker{min-width:190px;max-width:260px;font-weight:600;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-family:inherit;font-size:13px;}
+/* View-only attendance */
+.attCalCell .attCalStatus{font-size:11px;font-weight:600;padding:1px 2px;}
+.attCalCell.st-Present .attCalStatus{color:var(--st-present-text);}
+.attCalCell.st-LossOfPay .attCalStatus{color:var(--st-lop-text);}
+.attCalCell.st-HalfDay .attCalStatus{color:var(--st-half-text);}
+.attCalCell.st-NOPH .attCalStatus{color:var(--st-noph-text);}
+.attOvHoliday{margin-top:4px;padding:4px 8px;border-radius:6px;background:var(--card);color:var(--st-noph-text);font-weight:700;font-size:13px;text-align:center;}
+.attDayEmpty{padding:28px 16px;text-align:center;color:var(--muted);font-size:14px;}
+.attDayEmpty.hol{color:var(--st-noph-text);background:var(--st-noph-bg);border-radius:10px;}
+.attDayEmpty svg{width:16px;height:16px;vertical-align:-3px;}
+table.attDayTable{width:100%;border-collapse:collapse;font-size:13px;}
+table.attDayTable th{color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;padding:8px 6px;border-bottom:1px solid var(--line);}
+table.attDayTable td{padding:7px 6px;border-top:1px solid var(--line);text-align:center;}
