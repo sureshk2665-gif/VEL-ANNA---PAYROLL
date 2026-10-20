@@ -61,16 +61,15 @@ function renderContractorBill(){
   const ownRate=db.contractorRates && db.contractorRates[cbMonth]!==undefined;
   const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
   const one=cbContractor ? rows[0] : null;
-  const calc=r=>`${r.days} day${r.days===1?'':'s'} × ₹${rate} = ${fmt(r.commission)}`;
   const commissionTable=`<div class="tableScrollWrap"><table class="cbTable">
-    <thead><tr><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Rate / Day</th><th>Commission</th><th style="text-align:left;">Calculation</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td style="text-align:left;"><b>${r.c.name||r.c.code}</b></td><td>${r.empCount}</td><td>${r.days}</td><td>₹${rate}</td><td><b>${fmt(r.commission)}</b></td><td style="text-align:left;color:var(--muted);">${calc(r)}</td></tr>`).join('') || `<tr><td colspan="6" class="empty">No contractors.</td></tr>`}
-    ${rows.length>1?`<tr class="cbTotal"><td style="text-align:left;">Total</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td>₹${rate}</td><td>${fmt(sum('commission'))}</td><td style="text-align:left;">${sum('days')} days × ₹${rate} = ${fmt(sum('commission'))}</td></tr>`:''}
+    <thead><tr><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Rate / Day</th><th>Commission</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td style="text-align:left;"><b>${r.c.name||r.c.code}</b></td><td>${r.empCount}</td><td>${r.days}</td><td>₹${rate}</td><td><b>${fmt(r.commission)}</b></td></tr>`).join('') || `<tr><td colspan="5" class="empty">No contractors.</td></tr>`}
+    ${rows.length>1?`<tr class="cbTotal"><td style="text-align:left;">Total</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td>₹${rate}</td><td>${fmt(sum('commission'))}</td></tr>`:''}
     </tbody></table></div>`;
   const companyTable=`<div class="tableScrollWrap"><table class="cbTable">
-    <thead><tr><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Salary (Net Pay)</th><th>Commission</th><th>Total Payable</th><th style="text-align:left;">Calculation</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td style="text-align:left;"><b>${r.c.name||r.c.code}</b></td><td>${r.empCount}</td><td>${r.days}</td><td>${fmt(r.net)}</td><td>${fmt(r.commission)}</td><td><b>${fmt(r.total)}</b></td><td style="text-align:left;color:var(--muted);">${fmt(r.net)} salary + ${fmt(r.commission)} commission (${calc(r)})</td></tr>`).join('') || `<tr><td colspan="7" class="empty">No contractors.</td></tr>`}
-    ${rows.length>1?`<tr class="cbTotal"><td style="text-align:left;">Total</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td>${fmt(sum('net'))}</td><td>${fmt(sum('commission'))}</td><td>${fmt(sum('total'))}</td><td></td></tr>`:''}
+    <thead><tr><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Salary (Net Pay)</th><th>Commission</th><th>Total Payable</th></tr></thead>
+    <tbody>${rows.map(r=>`<tr><td style="text-align:left;"><b>${r.c.name||r.c.code}</b></td><td>${r.empCount}</td><td>${r.days}</td><td>${fmt(r.net)}</td><td>${fmt(r.commission)}</td><td><b>${fmt(r.total)}</b></td></tr>`).join('') || `<tr><td colspan="6" class="empty">No contractors.</td></tr>`}
+    ${rows.length>1?`<tr class="cbTotal"><td style="text-align:left;">Total</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td>${fmt(sum('net'))}</td><td>${fmt(sum('commission'))}</td><td>${fmt(sum('total'))}</td></tr>`:''}
     </tbody></table></div>`;
   const detail = one ? `<h4 style="margin:18px 0 8px;">${ico('users')} ${one.c.name||one.c.code} — employees, ${monthLabel(cbMonth)}</h4>
     <div class="tableScrollWrap"><table class="cbTable">
