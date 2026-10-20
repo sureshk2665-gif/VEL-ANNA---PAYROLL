@@ -169,6 +169,25 @@ async function importEmployees(list){
   render('employees');
   return { saved, codes };
 }
+// Changing an employee's daily wage once they have been paid: ask from which date the new wage applies,
+// so months before it keep the old wage when payroll is recomputed (wageOnDate). Returns a
+// wageHistory entry, null when no question is needed, or false if the user cancelled.
+function askWageEffectiveDate(prior, newWage){
+  const oldWage=currentDailyWage(prior);
+  if(!oldWage || Math.round(oldWage*100)===Math.round(newWage*100)) return null;
+  const paidBefore=Object.keys(db.payroll||{}).some(ym=>payrollGenerated(ym) && isEmpOnRollInMonth(prior, ym));
+  if(!paidBefore) return null; // never paid yet: the new wage simply applies to every month
+  const t=todayStr(), def='01-'+t.slice(5,7)+'-'+t.slice(0,4);
+  let ans=prompt(`Daily wage changed from ₹${oldWage} to ₹${newWage}.\n\nFrom which date should the new wage apply? Payroll before this date stays at ₹${oldWage}.\n(DD-MM-YYYY)`, def);
+  while(ans!==null){
+    const m=String(ans).trim().match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})$/) || String(ans).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    let ds='';
+    if(m) ds = m[1].length===4 ? `${m[1]}-${m[2]}-${m[3]}` : `${m[3]}-${String(m[2]).padStart(2,'0')}-${String(m[1]).padStart(2,'0')}`;
+    if(ds && !isNaN(new Date(ds+'T00:00:00'))) return {from:ds, prev:oldWage, wage:newWage, at:new Date().toISOString(), by:currentUser?currentUser.username:''};
+    ans=prompt('Please enter the date as DD-MM-YYYY (for example '+def+').', def);
+  }
+  return false;
+}
 function openEmployeeModal(code){
   if(code ? !hasPerm('employees','edit') : !hasPerm('employees','add')){ alert('You do not have permission to do this.'); return; }
   const editing = code ? db.employees.find(e=>e.code===code) : null;
@@ -214,6 +233,10 @@ function saveEmployee(existingCode){
   if(status==='Inactive' && !inactiveFrom){ alert('Please enter the Inactive From date.'); return; }
   Object.assign(f, employeeWageFields(f.dailyWage)); // Basic / HRA always follow the daily wage
   const prior = existingCode ? db.employees.find(e=>e.code===existingCode) : null;
+  const wageHistory = prior ? (prior.wageHistory||[]).slice() : [];
+  const wageChange = prior ? askWageEffectiveDate(prior, +f.dailyWage||0) : null;
+  if(wageChange===false) return; // cancelled
+  if(wageChange) wageHistory.push(wageChange);
   const joiningVal=f.joining||'';
   const data={
     ...f,
@@ -224,6 +247,8 @@ function saveEmployee(existingCode){
     resignReason,
     inactiveFrom,
     employmentHistory: prior ? (prior.employmentHistory||[]) : [],
+    incrementHistory: prior ? (prior.incrementHistory||[]) : [],
+    wageHistory,
     originalJoining: prior ? (prior.originalJoining || joiningVal) : joiningVal,
     rejoinDate: prior ? (prior.rejoinDate||'') : '',
     createdAt: existingCode ? (db.employees.find(e=>e.code===existingCode).createdAt) : new Date().toISOString()

@@ -93,7 +93,7 @@ function employeeFields(){
     {key:'hra', label:'HRA / day (40%)', section:'salary', input:'number', auto:true,
       title:'HRA = 40% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*40%,2)', width:13},
     {key:'otRate', label:'OT Rate — 1 hour (₹)', section:'salary', input:'number', auto:true, displayOnly:true,
-      title:'1-hour OT rate = Daily Wage ÷ 8 × 1.5 (shown for reference; Payroll calculates OT from OT hours entered in Attendance)',
+      title:'1-hour OT rate = Daily Wage ÷ 8 × 1.5 (shown for reference; Payroll calculates OT from the monthly OT hours in Employee Time Entry (or a figure typed on Attendance))',
       formValue:e=>dailyWageSplit(e.dailyWage).otRate, sheetFormula:'ROUND({dailyWage}/8*1.5,0)', width:13},
     {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:blankOpt(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.

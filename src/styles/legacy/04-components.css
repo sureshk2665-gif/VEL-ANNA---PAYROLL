@@ -49,7 +49,6 @@ td b{font-weight:700;}
 .tag.Present,.tag.Active{background:var(--st-present-bg);color:var(--st-present-text);border-color:var(--st-present-border);}
 .tag.Absent,.tag.Inactive,.tag.Resigned,.tag.LossOfPay{background:var(--st-lop-bg);color:var(--st-lop-text);border-color:var(--st-lop-border);}
 .tag.HalfDay{background:var(--st-half-bg);color:var(--st-half-text);border-color:var(--st-half-border);}
-.tag.PaidLeave{background:var(--st-nopl-bg);color:var(--st-nopl-text);border-color:var(--st-nopl-border);}
 .tag.NOPH{background:var(--st-noph-bg);color:var(--st-noph-text);border-color:var(--st-noph-border);}
 
 .toolbar{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center;}

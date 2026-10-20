@@ -18,18 +18,22 @@ function monthLabelLong(ym){
   const names=['January','February','March','April','May','June','July','August','September','October','November','December'];
   return names[+m-1]+' '+y;
 }
-// Every payroll row of the month with the employee's unit and contractor.
+// Every payroll row of the month (computed LIVE for every employee on the roll) with the
+// employee's unit and contractor. Identity fields come from the current employee record,
+// with the payroll record as a fallback.
 function acquittanceAllRows(ym){
-  const rec=db.payroll[ym]||{};
-  return Object.values(rec).map(r=>{
+  const recs=payrollMonthRecords(ym)||[];
+  return recs.map(r=>{
     const e=db.employees.find(x=>x.code===r.code)||{};
     return {
-      code:r.code, name:r.name||e.name||'-',
-      unit:unitCodeOf(e.unit),
-      contractor:e.contractor||'',
-      designation:r.designation||e.designation||'',
-      department:r.department||e.department||'',
+      code:r.code, name:e.name||r.name||'-',
+      unit:unitCodeOf(e.unit||r.unit),
+      contractor:(e.code ? e.contractor : r.contractor)||'',
+      designation:e.designation||r.designation||'',
+      department:e.department||r.department||'',
       days:Number(r.daysWorking)||0,
+      ot:Math.round((Number(r.otHours)||0)*100)/100,
+      late:Number(r.lateMinutes)||0,
       gross:Number(r.earningsTotal)||0,
       ded:Number(r.deductionsTotal)||0,
       net:Number(r.netSalary)||0
@@ -50,8 +54,13 @@ function acquittanceUnits(ym, filter){
   })).filter(u=>u.rows.length);
 }
 // Same, one group per contractor ('-' = employees with no contractor), optionally limited to a unit.
+// A contractor code that is no longer in the Contractor master counts as 'No Contractor', so the
+// contractor-wise totals always add up to the unit-wise register.
 function acquittanceContractors(ym, filter, unitFilter){
-  const all=acquittanceAllRows(ym).filter(r=>unitFilter==='All' || r.unit===unitFilter);
+  const known=new Set(getContractors().map(c=>c.code));
+  const all=acquittanceAllRows(ym)
+    .filter(r=>unitFilter==='All' || r.unit===unitFilter)
+    .map(r=>known.has(r.contractor) ? r : Object.assign({}, r, {contractor:''}));
   const groups=[...getContractors().map(c=>({code:c.code, name:c.name||c.code, address:c.address||''})), {code:'', name:'No Contractor', address:''}];
   const unitText = unitFilter==='All' ? '' : ' — '+unitLabel(unitFilter);
   return groups
@@ -67,6 +76,7 @@ function acquittanceSheetCount(units){
 function acquittanceDocHtml(ym, units, opts){
   opts=opts||{};
   const sum=(rows,k)=>rows.reduce((s,r)=>s+(Number(r[k])||0),0);
+  const hrs=n=>String(Math.round((Number(n)||0)*100)/100);
   const monthText=monthLabelLong(ym);
   const regLine=[
     db.companyGSTIN?('GSTIN: '+acqEsc(db.companyGSTIN)):'',
@@ -94,6 +104,8 @@ function acquittanceDocHtml(ym, units, opts){
           <td class="l name"><div class="clamp2">${acqEsc(r.name)}</div></td>
           <td class="l dd">${dd.length?`<div class="one">${dd[0]}</div>${dd[1]?`<div class="one sub">${dd[1]}</div>`:''}`:'-'}</td>
           <td class="c">${r.days}</td>
+          <td class="c">${hrs(r.ot)}</td>
+          <td class="c">${r.late}</td>
           <td class="r">${acqAmt(r.gross)}</td>
           <td class="r">${acqAmt(r.ded)}</td>
           <td class="r net">${acqAmt(r.net)}</td>
@@ -102,6 +114,8 @@ function acquittanceDocHtml(ym, units, opts){
       }).join('');
       const pageTotalRow = `<tr class="pTotal">
           <td colspan="5" class="r">Page Total &nbsp;<span class="cnt">(${pg.length} employee${pg.length>1?'s':''})</span></td>
+          <td class="c">${hrs(sum(pg,'ot'))}</td>
+          <td class="c">${sum(pg,'late')}</td>
           <td class="r">${acqAmt(sum(pg,'gross'))}</td>
           <td class="r">${acqAmt(sum(pg,'ded'))}</td>
           <td class="r">${acqAmt(sum(pg,'net'))}</td>
@@ -109,6 +123,8 @@ function acquittanceDocHtml(ym, units, opts){
         </tr>`;
       const grandRow = isLast ? `<tr class="gTotal">
           <td colspan="5" class="r">Grand Total — ${acqEsc(u.unitName)} &nbsp;<span class="cnt">(${u.rows.length} employee${u.rows.length>1?'s':''}${pages.length>1?', '+pages.length+' pages':''})</span></td>
+          <td class="c">${hrs(sum(u.rows,'ot'))}</td>
+          <td class="c">${sum(u.rows,'late')}</td>
           <td class="r">${acqAmt(sum(u.rows,'gross'))}</td>
           <td class="r">${acqAmt(sum(u.rows,'ded'))}</td>
           <td class="r">${acqAmt(sum(u.rows,'net'))}</td>
@@ -132,12 +148,12 @@ function acquittanceDocHtml(ym, units, opts){
         </header>
         <table class="aTable">
           <colgroup>
-            <col style="width:4.5%"><col style="width:8%"><col style="width:18%"><col style="width:16%">
-            <col style="width:6.5%"><col style="width:10%"><col style="width:10%"><col style="width:11%"><col style="width:16%">
+            <col style="width:4%"><col style="width:7%"><col style="width:17%"><col style="width:15%">
+            <col style="width:5.5%"><col style="width:5%"><col style="width:5%"><col style="width:9.5%"><col style="width:9%"><col style="width:10%"><col style="width:13%">
           </colgroup>
           <thead><tr>
             <th>S.No.</th><th>Emp ID</th><th>Employee Name</th><th>Designation / Department</th>
-            <th>Days Worked</th><th>Gross Salary (₹)</th><th>Total Deductions (₹)</th><th>Net Payable Salary (₹)</th>
+            <th>Paid Days</th><th>OT Hrs</th><th>Late Min</th><th>Total Earnings (₹)</th><th>Total Deductions (₹)</th><th>Net Payable Salary (₹)</th>
             <th>Employee Signature / Date</th>
           </tr></thead>
           <tbody>${bodyRows}${pageTotalRow}${grandRow}</tbody>
@@ -219,7 +235,7 @@ function acquittanceGroupsFor(key, ym){
   return key==='acquittanceContractor' ? acquittanceContractors(ym, acqContractor, acqContractorUnit) : acquittanceUnits(ym, acqUnit);
 }
 function acquittancePreviewHtml(ym, key){
-  if(!db.payroll[ym]) return {html:'<div class="empty">No payroll generated for '+monthLabel(ym)+' yet.</div>', hasData:false};
+  if(!payrollGenerated(ym)) return {html:'<div class="empty">No payroll generated for '+monthLabel(ym)+' yet.</div>', hasData:false};
   const units=acquittanceGroupsFor(key, ym);
   if(!units.length) return {html:'<div class="empty">No payroll records for the selected '+(key==='acquittanceContractor'?'contractor / unit':'unit')+' in '+monthLabel(ym)+'.</div>', hasData:false};
   const doc=acquittanceDocHtml(ym, units, {preview:true});
@@ -234,7 +250,7 @@ function acquittancePreviewHtml(ym, key){
 }
 function printAcquittanceReport(key){
   if(!hasPerm('reports','print')){ alert('You do not have permission to print or download reports.'); return; }
-  if(!db.payroll[payMonth]){ alert('Generate payroll for '+monthLabel(payMonth)+' first.'); return; }
+  if(!payrollGenerated(payMonth)){ alert('Generate payroll for '+monthLabel(payMonth)+' first.'); return; }
   const units=acquittanceGroupsFor(key||'acquittance', payMonth);
   if(!units.length){ alert('No payroll records for the selected '+(key==='acquittanceContractor'?'contractor / unit':'unit')+' in '+monthLabel(payMonth)+'.'); return; }
   const w=window.open('','_blank');
@@ -242,3 +258,56 @@ function printAcquittanceReport(key){
   w.document.write(acquittanceDocHtml(payMonth, units, {preview:false}));
   w.document.close();
 }
+// Excel version of the register (one sheet, same grouping and order as the printed register).
+// kind: 'unit' or 'contractor'; filterCode: the unit filter ('All' or a unit code) for 'unit', or
+// the contractor filter ('All', a code, '-' = no contractor) for 'contractor'.
+function acquittanceExcelSpec(kind, ym, filterCode, unitFilter){
+  const isC = kind==='contractor';
+  const units = isC ? acquittanceContractors(ym, filterCode||'All', unitFilter||'All') : acquittanceUnits(ym, filterCode||'All');
+  const rows=[];
+  units.forEach(u=>u.rows.forEach(r=>rows.push({
+    code:r.code, name:r.name, designation:r.designation||'',
+    unit:unitLabel(r.unit), contractor:(r.contractor && contractorName(r.contractor))||'No Contractor',
+    days:r.days, ot:r.ot, late:r.late, gross:r.gross, ded:r.ded, net:r.net, sig:''
+  })));
+  const scope = isC
+    ? [ (filterCode && filterCode!=='All') ? ((units[0]&&units[0].unitName)||'Contractor') : 'All Contractors',
+        (unitFilter && unitFilter!=='All' && !(filterCode && filterCode!=='All')) ? unitLabel(unitFilter) : '' ].filter(Boolean).join(' — ')
+    : ((filterCode && filterCode!=='All') ? unitLabel(filterCode) : 'All Units');
+  const title=(isC?'Contractor-wise':'Unit-wise')+' Salary Acquittance Register — '+monthLabelLong(ym);
+  return {
+    fileName:`${companyFilePrefix()}-Acquittance-${isC?'Contractor':'Unit'}-wise-${monthLabel(ym)}.xlsx`,
+    sheets:[{
+      name:'Acquittance',
+      title:(db.companyName||'')+(db.companyName?' — ':'')+title,
+      subtitle:scope+' | '+rows.length+' employee'+(rows.length===1?'':'s')+' | Generated on '+fmtDate(todayStr()),
+      columns:[
+        {header:'Code', key:'code', width:10, type:'text'},
+        {header:'Name', key:'name', width:28, type:'text'},
+        {header:'Designation', key:'designation', width:20, type:'text'},
+        {header:'Unit', key:'unit', width:18, type:'text'},
+        {header:'Contractor', key:'contractor', width:20, type:'text'},
+        {header:'Paid Days', key:'days', width:10, type:'number'},
+        {header:'OT Hrs', key:'ot', width:9, type:'number'},
+        {header:'Late Min', key:'late', width:9, type:'number'},
+        {header:'Total Earnings', key:'gross', width:15, type:'money'},
+        {header:'Deductions', key:'ded', width:14, type:'money'},
+        {header:'Net Pay', key:'net', width:15, type:'money'},
+        {header:'Signature', key:'sig', width:24, type:'text', noTotal:true}
+      ],
+      rows,
+      totals:true
+    }]
+  };
+}
+// Reports → "Excel" for the acquittance registers: uses the month and filters selected on screen.
+window.acquittanceExcel = function(reportKey){
+  if(!hasPerm('reports','export')){ alert('You do not have permission to export reports.'); return; }
+  const ym=payMonth;
+  if(!payrollGenerated(ym)){ alert('Generate payroll for '+monthLabel(ym)+' first.'); return; }
+  const isC = reportKey==='acquittanceContractor';
+  const spec = isC ? acquittanceExcelSpec('contractor', ym, acqContractor, acqContractorUnit) : acquittanceExcelSpec('unit', ym, acqUnit);
+  if(!spec.sheets[0].rows.length){ alert('No payroll records for the selected '+(isC?'contractor / unit':'unit')+' in '+monthLabel(ym)+'.'); return; }
+  if(typeof window.downloadExcel!=='function'){ alert('Excel export is not available.'); return; }
+  return window.downloadExcel(spec);
+};

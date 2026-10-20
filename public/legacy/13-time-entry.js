@@ -22,23 +22,19 @@ let teLeaveEmp='';
 let teLeaveType=TE_LEAVE_TYPES[0];
 let teLeaveRemarks='';
 
-// Auto-creates a blank time-entry row for every active employee for the selected grid
-// date (defaults to the system/today's date, but works for ANY date picked via the Date
-// Selector), so the day's roster is always ready for quick entry without manually adding
-// each employee one-by-one. Only writes to Supabase if something was actually missing —
-// safe to call on every render of the Time Entry tab. Purely additive: never overwrites
-// or removes an entry someone has already filled in, and never touches db.attendance/db.payroll.
+// Auto-creates a blank time-entry row (in memory) for every employee on the roll on the selected
+// grid date, so the day's roster is always ready for quick entry. Blank rows are not saved on their
+// own — they go to the database with the next real change — so simply opening Time Entry never
+// writes the whole database from this tab. Purely additive: never overwrites or removes an entry
+// someone has already filled in.
 function ensureTimeEntriesForDate(dateStr2){
   if(!db.timeEntries[dateStr2]) db.timeEntries[dateStr2]={};
   let changed=false;
   // Bulk Shift's "select all" box once counted itself as an employee and saved a row under the
   // code "undefined" — drop any such rows.
   Object.keys(db.timeEntries).forEach(dt=>{ const day=db.timeEntries[dt]; if(day && Object.prototype.hasOwnProperty.call(day,'undefined')){ delete day.undefined; changed=true; } });
-  activeEmployeesForTE().forEach(e=>{
-    if(!db.timeEntries[dateStr2][e.code]){
-      db.timeEntries[dateStr2][e.code]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
-      changed=true;
-    }
+  activeEmployeesForTE(dateStr2).forEach(e=>{
+    if(!db.timeEntries[dateStr2][e.code]) db.timeEntries[dateStr2][e.code]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
   });
   if(changed) saveDB(db);
 }
@@ -82,7 +78,8 @@ function teDetectShift(inMin){
 function teIsHolidayDate(dateStr2){
   const [y,m,d]=dateStr2.split('-').map(Number);
   if(new Date(y,m-1,d).getDay()===0) return true; // Sunday — always full-day OT
-  return db.timeHolidays.some(h=>h.date===dateStr2);
+  if(typeof getHolidayType==='function' && getHolidayType(dateStr2)==='NOPH') return true; // Payroll holiday (NOPH): paid as NOPH, time worked is OT
+  return (db.timeHolidays||[]).some(h=>h.date===dateStr2);
 }
 // Looks up whether this employee has an Employee Leave record for this date. Used to
 // auto-reflect a booked leave in the Time Entry grid/list/print — no separate manual
@@ -117,23 +114,32 @@ function teCompute(entry, dateForRow){
   const ot = Math.max(0, outMin - regularEnd);
   return {shift, late, working, ot};
 }
-// Total Late (minutes) an employee has in a month on the Time Entry screens. Days on a full-day
-// leave don't count. Payroll uses this for the Late Deduction unless a different figure is typed
-// for that month on the Attendance screen.
-function teMonthLateMinutes(code, ym){ return teMonthTotal(code, ym, 'late'); }
-// Total OT (minutes) in a month on the Time Entry screens — same days as Late. Sundays and booked
-// holidays count in full (teCompute). Payroll uses it for OT unless hours are typed on Attendance.
-function teMonthOTMinutes(code, ym){ return teMonthTotal(code, ym, 'ot'); }
-function teMonthTotal(code, ym, key){
-  let total=0;
-  Object.keys(db.timeEntries||{}).forEach(dt=>{
-    if(!dt.startsWith(ym+'-')) return;
-    const entry=db.timeEntries[dt][code]; if(!entry) return;
-    const lv=teGetLeave(dt, code); if(lv && lv.type!=='Half Day') return;
-    total+=teCompute(entry, dt)[key]||0;
-  });
-  return total;
+// The days of a month whose Time Entry Late and OT count in payroll: the employee is on the roll,
+// the day has a time entry, and the day is not Loss of Pay (a Time Entry leave or a mark on the
+// Attendance screen). Sundays and holidays count their whole time as OT (teCompute).
+function teMonthDays(code, ym){
+  const emp=(db.employees||[]).find(e=>e.code===code);
+  const out=[], dim=daysInMonth(ym);
+  for(let d=1; d<=dim; d++){
+    const ds=ym+'-'+String(d).padStart(2,'0');
+    const entry=db.timeEntries && db.timeEntries[ds] && db.timeEntries[ds][code];
+    if(!entry || entry.inH==='' || entry.inH===undefined || entry.inH===null) continue;
+    if(emp && !isEmpOnRollOn(emp, ds)) continue;
+    const lv=teGetLeave(ds, code); if(lv && lv.type!=='Half Day') continue;
+    if(typeof getAttStatus==='function' && getAttStatus(ds, code)==='LossOfPay') continue;
+    out.push({date:ds, c:teCompute(entry, ds)});
+  }
+  return out;
 }
+function teMonthTotal(code, ym, key){ return teMonthDays(code, ym).reduce((s,x)=>s+(x.c[key]||0), 0); }
+// Total Late (minutes) in a month. Payroll uses it for the Late Deduction unless a different figure
+// is typed for that month on the Attendance screen.
+function teMonthLateMinutes(code, ym){ return teMonthTotal(code, ym, 'late'); }
+// Total OT (minutes) in a month — same days as Late. Payroll uses it for OT unless hours are typed
+// on the Attendance screen.
+function teMonthOTMinutes(code, ym){ return teMonthTotal(code, ym, 'ot'); }
+// OT minutes per day (for a month whose wage changed part-way: each day is paid at its own rate).
+function teMonthOTByDay(code, ym){ return teMonthDays(code, ym).filter(x=>x.c.ot>0).map(x=>({date:x.date, min:x.c.ot})); }
 function teSetTab(t){ teTab=t; render('timeentry'); }
 // Changing the date switches the whole Date-wise grid to that date, auto-creating blank rows for
 // every active employee on it. The grid stays unlocked if it was, so entry can continue
@@ -163,7 +169,18 @@ function teDeleteEntry(dateStr2, code){
   if(db.timeEntries[dateStr2]){ delete db.timeEntries[dateStr2][code]; }
   saveDB(db); render('timeentry');
 }
-function activeEmployeesForTE(){ return (db.employees||[]).filter(e=>e.status!=='Resigned').sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true})); }
+// Employees Time Entry lists: those on the roll on a date ('YYYY-MM-DD') or in a month ('YYYY-MM'),
+// the same rule payroll uses — so someone who resigned mid-month can still have that month's days
+// entered and corrected. With no date: everyone not resigned.
+function activeEmployeesForTE(scope){
+  const list=(db.employees||[]).filter(e=> !scope ? e.status!=='Resigned'
+    : scope.length===7 ? isEmpOnRollInMonth(e, scope) : isEmpOnRollOn(e, scope));
+  return list.sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
+}
+// The date or month the open Time Entry tab is showing.
+function teScope(){
+  return teTab==='empwise' ? teEwMonth : teTab==='summary' ? teSummaryMonth : teTab==='leave' ? teLeaveDate : teGridDate;
+}
 /* ---- Unit / Contractor filter (one filter for the whole Time Entry page: Date-wise grid,
    Employee-wise picker, Employee Leave, Attendance & OT Summary and their prints). It only
    narrows what is shown — every active employee still gets a row in db.timeEntries. ---- */
@@ -172,7 +189,7 @@ let teContractorFilter='';  // '' = all, '-' = no contractor, or a contractor co
 function teEmpMatchesFilter(e){
   return !!e && (!teUnitFilter || unitCodeOf(e.unit)===teUnitFilter) && contractorFilterMatches(e, teContractorFilter);
 }
-function teFilteredEmployees(){ return activeEmployeesForTE().filter(teEmpMatchesFilter); }
+function teFilteredEmployees(scope){ return activeEmployeesForTE(scope===undefined ? teScope() : scope).filter(teEmpMatchesFilter); }
 // For lists keyed by employee code (day lists, leave records, prints).
 function teCodeInFilter(code){
   if(!teUnitFilter && !teContractorFilter) return true;
@@ -186,7 +203,7 @@ function teSetContractorFilter(v){ teContractorFilter=v||''; teDwSel.clear(); re
 function teClearFilter(){ teUnitFilter=''; teSetContractorFilter(''); }
 function renderTEFilterBar(){
   const tab=(code,label,title)=>`<button type="button" role="tab" class="attUnitTab ${teUnitFilter===code?'active':''}" aria-selected="${teUnitFilter===code}" title="${teEsc(title)}" onclick="teSetUnitFilter('${code}')">${label}</button>`;
-  const shown=teFilteredEmployees().length, all=activeEmployeesForTE().length;
+  const shown=teFilteredEmployees().length, all=activeEmployeesForTE(teScope()).length;
   return `<div class="teFilterBar">
     <div class="attUnitTabs" role="tablist" aria-label="Working unit">
       ${tab('','All Units','All units')}
@@ -215,6 +232,8 @@ function teSaveLeave(){
   if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
   db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===teLeaveDate && l.empCode===teLeaveEmp));
   db.timeLeaves.push({date:teLeaveDate, empCode:teLeaveEmp, type:teLeaveType, remarks:teLeaveRemarks||''});
+  if(!db.timeEntries[teLeaveDate]) db.timeEntries[teLeaveDate]={};
+  if(!db.timeEntries[teLeaveDate][teLeaveEmp]) db.timeEntries[teLeaveDate][teLeaveEmp]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
   saveDB(db);
   teLeaveEmp=''; teLeaveRemarks=''; teLeaveType=TE_LEAVE_TYPES[0];
   render('timeentry');
@@ -235,10 +254,10 @@ function printTELeaveDay(dt){
   openPrintWindow(`Employee Leave — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
 }
 function renderTELeaveTab(){
-  const emps=teFilteredEmployees();
+  const emps=teFilteredEmployees(teLeaveDate);
   const canEdit=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
   const canDel=hasPerm('timeentry','delete');
-  const empMap={}; activeEmployeesForTE().forEach(e=>empMap[e.code]=e);
+  const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   if(teLeaveEmp && !emps.some(e=>e.code===teLeaveEmp)) teLeaveEmp='';
   const leaves=(db.timeLeaves||[]).filter(l=>teCodeInFilter(l.empCode));
   const dates=[...new Set(leaves.map(l=>l.date))].sort().reverse().slice(0,20);

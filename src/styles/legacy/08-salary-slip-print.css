@@ -34,3 +34,9 @@
   .sidebar{width:100%;display:flex;overflow-x:auto;gap:4px;}
   .formGrid{grid-template-columns:1fr;}
 }
+/* Printing the salary slip opened over the Payroll page: print only the slip, not the page behind. */
+@media print{
+  body:has(#overlay.show) .shell{display:none !important;}
+  body:has(#overlay.show) .overlay{position:static;display:block;background:none;padding:0;backdrop-filter:none;-webkit-backdrop-filter:none;overflow:visible;}
+  body:has(#overlay.show) .overlay .modal{max-width:none;width:100%;padding:0;border:0;box-shadow:none;border-radius:0;animation:none;}
+}

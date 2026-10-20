@@ -14,12 +14,12 @@ let teDwFocus=null;           // {r,c} to re-focus after a full render (e.g. dat
 
 function teDwCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teDwUnlocked(){ return teDwCanEdit() && teGridEditMode; }
-function teDwEmployees(){ return teFilteredEmployees(); } // narrowed by the Unit / Contractor filter
+function teDwEmployees(){ return teFilteredEmployees(teGridDate); } // on the roll that day, narrowed by the Unit / Contractor filter
 
 /* ---- Day totals ---- */
 function teDwTotals(dt){
   const t={emps:0,present:0,leave:0,missing:0,working:0,late:0,ot:0};
-  const nonWorking = new Date(dt+'T00:00:00').getDay()===0 || db.timeHolidays.some(h=>h.date===dt);
+  const nonWorking = teIsHolidayDate(dt); // Sunday, Payroll NOPH or a booked holiday
   teDwEmployees().forEach(e=>{
     const md=teEwRowModel(e.code, dt);
     t.emps++;
@@ -253,6 +253,7 @@ function renderTEDateGrid(){
   const dayName=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
   const hol=db.timeHolidays.find(h=>h.date===dt);
   const dayTag = new Date(dt+'T00:00:00').getDay()===0 ? `<span class="tag NOPH" style="margin-left:8px;">Sunday · full-day OT</span>`
+    : getHolidayType(dt)==='NOPH' ? `<span class="tag NOPH" style="margin-left:8px;">Paid holiday (NOPH) · time worked is OT</span>`
     : hol ? `<span class="tag NOPH" style="margin-left:8px;">${teEsc(hol.remarks||'Holiday')} · full-day OT</span>` : '';
   const t=teDwTotals(dt);
   if(teDwFocus) setTimeout(teDwRestoreFocus,0);

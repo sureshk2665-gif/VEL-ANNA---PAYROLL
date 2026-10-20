@@ -140,7 +140,14 @@ async function logout(){
     if(row && !row.logoutTime){
       row.logoutTime=new Date().toISOString();
       row.sessionDuration=fmtSessionDuration(row.loginTime, row.logoutTime);
-      await saveDB(db);
+      // Stamp only this row on the latest saved data — saving this tab's whole copy could undo
+      // entries made on another device since this tab loaded.
+      const stamp={...row};
+      await patchDB(latest=>{
+        if(!Array.isArray(latest.loginLogs)) latest.loginLogs=[];
+        const r=latest.loginLogs.find(x=>x.id===stamp.id);
+        if(r){ r.logoutTime=stamp.logoutTime; r.sessionDuration=stamp.sessionDuration; } else latest.loginLogs.push(stamp);
+      });
     }
   }
   try{ await sb.auth.signOut(); }catch(e){}

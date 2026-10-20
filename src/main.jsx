@@ -2,6 +2,7 @@ import { createRoot } from 'react-dom/client';
 import { flushSync } from 'react-dom';
 import App from './App.jsx';
 import './icons/legacyIcons.js'; // defines window.ico() for the legacy scripts
+import './features/export/excelExport.js'; // defines window.downloadExcel() for the legacy screens and reports
 import './styles/index.css';
 
 // Render synchronously: the legacy scripts in index.html are `defer`red and run right after this

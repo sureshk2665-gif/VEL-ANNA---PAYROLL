@@ -123,7 +123,7 @@ export default function BulkImportDialog() {
               <button type="button" className="btn secondary" onClick={downloadTemplate} disabled={!!busy}><Download className="ico" aria-hidden="true" /> Download Template</button>
             </li>
             <li>
-              <div><b>Fill one new employee per row</b><small>Only Full Name is required. Use the dropdowns for Status, Gender, Department, Employment Type, Unit, Payment Mode, PF and ESI. Dates as DD-MM-YYYY. Leave the grey columns empty.</small></div>
+              <div><b>Fill one new employee per row</b><small>Only Full Name is required. Use the dropdowns for Status, Gender, Department, Designation, Employment Type, Working Unit, Contractor and Payment Mode. Dates as DD-MM-YYYY. Leave the grey columns empty.</small></div>
             </li>
             <li>
               <div><b>Upload the filled file</b><small>Every row is checked and shown before anything is added.</small></div>
@@ -151,7 +151,7 @@ export default function BulkImportDialog() {
             <div className="bulkImportTableWrap">
               <table className="bulkImportTable">
                 <thead>
-                  <tr><th>Row</th><th>S.No</th><th>Name</th><th>Department</th><th>Joining</th><th>Basic</th><th>Result</th></tr>
+                  <tr><th>Row</th><th>S.No</th><th>Name</th><th>Department</th><th>Joining</th><th>Daily Wage</th><th>Result</th></tr>
                 </thead>
                 <tbody>
                   {visible.map((r) => (
@@ -161,7 +161,7 @@ export default function BulkImportDialog() {
                       <td>{r.employee.name || <i>(no name)</i>}</td>
                       <td>{typed(r.raw.department) || r.employee.department}</td>
                       <td>{showDate(r.employee.joining)}</td>
-                      <td>{r.employee.basic ? r.employee.basic.toLocaleString('en-IN') : ''}</td>
+                      <td>{r.employee.dailyWage ? Number(r.employee.dailyWage).toLocaleString('en-IN') : ''}</td>
                       <td>{r.errors.length ? <ul>{r.errors.map((m) => <li key={m}>{m}</li>)}</ul> : <span className="bulkOk"><Check className="ico" aria-hidden="true" /> Ready</span>}</td>
                     </tr>
                   ))}

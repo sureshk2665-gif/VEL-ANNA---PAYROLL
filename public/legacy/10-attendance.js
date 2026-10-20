@@ -47,7 +47,7 @@ function setAttView(mode){ attViewMode=mode; render('attendance'); }
 function shiftAttDate(delta){
   const d=new Date(attDate+'T00:00:00');
   d.setDate(d.getDate()+delta);
-  attDate=d.toISOString().slice(0,10);
+  attDate=localDateStr(d);
   attMonth=monthKey(attDate);
   render('attendance');
 }
@@ -111,27 +111,35 @@ function getAttStatus(date, code){
 }
 // A day's status from Employee Time Entry: its Employee Leave (Loss of Pay / Half Day), else
 // Present when an In Time was entered, else '' (not marked).
+// A date booked in Time Entry's own Holiday Booking is not a working day there: time worked on it is
+// paid as full-day OT, so it does not also count as a Present (paid) day.
 function timeEntryAttStatus(date, code){
   const lv=typeof teGetLeave==='function' ? teGetLeave(date, code) : null;
   if(lv) return lv.type==='Half Day' ? 'HalfDay' : 'LossOfPay';
   const te=db.timeEntries && db.timeEntries[date] && db.timeEntries[date][code];
-  return te && te.inH!=='' && te.inH!==undefined && te.inH!==null ? 'Present' : '';
+  if(!(te && te.inH!=='' && te.inH!==undefined && te.inH!==null)) return '';
+  return (db.timeHolidays||[]).some(h=>h.date===date) ? '' : 'Present';
 }
 // True when the status shown for this day comes from Employee Time Entry (nothing marked here).
 function attIsFromTimeEntry(date, code){
   return !getHolidayType(date) && !(db.attendance[date]?.[code]) && !!timeEntryAttStatus(date, code);
 }
 
+// Only days the employee is on the roll count (the same days payroll pays). "unmarked" = working
+// days on the roll up to today with no status at all (unpaid).
 function attendanceSummary(code, ym){
-  const dim=daysInMonth(ym);
-  let present=0, leave=0, noph=0, halfDay=0, lop=0, marked=0;
+  const dim=daysInMonth(ym), today=todayStr();
+  const emp=(db.employees||[]).find(e=>e.code===code);
+  let present=0, leave=0, noph=0, halfDay=0, lop=0, marked=0, unmarked=0;
   for(let d=1; d<=dim; d++){
     // Sundays are already excluded from NOWD's denominator, so they must never contribute to
     // Days Worked either — otherwise a Sunday marked Present (e.g. by a bulk "Fill as Present"
     // action) inflates earnings by an extra day's pay beyond NOWD. Skip them entirely here.
     if(isSunday(ym,d)) continue;
-    const s=getAttStatus(dateStr(ym,d), code);
-    if(!s) continue;
+    const ds=dateStr(ym,d);
+    if(emp && !isEmpOnRollOn(emp, ds)) continue;
+    const s=getAttStatus(ds, code);
+    if(!s){ if(ds<=today) unmarked++; continue; }
     marked++;
     if(s==='Present') present++;
     else if(s==='NOPH') noph++;
@@ -140,7 +148,7 @@ function attendanceSummary(code, ym){
   }
   const payableDays = present + leave + noph + halfDay*0.5;
   return { present, leave, holiday: noph, holidayOnly:0, nophDays:noph, halfDay, lop, absent:lop, marked,
-    unmarked: dim-marked, daysInMonth: dim, lopEquivalent: lop + halfDay*0.5, payableDays: Math.round(payableDays*100)/100 };
+    unmarked, daysInMonth: dim, lopEquivalent: lop + halfDay*0.5, payableDays: Math.round(payableDays*100)/100 };
 }
 // Kept for payroll compatibility — LOP-equivalent days derived straight from Attendance data.
 function attendanceLopCount(code, ym){ return attendanceSummary(code, ym).lopEquivalent; }
@@ -305,7 +313,7 @@ function copyPrevDayAttendance(){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
   const d=new Date(attDate+'T00:00:00'); d.setDate(d.getDate()-1);
-  const prev=d.toISOString().slice(0,10);
+  const prev=localDateStr(d);
   const src=db.attendance[prev];
   if(!src){ alert('No attendance recorded for the previous day.'); return; }
   if(!db.attendance[attDate]) db.attendance[attDate]={};
@@ -343,13 +351,18 @@ function shiftAttEmpMonth(delta){
   render('attendance');
 }
 function setAttEmpMonth(v){ attMonth=v; attEditMode=false; attEditSnapshot=null; render('attendance'); }
+// Bulk fills and copies only touch days the employee is on the roll, up to today — a future day
+// or a day before joining / after leaving is never marked Present (it would be paid).
+function attFillableDay(e, dt){ return !!e && isEmpOnRollOn(e, dt) && dt<=todayStr(); }
 function fillEmployeeMonthPresent(code){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   const dim=daysInMonth(attMonth);
+  const emp=db.employees.find(x=>x.code===code);
   for(let d=1; d<=dim; d++){
     const dt=dateStr(attMonth,d);
     if(isHolidayDate(dt)) continue; // Holiday Calendar (NOPH) dates are locked
     if(isSunday(attMonth,d)) continue; // Sundays are outside NOWD and are never marked Present
+    if(!attFillableDay(emp, dt)) continue;
     if(getAttStatus(dt, code)) continue; // already marked, or filled from Employee Time Entry
     if(!db.attendance[dt]) db.attendance[dt]={};
     db.attendance[dt][code]='Present';
@@ -364,11 +377,13 @@ function copyEmployeePrevMonth(code){
   const prevYm=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0');
   const dim=daysInMonth(attMonth);
   const prevDim=daysInMonth(prevYm);
+  const emp=db.employees.find(x=>x.code===code);
   let copied=0;
   for(let d=1; d<=dim; d++){
     if(d>prevDim) continue;
     const dt=dateStr(attMonth,d);
     if(isHolidayDate(dt)) continue; // Holiday Calendar dates are locked
+    if(!attFillableDay(emp, dt)) continue;
     const src=db.attendance[dateStr(prevYm,d)]?.[code];
     if(!src) continue;
     if(!db.attendance[dt]) db.attendance[dt]={};
@@ -398,7 +413,7 @@ function setAdvanceAmount(code, val){
 }
 // Late for the Attendance screen's employee/month (see lateDeductionFor in Payroll).
 function attLateInfo(emp){
-  return lateDeductionFor(emp, attMonth, dailyWageSplit(emp.dailyWage || ((emp.basic||0)+(emp.hra||0))).dailyWage);
+  return lateDeductionFor(emp, attMonth, wageOnDate(emp, dateStr(attMonth, daysInMonth(attMonth)))); // the month's wage
 }
 function attLateTip(emp){
   const l=attLateInfo(emp);
@@ -459,8 +474,9 @@ function renderAttendanceEmployee(){
   const adj = getAdj(attMonth, attEmpCode);
   const otVal = otHoursFor(emp, attMonth);
   const s = getSettings();
-  const tokenPrice = canteenTokenPrice();
+  const tokenPrice = canteenTokenPrice(attMonth);
   const monthTokens = canteenTokensFor(emp, attMonth);
+  const pay = computePayrollForEmployee(emp, attMonth); // same figures as the salary slip
   const canteenAmt = Math.round(monthTokens*tokenPrice*100)/100;
   const scheduledAdv = scheduledAdvanceDeduction(attEmpCode, attMonth);
   const advDetails = scheduledAdvanceDetails(attEmpCode, attMonth);
@@ -526,9 +542,10 @@ function renderAttendanceEmployee(){
       <h4>${ico('chart')} Attendance Summary (auto)</h4>
       <div class="attSumGrid">
         <div class="sk">Present Days</div><div class="sv">${sum.present}</div>
-        <div class="sk">Absent Days</div><div class="sv">${sum.absent}</div>
+        <div class="sk">Loss Of Pay Days</div><div class="sv">${sum.absent}</div>
         <div class="sk">NOPH Days</div><div class="sv">${sum.nophDays}</div>
         <div class="sk">Half Days</div><div class="sv">${sum.halfDay}</div>
+        <div class="sk" title="Working days up to today with no status — not paid">Not Marked (unpaid)</div><div class="sv" style="${sum.unmarked?'color:var(--warn);':''}">${sum.unmarked}</div>
         <div class="sk totalRow">Total Payable Days</div><div class="sv totalRow">${sum.payableDays}</div>
       </div>
     </div>
@@ -537,6 +554,8 @@ function renderAttendanceEmployee(){
       <div class="autoRow" title="${advTip}"><span>Scheduled Advance</span><b>₹${scheduledAdv}</b></div>
       <div class="autoRow" title="${monthTokens} token(s) × ₹${tokenPrice}"><span>Canteen Deduction</span><b>₹${canteenAmt}</b></div>
       <div class="autoRow" id="attLateRow" title="${attLateTip(emp)}"><span>Late Deduction</span><b>₹${attLateInfo(emp).amount}</b></div>
+      <div class="autoRow" title="${pay.otHours} hrs × ₹${pay.otPerHourRate}/hr"><span>OT Pay</span><b>₹${pay.otAmount}</b></div>
+      <div class="autoRow" title="Total Earnings ₹${pay.earningsTotal} − Total Deductions ₹${pay.deductionsTotal} — the same figure as the salary slip"><span>Net Pay (${monthLabel(attMonth)})</span><b>₹${pay.netSalary}</b></div>
     </div>
   </div>`;
 
@@ -550,11 +569,11 @@ function renderAttendanceEmployee(){
       <div class="attCalGrid" style="flex:1;">${cells.join('')}</div>
     </div>
     <div class="attEntryRow">
-      <div class="attEntryField" title="${attOTTip(emp)}"><label>OT Hours</label><input type="number" value="${otVal}" min="0" step="any" ${editable?'':'disabled'} onchange="setMonthlyOT('${attEmpCode}',this)"></div>
-      <div class="attEntryField" title="Usual monthly tokens come from the Employee form (${+emp.canteenTokens||0}); change it here for this month only."><label>Canteen Tokens (₹${tokenPrice}/tkn)</label><input type="number" value="${monthTokens}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','canteenTokens',this.value)"></div>
+      <div class="attEntryField" title="${attOTTip(emp)}"><label>OT Hours${otTypedFor(adjFor(attMonth, attEmpCode))?' (typed)':''}</label><input type="number" value="${otVal}" min="0" step="any" ${editable?'':'disabled'} onchange="setMonthlyOT('${attEmpCode}',this)"></div>
+      <div class="attEntryField" title="Usual monthly tokens come from the Employee form (${+emp.canteenTokens||0}); change it here for this month only."><label>Canteen Tokens (₹${tokenPrice}/tkn)${adj.canteenTokens!==undefined&&adj.canteenTokens!==null?' (typed)':''}</label><input type="number" value="${monthTokens}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','canteenTokens',this.value)"></div>
       <div class="attEntryField"><label>Other Allowance (₹)</label><input type="number" value="${adj.otherAllowanceOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherAllowanceOneOff',this.value)"></div>
       <div class="attEntryField"><label>Other Deduction (₹)</label><input type="number" value="${adj.otherDedOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherDedOneOff',this.value)"></div>
-      <div class="attEntryField" title="Total Late this month from Employee Time Entry (${typeof teMonthLateMinutes==='function'?teMonthLateMinutes(attEmpCode, attMonth):0} min). Type a different number to use it for this month only; clear the box to go back to Time Entry. The first ${lateGraceMinutes()} minutes are free."><label>Late Minutes</label><input type="number" value="${attLateInfo(emp).minutes}" min="0" step="1" ${editable?'':'disabled'} onchange="setMonthlyLate('${attEmpCode}',this)"></div>
+      <div class="attEntryField" title="Total Late this month from Employee Time Entry (${typeof teMonthLateMinutes==='function'?teMonthLateMinutes(attEmpCode, attMonth):0} min). Type a different number to use it for this month only; clear the box to go back to Time Entry. The first ${lateGraceMinutes(attMonth)} minutes are free."><label>Late Minutes${adj.lateMinutes!==undefined&&adj.lateMinutes!==null&&adj.lateMinutes!==''?' (typed)':''}</label><input type="number" value="${attLateInfo(emp).minutes}" min="0" step="1" ${editable?'':'disabled'} onchange="setMonthlyLate('${attEmpCode}',this)"></div>
     </div>
   </div>`;
 
@@ -679,6 +698,7 @@ function fillUnmarkedPresent(){
       const dt=dateStr(attMonth,d);
       if(isHolidayDate(dt)) continue; // Holiday Calendar (NOPH) dates are locked
       if(isSunday(attMonth,d)) continue; // Sundays are outside NOWD and are never marked Present
+      if(!attFillableDay(e, dt)) continue;
       if(getAttStatus(dt, e.code)) continue; // already marked, or filled from Employee Time Entry
       if(!db.attendance[dt]) db.attendance[dt]={};
       db.attendance[dt][e.code]='Present';
@@ -708,7 +728,7 @@ function setMonthlyOT(code, inp){
 }
 function attOTTip(emp){
   const te=typeof teMonthOTMinutes==='function' ? Math.round(teMonthOTMinutes(emp.code, attMonth)/60*100)/100 : 0;
-  return otTypedFor(getAdj(attMonth, emp.code))
+  return otTypedFor(adjFor(attMonth, emp.code))
     ? `Typed for ${monthLabel(attMonth)} (Employee Time Entry has ${te} hrs). Clear the box to use Time Entry.`
     : `From Employee Time Entry: ${te} hrs in ${monthLabel(attMonth)}. Type a number to use it instead for this month.`;
 }

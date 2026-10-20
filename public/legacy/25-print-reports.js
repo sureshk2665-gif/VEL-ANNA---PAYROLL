@@ -1,8 +1,46 @@
-function tableFromRows(rows){
+// Report columns printed as money (₹) — an explicit list, so day/hour counts are never formatted
+// as rupees and every money column is (not just the ones whose key happens to contain "Salary").
+const REPORT_MONEY_KEYS=['Gross','Earnings','ESI','PF','Canteen','Late','Advance','OtherDed','Deductions','NetSalary',
+  'OTAmount','LateAmount','CanteenAmount','AdvanceAmount','DailyWage','IncrementAmount',
+  'PrevBasic','PrevHRA','PrevConveyance','PrevWashing','RevisedBasic','RevisedHRA','RevisedConveyance','RevisedWashing','RevisedGross'];
+// Columns that are never summed in a totals row (rates / per-month constants).
+const REPORT_NO_TOTAL_KEYS=['NOWD','DailyWage'];
+// Printed headers for the report row keys (anything not listed prints as its key).
+const REPORT_COL_LABELS={WorkingUnit:'Working Unit',UnitCode:'Unit Code',PaymentMode:'Payment Mode',HalfDay:'Half Day',PaidDays:'Paid Days',DaysWorked:'Paid Days',
+  OTHrs:'OT Hrs',LateMin:'Late Min',LateChargedMin:'Late Charged Min',Gross:'Gross (Basic + OT)',Earnings:'Total Earnings',Late:'Late (₹)',
+  OtherDed:'Other Ded.',Deductions:'Total Deductions',NetSalary:'Net Pay',NotMarked:'Not Marked',OTAmount:'OT ₹',LateAmount:'Late ₹',
+  CanteenTokens:'Canteen Tokens',CanteenAmount:'Canteen ₹',AdvanceAmount:'Advance ₹',DailyWage:'Daily Wage'};
+function reportColLabel(k){ return REPORT_COL_LABELS[k]||k; }
+function reportCellHtml(k, v){
+  if(v===undefined || v===null) return '';
+  return typeof v==='number' && REPORT_MONEY_KEYS.includes(k) ? fmt(v) : v;
+}
+function reportRound(n){ return Math.round((Number(n)||0)*100)/100; }
+// Totals for each column: the sum of every numeric column (money formatted), '' for text columns.
+function reportTotalsCells(rows, cols){
+  return cols.map(c=>{
+    if(REPORT_NO_TOTAL_KEYS.includes(c) || !rows.some(r=>typeof r[c]==='number')) return '';
+    const sum=reportRound(rows.reduce((t,r)=>t+(Number(r[c])||0),0));
+    return REPORT_MONEY_KEYS.includes(c) ? fmt(sum) : sum;
+  });
+}
+// Payment modes present in a set of payroll report rows ('-' = not set, listed last), so per-mode
+// columns always add up to the total.
+function reportModesOf(rows){
+  const modes=[...new Set(rows.map(r=>r.PaymentMode||'-'))];
+  return modes.filter(m=>m!=='-').sort().concat(modes.includes('-')?['-']:[]);
+}
+function reportModeLabel(m){ return m==='-' ? 'Not set' : m; }
+// opts.totals: add a TOTAL row summing the numeric columns.
+function tableFromRows(rows, opts){
+  opts=opts||{};
   if(!rows.length) return '<div class="empty">No data.</div>';
   const cols=Object.keys(rows[0]);
-  return `<table><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
-    ${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'&&/Salary/.test(c)?fmt(r[c]):r[c]}</td>`).join('')}</tr>`).join('')}
+  const totals=opts.totals ? reportTotalsCells(rows, cols) : null;
+  if(totals) totals[0]='TOTAL';
+  return `<table><thead><tr>${cols.map(c=>`<th>${reportColLabel(c)}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(r=>`<tr>${cols.map(c=>`<td>${reportCellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}
+    ${totals ? `<tr class="payTotalRow">${totals.map(v=>`<td><b>${v}</b></td>`).join('')}</tr>` : ''}
   </tbody></table>`;
 }
 /* Generic printable window used by the simple (non-payroll) reports, and shared
@@ -59,59 +97,82 @@ function openPrintWindow(title, bodyHtml, opts){
   </body></html>`);
   w.document.close();
 }
-function printSimpleReport(title, rows){
+// opts.totals: add a TOTAL row; opts.orientation: 'landscape' for wide reports.
+function printSimpleReport(title, rows, opts){
+  opts=opts||{};
   if(!rows.length){ alert('No data to print.'); return; }
   const cols=Object.keys(rows[0]);
-  const tableHtml=`<table class="repTable"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
-    ${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'&&/Salary/.test(c)?fmt(r[c]):r[c]}</td>`).join('')}</tr>`).join('')}
+  const totals=opts.totals ? reportTotalsCells(rows, cols) : null;
+  if(totals) totals[0]='TOTAL';
+  const tableHtml=`${opts.compact?'<style>table.repTable th,table.repTable td{font-size:8.5px;padding:2px 3px;}</style>':''}<table class="repTable"><thead><tr>${cols.map(c=>`<th>${reportColLabel(c)}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map(r=>`<tr>${cols.map(c=>`<td>${reportCellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}
+    ${totals ? `<tr class="subtotal">${totals.map(v=>`<td>${v}</td>`).join('')}</tr>` : ''}
   </tbody></table>`;
-  openPrintWindow(title, tableHtml);
+  openPrintWindow(title, tableHtml, {orientation:opts.orientation||'portrait'});
 }
+// Full payroll listing (A4 landscape): every payroll report column (Unit Code left out — the
+// Working Unit column already names it), S.No, and a TOTAL row for the day, hour and ₹ columns.
 function printGeneralPayrollReport(){
-  const rows=payrollReportRows();
+  if(!payrollGenerated(payMonth)){ alert('Generate payroll first.'); return; }
+  const rows=payrollReportRows(payMonth);
   if(!rows.length){ alert('No payroll records for this month.'); return; }
-  const sumOf=(key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
-  const cols=Object.keys(rows[0]);
-  const totalCols=['Earnings','Deductions','ESI','PF','Canteen','Late','NetSalary'];
-  const totalsRow=cols.map((c,i)=> i===0 ? 'TOTAL' : (totalCols.includes(c) ? fmt(sumOf(c)) : ''));
-  const tableHtml=`<table class="repTable"><thead><tr>${cols.map(c=>`<th>${c}</th>`).join('')}</tr></thead><tbody>
-    ${rows.map(r=>`<tr>${cols.map(c=>`<td>${typeof r[c]==='number'&&/Salary/.test(c)?fmt(r[c]):r[c]}</td>`).join('')}</tr>`).join('')}
-    <tr class="subtotal">${totalsRow.map(v=>`<td>${v}</td>`).join('')}</tr>
+  const cols=Object.keys(rows[0]).filter(c=>c!=='UnitCode');
+  const totals=reportTotalsCells(rows, cols);
+  const tableHtml=`<style>table.repTable th,table.repTable td{font-size:8.5px;padding:2px 3px;}</style>
+  <table class="repTable"><thead><tr><th>S.No</th>${cols.map(c=>`<th>${reportColLabel(c)}</th>`).join('')}</tr></thead><tbody>
+    ${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td>${reportCellHtml(c,r[c])}</td>`).join('')}</tr>`).join('')}
+    <tr class="subtotal"><td colspan="3">TOTAL (${rows.length} employee${rows.length>1?'s':''})</td>${totals.slice(2).map(v=>`<td>${v}</td>`).join('')}</tr>
   </tbody></table>`;
-  openPrintWindow(`Payroll Report — ${monthLabel(payMonth)}`, tableHtml);
+  openPrintWindow(`Payroll Report — ${monthLabel(payMonth)}`, tableHtml, {orientation:'landscape'});
 }
 
-function unitSectionRowsHTML(rows, startSn){
-  let sn=startSn;
-  return rows.map(r=>`<tr>
-      <td>${sn++}</td><td>${r.Code}</td><td>${r.Name}</td><td>${r.PaymentMode||'-'}</td>
-      <td>${fmt(r.Earnings)}</td><td>${fmt(r.Deductions)}</td><td>${r.LOP}</td><td>${r.DaysWorked}</td>
-      <td class="netCell">${fmt(r.NetSalary)}</td>
-    </tr>`).join('');
+// Columns of the unit-wise / contractor-wise / mode-wise payroll PDFs (A4 landscape). `fourth` is
+// the grouping-dependent column (Payment Mode, or Working Unit for the mode-wise report).
+// ESI + PF + Canteen + Late + Advance + Other Ded. = Total Ded.
+function payrollSectionCols(fourth){
+  return [
+    {h:'S.No', w:3, sn:true}, {h:'Code', k:'Code', w:6}, {h:'Name', k:'Name', w:13}, fourth,
+    {h:'Present', k:'Present', w:4.5, num:true}, {h:'Paid Days', k:'PaidDays', w:4.5, num:true}, {h:'LOP', k:'LOP', w:3.5, num:true},
+    {h:'OT Hrs', k:'OTHrs', w:4, num:true}, {h:'Late Min', k:'LateMin', w:4, num:true},
+    {h:'Total Earnings', k:'Earnings', w:6.5, money:true}, {h:'ESI', k:'ESI', w:5, money:true}, {h:'PF', k:'PF', w:5, money:true},
+    {h:'Canteen', k:'Canteen', w:5, money:true}, {h:'Late (₹)', k:'Late', w:5, money:true}, {h:'Advance', k:'Advance', w:5, money:true},
+    {h:'Other Ded.', k:'OtherDed', w:5, money:true}, {h:'Total Ded.', k:'Deductions', w:6, money:true}, {h:'Net Pay', k:'NetSalary', w:7, money:true, net:true}
+  ];
+}
+function payrollSectionTableHTML(cols, rows, subtotalLabel){
+  const sumOf=k=>reportRound(rows.reduce((t,r)=>t+(Number(r[k])||0),0));
+  const cell=(c,r,i)=>c.sn ? i+1 : c.money ? fmt(Number(r[c.k])||0) : (r[c.k]===undefined||r[c.k]===null||r[c.k]==='' ? '-' : r[c.k]);
+  const lead=cols.findIndex(c=>c.num||c.money);
+  return `<table class="repTable">
+      <colgroup>${cols.map(c=>`<col style="width:${c.w}%">`).join('')}</colgroup>
+      <thead><tr>${cols.map(c=>`<th>${c.h}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td${c.net?' class="netCell"':''}>${cell(c,r,i)}</td>`).join('')}</tr>`).join('')}
+        <tr class="subtotal"><td colspan="${lead}">${subtotalLabel}</td>${cols.slice(lead).map(c=>`<td${c.net?' class="netPayTotal"':''}>${c.money ? fmt(sumOf(c.k)) : c.num ? sumOf(c.k) : ''}</td>`).join('')}</tr>
+      </tbody>
+    </table>`;
 }
 // Unit-wise (by='unit', default) or Contractor-wise (by='contractor') payroll report.
 function printPayrollReport(by){
   if(!hasPerm('reports','print')){ alert('You do not have permission to print reports.'); return; }
-  const rec=db.payroll[payMonth];
-  if(!rec){ alert('Generate payroll first.'); return; }
-  const allRows=payrollReportRows();
+  if(!payrollGenerated(payMonth)){ alert('Generate payroll first.'); return; }
+  const allRows=payrollReportRows(payMonth);
   if(!allRows.length){ alert('No payroll records for this month.'); return; }
   // One section per working unit (see getUnits() in 06b-units.js), or per contractor
   // (06c-contractors.js; employees without one get a "No Contractor" section).
   const byContractor = by==='contractor';
-  const contractorOf=r=>((db.employees.find(e=>e.code===r.Code)||{}).contractor)||'';
+  const contractorOf=r=>r.ContractorCode||'';
   const sections = byContractor
     ? [...getContractors().map(c=>({title:(c.name||c.code)+(c.address?(' — '+c.address):''), rows:allRows.filter(r=>contractorOf(r)===c.code)})),
        {title:'No Contractor', rows:allRows.filter(r=>!getContractors().some(c=>c.code===contractorOf(r)))}].filter(s=>s.rows.length || s.title!=='No Contractor')
     : getUnits().map(u=>({title:unitDisplayName(u)+(u.address?(' — '+u.address):''), rows:allRows.filter(r=>r.UnitCode ? r.UnitCode===u.code : r.WorkingUnit===unitLabel(u.code))}));
-  const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(r[key]||0),0);
-  const MODES=['NEFT','TRANSFER','CASH','CHEQUE'];
+  const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
+  // Every mode present in the rows (incl. "Not set"), so the mode columns add up to the Total.
   const modeSummaryHTML=(rows)=>{
-    const present=MODES.filter(m=>rows.some(r=>(r.PaymentMode||'-')===m));
+    const present=reportModesOf(rows);
     if(!present.length) return '';
     return `
     <table class="modeTable">
-      <thead><tr><th>Mode of Payment</th>${present.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
+      <thead><tr><th>Mode of Payment</th>${present.map(m=>`<th>${reportModeLabel(m)}</th>`).join('')}<th>Total</th></tr></thead>
       <tbody>
         <tr><td>No. of Employees</td>${present.map(m=>`<td>${rows.filter(r=>(r.PaymentMode||'-')===m).length}</td>`).join('')}<td>${rows.length}</td></tr>
         <tr><td>Net Pay Amount</td>${present.map(m=>`<td>${fmt(sumOf(rows.filter(r=>(r.PaymentMode||'-')===m),'NetSalary'))}</td>`).join('')}<td>${fmt(sumOf(rows,'NetSalary'))}</td></tr>
@@ -123,15 +184,7 @@ function printPayrollReport(by){
     return `
     <div class="reportSection">
     <h3 class="unitTitle">${title} <span class="cnt">(${rows.length} employee${rows.length>1?'s':''})</span></h3>
-    <table class="repTable">
-      <colgroup>
-        <col style="width:4%"><col style="width:9%"><col style="width:24%"><col style="width:11%"><col style="width:11%"><col style="width:11%"><col style="width:8%"><col style="width:11%"><col style="width:11%">
-      </colgroup>
-      <thead><tr><th>S.No</th><th>Code</th><th>Name</th><th>Payment Mode</th><th>Earnings</th><th>Deductions</th><th>LOP</th><th>Days Worked</th><th>Net Pay</th></tr></thead>
-      <tbody>${unitSectionRowsHTML(rows,1)}
-        <tr class="subtotal"><td colspan="4">Sub Total — ${title}</td><td>${fmt(sumOf(rows,'Earnings'))}</td><td>${fmt(sumOf(rows,'Deductions'))}</td><td></td><td></td><td>${fmt(sumOf(rows,'NetSalary'))}</td></tr>
-      </tbody>
-    </table>
+    ${payrollSectionTableHTML(payrollSectionCols({h:'Payment Mode', k:'PaymentMode', w:7}), rows, 'Sub Total — '+title)}
     ${modeSummaryHTML(rows) ? `<h4 class="modeTitle">Mode of Payment Summary — ${title}</h4>${modeSummaryHTML(rows)}` : ''}
     </div>`;
   };
@@ -142,7 +195,7 @@ function printPayrollReport(by){
   <style>
     *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}
     body{margin:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#1c2430;background:#fff;padding:6px;line-height:1.3;}
-    @page{size:A4 portrait;margin:14mm 10mm 16mm;}
+    @page{size:A4 landscape;margin:12mm 8mm 14mm;}
     .companyHead{position:relative;text-align:center;background:#e4f2ee;border-bottom:2px solid #0f6b5c;padding:6px 8px;margin:-6px -6px 8px;page-break-after:avoid;break-after:avoid;}
     .companyHead h1{margin:0;font-size:20px;letter-spacing:.3px;color:#0f6b5c;}
     .companyHead p{margin:1px 0;font-size:12px;color:#444;}
@@ -160,11 +213,11 @@ function printPayrollReport(by){
     table.modeTable tr:last-child td{font-weight:700;color:#0f6b5c;background:#f6faf9;}
     table.modeTable td:last-child{font-weight:700;background:#e4f2ee !important;color:#0f6b5c;}
     .noRows{font-size:11px;color:#888;padding:4px 8px;font-style:italic;}
-    table.repTable{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:4px;table-layout:fixed;}
-    table.repTable th,table.repTable td{border:1px solid #d8d6cd;padding:3px 5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    table.repTable{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:4px;table-layout:fixed;}
+    table.repTable th,table.repTable td{border:1px solid #d8d6cd;padding:2px 3px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     table.repTable tbody tr{page-break-inside:avoid;break-inside:avoid;}
     table.repTable td:nth-child(3){white-space:normal;word-break:break-word;}
-    table.repTable th{background:#0f6b5c;color:#fff;font-size:10.5px;font-weight:600;border-color:#0f6b5c;}
+    table.repTable th{background:#0f6b5c;color:#fff;font-size:9px;font-weight:600;border-color:#0f6b5c;white-space:normal;}
     table.repTable tbody tr:nth-child(odd){background:#f6faf9;}
     table.repTable tbody tr:nth-child(even){background:#fff;}
     table.repTable td:nth-child(1),table.repTable td:nth-child(5),table.repTable td:nth-child(6),table.repTable td:nth-child(7),table.repTable td:nth-child(8),table.repTable td:nth-child(9){text-align:center;}
@@ -211,61 +264,45 @@ function printPayrollReport(by){
   w.document.close();
 }
 
-function modeSectionRowsHTML(rows, startSn){
-  let sn=startSn;
-  return rows.map(r=>{
-    const otherDed=(r.Deductions||0)-(r.ESI||0)-(r.PF||0)-(r.Canteen||0);
-    return `<tr>
-      <td>${sn++}</td><td>${r.Code}</td><td>${r.Name}</td><td>${r.UnitCode||r.WorkingUnit}</td>
-      <td>${fmt(r.Earnings)}</td><td>${fmt(r.ESI||0)}</td><td>${fmt(r.PF||0)}</td><td>${fmt(r.Canteen||0)}</td><td>${fmt(otherDed)}</td><td>${fmt(r.Deductions)}</td><td>${r.LOP}</td><td>${r.DaysWorked}</td>
-      <td class="netCell">${fmt(r.NetSalary)}</td>
-    </tr>`;}).join('');
-}
 function printModeWiseReport(){
   if(!hasPerm('reports','print')){ alert('You do not have permission to print reports.'); return; }
-  const rec=db.payroll[payMonth];
-  if(!rec){ alert('Generate payroll first.'); return; }
-  const allRows=payrollReportRows();
+  if(!payrollGenerated(payMonth)){ alert('Generate payroll first.'); return; }
+  const allRows=payrollReportRows(payMonth);
   if(!allRows.length){ alert('No payroll records for this month.'); return; }
-  const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(r[key]||0),0);
-  const modesPresent=[...new Set(allRows.map(r=>r.PaymentMode||'-'))].sort();
+  const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
+  const modesPresent=reportModesOf(allRows);
+  const ofMode=m=>allRows.filter(r=>(r.PaymentMode||'-')===m);
   const modeTableHTML=(title, rows)=>{
     if(!rows.length) return '';
     return `
     <div class="reportSection">
     <h3 class="unitTitle">${title} <span class="cnt">(${rows.length} employee${rows.length>1?'s':''})</span></h3>
-    <table class="repTable">
-      <colgroup>
-        <col style="width:3%"><col style="width:7%"><col style="width:14%"><col style="width:8%"><col style="width:9%"><col style="width:7%"><col style="width:7%"><col style="width:8%"><col style="width:8%"><col style="width:9%"><col style="width:4%"><col style="width:6%"><col style="width:10%">
-      </colgroup>
-      <thead><tr><th>S.No</th><th>Code</th><th>Name</th><th>Working Unit</th><th>Gross Salary</th><th>ESI</th><th>PF</th><th>Canteen</th><th>Other Ded.</th><th>Total Ded.</th><th>LOP</th><th>Days Worked</th><th>Net Pay</th></tr></thead>
-      <tbody>${modeSectionRowsHTML(rows,1)}
-        <tr class="subtotal"><td colspan="4">Sub Total — ${title}</td><td>${fmt(sumOf(rows,'Earnings'))}</td><td>${fmt(sumOf(rows,'ESI'))}</td><td>${fmt(sumOf(rows,'PF'))}</td><td>${fmt(sumOf(rows,'Canteen'))}</td><td>${fmt(sumOf(rows,'Deductions')-sumOf(rows,'ESI')-sumOf(rows,'PF')-sumOf(rows,'Canteen'))}</td><td>${fmt(sumOf(rows,'Deductions'))}</td><td></td><td></td><td class="netPayTotal">${fmt(sumOf(rows,'NetSalary'))}</td></tr>
-      </tbody>
-    </table>
+    ${payrollSectionTableHTML(payrollSectionCols({h:'Working Unit', k:'UnitCode', w:7}), rows, 'Sub Total — '+title)}
     </div>`;
   };
   const grandNet=sumOf(allRows,'NetSalary'), grandEarn=sumOf(allRows,'Earnings'), grandDed=sumOf(allRows,'Deductions');
-  const grandESI=sumOf(allRows,'ESI'), grandPF=sumOf(allRows,'PF'), grandCanteen=sumOf(allRows,'Canteen');
-  const grandOtherDed=grandDed-grandESI-grandPF-grandCanteen;
+  // Each deduction line is its own field (ESI + PF + Canteen + Late + Advance + Other = Total).
+  const dedLine=(label,key)=>`<tr><td>${label}</td>${modesPresent.map(m=>`<td>${fmt(sumOf(ofMode(m),key))}</td>`).join('')}<td>${fmt(sumOf(allRows,key))}</td></tr>`;
   const overallSummaryHTML=`
     <table class="modeTable">
-      <thead><tr><th>Mode of Payment</th>${modesPresent.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
+      <thead><tr><th>Mode of Payment</th>${modesPresent.map(m=>`<th>${reportModeLabel(m)}</th>`).join('')}<th>Total</th></tr></thead>
       <tbody>
-        <tr><td>No. of Employees</td>${modesPresent.map(m=>`<td>${allRows.filter(r=>(r.PaymentMode||'-')===m).length}</td>`).join('')}<td>${allRows.length}</td></tr>
-        <tr><td>Net Pay Amount</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'NetSalary'))}</td>`).join('')}<td>${fmt(grandNet)}</td></tr>
+        <tr><td>No. of Employees</td>${modesPresent.map(m=>`<td>${ofMode(m).length}</td>`).join('')}<td>${allRows.length}</td></tr>
+        <tr><td>Net Pay Amount</td>${modesPresent.map(m=>`<td>${fmt(sumOf(ofMode(m),'NetSalary'))}</td>`).join('')}<td>${fmt(grandNet)}</td></tr>
       </tbody>
     </table>
     <table class="modeTable">
-      <thead><tr><th>Mode of Payment</th>${modesPresent.map(m=>`<th>${m}</th>`).join('')}<th>Total</th></tr></thead>
+      <thead><tr><th>Mode of Payment</th>${modesPresent.map(m=>`<th>${reportModeLabel(m)}</th>`).join('')}<th>Total</th></tr></thead>
       <tbody>
-        <tr><td>Total Gross Salary</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'Earnings'))}</td>`).join('')}<td>${fmt(grandEarn)}</td></tr>
-        <tr><td>Total ESI Deductions</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'ESI'))}</td>`).join('')}<td>${fmt(grandESI)}</td></tr>
-        <tr><td>Total PF Deductions</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'PF'))}</td>`).join('')}<td>${fmt(grandPF)}</td></tr>
-        <tr><td>Total Canteen Deductions</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'Canteen'))}</td>`).join('')}<td>${fmt(grandCanteen)}</td></tr>
-        <tr><td>Other Deductions</td>${modesPresent.map(m=>{const rr=allRows.filter(r=>(r.PaymentMode||'-')===m);const od=sumOf(rr,'Deductions')-sumOf(rr,'ESI')-sumOf(rr,'PF')-sumOf(rr,'Canteen');return `<td>${fmt(od)}</td>`;}).join('')}<td>${fmt(grandOtherDed)}</td></tr>
-        <tr><td>Sub Total (Total Deductions)</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'Deductions'))}</td>`).join('')}<td>${fmt(grandDed)}</td></tr>
-        <tr><td>Total Net Salary Paid</td>${modesPresent.map(m=>`<td>${fmt(sumOf(allRows.filter(r=>(r.PaymentMode||'-')===m),'NetSalary'))}</td>`).join('')}<td>${fmt(grandNet)}</td></tr>
+        ${dedLine('Total Earnings','Earnings')}
+        ${dedLine('Total ESI Deductions','ESI')}
+        ${dedLine('Total PF Deductions','PF')}
+        ${dedLine('Total Canteen Deductions','Canteen')}
+        ${dedLine('Total Late Deductions','Late')}
+        ${dedLine('Total Advance Deductions','Advance')}
+        ${dedLine('Other Deductions','OtherDed')}
+        ${dedLine('Sub Total (Total Deductions)','Deductions')}
+        ${dedLine('Total Net Salary Paid','NetSalary')}
       </tbody>
     </table>`;
   const w=window.open('','_blank');
@@ -274,7 +311,7 @@ function printModeWiseReport(){
   <style>
     *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact;color-adjust:exact;}
     body{margin:0;font-family:'Segoe UI',Roboto,Arial,sans-serif;color:#1c2430;background:#fff;padding:6px;line-height:1.3;}
-    @page{size:A4 portrait;margin:14mm 10mm 16mm;}
+    @page{size:A4 landscape;margin:12mm 8mm 14mm;}
     .companyHead{position:relative;text-align:center;background:#e4f2ee;border-bottom:2px solid #0f6b5c;padding:6px 8px;margin:-6px -6px 8px;page-break-after:avoid;break-after:avoid;}
     .companyHead h1{margin:0;font-size:20px;letter-spacing:.3px;color:#0f6b5c;}
     .companyHead p{margin:1px 0;font-size:12px;color:#444;}
@@ -292,11 +329,11 @@ function printModeWiseReport(){
     table.modeTable tr:last-child td{font-weight:700;color:#0f6b5c;background:#f6faf9;}
     table.modeTable td:last-child{font-weight:700;background:#e4f2ee !important;color:#0f6b5c;}
     .noRows{font-size:11px;color:#888;padding:4px 8px;font-style:italic;}
-    table.repTable{width:100%;border-collapse:collapse;font-size:10.5px;margin-bottom:4px;table-layout:fixed;}
-    table.repTable th,table.repTable td{border:1px solid #d8d6cd;padding:3px 5px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    table.repTable{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:4px;table-layout:fixed;}
+    table.repTable th,table.repTable td{border:1px solid #d8d6cd;padding:2px 3px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     table.repTable tbody tr{page-break-inside:avoid;break-inside:avoid;}
     table.repTable td:nth-child(3){white-space:normal;word-break:break-word;}
-    table.repTable th{background:#0f6b5c;color:#fff;font-size:10.5px;font-weight:600;border-color:#0f6b5c;}
+    table.repTable th{background:#0f6b5c;color:#fff;font-size:9px;font-weight:600;border-color:#0f6b5c;white-space:normal;}
     table.repTable tbody tr:nth-child(odd){background:#f6faf9;}
     table.repTable tbody tr:nth-child(even){background:#fff;}
     table.repTable td:nth-child(1),table.repTable td:nth-child(5),table.repTable td:nth-child(6),table.repTable td:nth-child(7),table.repTable td:nth-child(8),table.repTable td:nth-child(9){text-align:center;}
@@ -330,7 +367,7 @@ function printModeWiseReport(){
   <tbody><tr><td>
   <h4 class="modeTitle">Mode of Payment Summary — All Units</h4>
   ${overallSummaryHTML}
-  ${modesPresent.map(m=>modeTableHTML(m, allRows.filter(r=>(r.PaymentMode||'-')===m))).join('')}
+  ${modesPresent.map(m=>modeTableHTML(reportModeLabel(m), ofMode(m))).join('')}
   <div class="grandTotalBox">
     <span>Total Employees: <b>${allRows.length}</b></span>
     <span>Total Earnings: <b>${fmt(grandEarn)}</b></span>

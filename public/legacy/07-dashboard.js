@@ -72,7 +72,8 @@ function renderDashboard(){
   // Trends
   const months=dashLastMonths(6);
   const headTrend=months.map(ym=>emps.filter(e=>isEmpOnRollInMonth(e,ym)).length);
-  const payTrend=months.map(ym=>Object.values(db.payroll[ym]||{}).reduce((s,r)=>s+(r.netSalary||0),0));
+  // Net pay per month from the live payroll (the same figures as the Payroll screen and slips).
+  const payTrend=months.map(ym=>(payrollMonthRecords(ym)||[]).reduce((s,r)=>s+(r.netSalary||0),0));
   const days=dashLastWorkingDays(7);
   const dayStats=days.map(d=>{
     const onRoll=emps.filter(e=>isEmpOnRollOn(e,d));
@@ -81,7 +82,7 @@ function renderDashboard(){
     return {present, absent, pct: onRoll.length ? Math.round(markedN/onRoll.length*100) : 0};
   });
   const thisMonthPay=payTrend[payTrend.length-1];
-  const lastPayMonth=[...months].reverse().find(ym=>db.payroll[ym]);
+  const lastPayMonth=[...months].reverse().find(ym=>payrollGenerated(ym));
   const payShown = thisMonthPay || (lastPayMonth ? payTrend[months.indexOf(lastPayMonth)] : 0);
   const payNote = thisMonthPay ? 'Net pay, this month' : (lastPayMonth ? 'Net pay, '+monthLabel(lastPayMonth) : 'No payroll generated yet');
 

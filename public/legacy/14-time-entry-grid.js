@@ -325,7 +325,7 @@ function teEwSelectEmp(code){
 }
 function teEwPickFromText(v){
   v=String(v||'').trim().toLowerCase(); if(!v) return;
-  const emps=teFilteredEmployees();
+  const emps=teFilteredEmployees(teEwMonth);
   const code=v.split('—')[0].trim();
   const hit=emps.find(e=>e.code.toLowerCase()===code) || emps.find(e=>`${e.code} — ${e.name}`.toLowerCase()===v)
     || emps.find(e=>e.name.toLowerCase().startsWith(v)) || emps.find(e=>(`${e.code} ${e.name}`).toLowerCase().includes(v));
@@ -333,7 +333,7 @@ function teEwPickFromText(v){
   else { const el=document.getElementById('teEwFind'); if(el){ el.classList.add('bad'); el.title='No active employee matches that.'; } }
 }
 function teEwStepEmp(dir){
-  const emps=teFilteredEmployees(); if(!emps.length) return;
+  const emps=teFilteredEmployees(teEwMonth); if(!emps.length) return;
   let i=emps.findIndex(e=>e.code===teEwEmp);
   i = i<0 ? 0 : (i+dir+emps.length)%emps.length;
   teEwSelectEmp(emps[i].code);
@@ -373,7 +373,7 @@ function printTEEmployee(){
 }
 
 function renderTEEmpWiseTab(){
-  const emps=teFilteredEmployees();
+  const emps=teFilteredEmployees(teEwMonth);
   if(teEwEmp && !emps.some(e=>e.code===teEwEmp)) teEwEmp='';
   const emp=emps.find(e=>e.code===teEwEmp);
   const canEdit=teEwCanEdit();
@@ -612,7 +612,7 @@ function renderTEHolidayTab(){
   const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   return `<div class="panel">
     <h3>${ico('calendar')} Time Entry — Holiday Booking</h3>
-    <p class="syncNote">Click any date below to select it, then use Book Holiday to confirm (with an optional occasion/remarks name). A booked date marks every In/Out entry on that date as full-day OT <b>within this Employee Time Entry module only</b>. Sundays (shaded, marked "Sun · Auto OT") already get this automatically every week. This calendar is entirely separate from the Payroll → Payroll Process Holiday Calendar and has no effect on NOWD/NOPH or salary processing.</p>
+    <p class="syncNote">Click any date below to select it, then use Book Holiday to confirm (with an optional occasion/remarks name). A booked date makes every In/Out entry on that date full-day OT (no Late), and that OT is paid in Payroll; time worked on a booked date is paid as OT only, not as a Present day. Sundays (shaded, marked "Sun · Auto OT") and Payroll NOPH holidays already work this way. This calendar does not change NOWD or NOPH — paid holidays are set in Payroll → Payroll Process → Holiday Calendar.</p>
     <div class="teCalWrap">
       <div class="teCalHead">
         <button class="btn secondary" onclick="teCalPrevMonth()">‹ Prev</button>
@@ -634,57 +634,66 @@ function renderTEHolidayTab(){
 }
 
 /* ---------------- Attendance & OT Summary (a.k.a. Monthly Working Summary) — a read-only,
-   month-level roll-up built entirely from this module's own db.timeEntries/db.timeLeaves/
-   db.timeHolidays. Purely a consolidated view for the selected month; it does not read or
-   write db.attendance/db.payroll and has no effect on salary processing. ---------------- */
+   month-level roll-up with the SAME figures payroll pays: day counts from Attendance (which
+   includes Time Entry days — getAttStatus), Paid Days, and OT / Late as used on the salary slip
+   (Time Entry totals unless typed on the Attendance screen). ---------------- */
 function teSummarySetMonth(v){ if(!v) return; teSummaryMonth=v; render('timeentry'); }
 function teSummaryPrevMonth(){ const [y,m]=teSummaryMonth.split('-').map(Number); const d=new Date(y,m-2,1); teSummaryMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
 function teSummaryNextMonth(){ const [y,m]=teSummaryMonth.split('-').map(Number); const d=new Date(y,m,1); teSummaryMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
 function teSummaryThisMonth(){ teSummaryMonth=monthKey(todayStr()); render('timeentry'); }
-// Builds one aggregated row per active employee for the given month (e.g. "2026-09"):
-// Present Days (has an In Time logged, not on leave), Leave Days, Holiday/Sunday days
-// worked, total Working / Late / OT hours across every date-entry recorded that month.
+// One row per employee on the roll in the month (narrowed by the Unit / Contractor filter), using
+// computePayrollForEmployee — so it matches the Payroll list and the salary slip.
 function teMonthSummaryRows(monthStr){
-  const emps=teFilteredEmployees();
-  const dates=Object.keys(db.timeEntries).filter(d=>d.startsWith(monthStr)).sort();
-  const stats={};
-  emps.forEach(e=>{ stats[e.code]={emp:e, presentDays:0, leaveDays:0, workingMin:0, lateMin:0, otMin:0}; });
-  dates.forEach(dt=>{
-    const rows=db.timeEntries[dt]||{};
-    Object.keys(rows).forEach(code=>{
-      if(!stats[code]) return; // skip resigned / removed employees for this summary
-      const leave=teGetLeave(dt, code);
-      if(leave && leave.type!=='Half Day'){ stats[code].leaveDays++; return; }
-      const entry=rows[code];
-      if(leave) stats[code].leaveDays++; // Half Day still counts toward Leave Days...
-      if(!entry || entry.inH==='' || entry.inH===undefined) return; // ...but needs actual time logged to count as present
-      const c=teCompute(entry, dt);
-      stats[code].presentDays++;
-      stats[code].workingMin+=c.working;
-      stats[code].lateMin+=c.late;
-      stats[code].otMin+=c.ot;
-    });
+  return teFilteredEmployees(monthStr).map(e=>{
+    const p=computePayrollForEmployee(e, monthStr);
+    const working=teMonthDays(e.code, monthStr).reduce((s,x)=>s+(x.c.working||0),0);
+    return {emp:e, presentDays:p.presentDays, halfDays:p.halfDayCount, lopDays:p.lopMarked, nophDays:p.holidayDays,
+      unmarked:p.unmarkedDays, paidDays:p.daysWorking, leaveDays:p.lopMarked+p.halfDayCount, workingMin:working,
+      otHours:p.otHours, otMin:Math.round(p.otHours*60), otAmount:p.otAmount, lateMin:p.lateMinutes,
+      lateCharged:p.lateChargedMinutes, lateDeduction:p.lateDeduction};
   });
-  return emps.map(e=>stats[e.code]).sort((a,b)=>a.emp.code.localeCompare(b.emp.code,undefined,{numeric:true}));
 }
+function teSummaryColumns(){
+  return [
+    {header:'Emp Code', key:'code', width:10}, {header:'Employee', key:'name', width:24}, {header:'Department', key:'department', width:14},
+    {header:'Present', key:'presentDays', type:'number'}, {header:'Half Day', key:'halfDays', type:'number'}, {header:'LOP', key:'lopDays', type:'number'},
+    {header:'NOPH', key:'nophDays', type:'number'}, {header:'Not Marked', key:'unmarked', type:'number'}, {header:'Paid Days', key:'paidDays', type:'number'},
+    {header:'Working Hrs (Time Entry)', key:'workingHrs', type:'number'}, {header:'OT Hrs', key:'otHours', type:'number'}, {header:'OT Amount', key:'otAmount', type:'money'},
+    {header:'Late Min', key:'lateMin', type:'number'}, {header:'Late Charged Min', key:'lateCharged', type:'number'}, {header:'Late Deduction', key:'lateDeduction', type:'money'},
+  ];
+}
+function teSummaryFlatRows(rows){
+  return rows.map(r=>({code:r.emp.code, name:r.emp.name, department:r.emp.department||'', presentDays:r.presentDays, halfDays:r.halfDays, lopDays:r.lopDays,
+    nophDays:r.nophDays, unmarked:r.unmarked, paidDays:r.paidDays, workingHrs:Math.round(r.workingMin/60*100)/100, otHours:r.otHours, otAmount:r.otAmount,
+    lateMin:r.lateMin, lateCharged:r.lateCharged, lateDeduction:r.lateDeduction}));
+}
+function teSummaryMonthName(monthStr){ const [y,m]=monthStr.split('-').map(Number); return new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
 function printTESummary(monthStr){
   const rows=teMonthSummaryRows(monthStr);
-  const monthName=new Date(Number(monthStr.split('-')[0]),Number(monthStr.split('-')[1])-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
-  const tableRows=rows.map((r,idx)=>`<tr><td>${idx+1}</td><td>${r.emp.code}</td><td style="text-align:left;">${r.emp.name}</td><td>${r.emp.department||'-'}</td>
-    <td>${r.presentDays}</td><td>${r.leaveDays}</td><td>${teFmtHM(r.lateMin)}</td><td>${teFmtHM(r.otMin)}</td></tr>`).join('');
-  const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Present Days</th><th>Leave Days</th><th>Late Hours</th><th>OT Hours</th></tr></thead><tbody>${tableRows}</tbody></table>`;
-  openPrintWindow(`Attendance & OT Summary — ${monthName}${teFilterText()?' — '+teFilterText():''}`, html);
+  const cols=teSummaryColumns(), flat=teSummaryFlatRows(rows);
+  const tot=k=>Math.round(flat.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
+  const cell=(c,v)=>c.type==='money'?fmt(v):v;
+  const html=`<table class="repTable"><thead><tr><th>Sl No</th>${cols.map(c=>`<th>${c.header}</th>`).join('')}</tr></thead><tbody>
+    ${flat.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td${c.key==='name'?' style="text-align:left;"':''}>${cell(c,r[c.key])}</td>`).join('')}</tr>`).join('')}
+    <tr class="subtotal"><td colspan="4">TOTAL</td>${cols.slice(3).map(c=>`<td>${cell(c,tot(c.key))}</td>`).join('')}</tr>
+  </tbody></table>`;
+  openPrintWindow(`Attendance & OT Summary — ${teSummaryMonthName(monthStr)}${teFilterText()?' — '+teFilterText():''}`, html, {orientation:'landscape'});
+}
+function downloadTESummaryExcel(monthStr){
+  if(!hasPerm('timeentry','export')){ alert('You do not have permission to export.'); return; }
+  const rows=teMonthSummaryRows(monthStr);
+  window.downloadExcel({ fileName:`${companyFilePrefix()}-Attendance-OT-Summary-${monthLabel(monthStr)}.xlsx`,
+    sheets:[{ name:'Attendance & OT', title:`${db.companyName||''} — Attendance & OT Summary — ${teSummaryMonthName(monthStr)}`,
+      subtitle:teFilterText()||'All units · All contractors', columns:teSummaryColumns(), rows:teSummaryFlatRows(rows), totals:true }] });
 }
 function renderTESummaryTab(){
   const rows=teMonthSummaryRows(teSummaryMonth);
-  const [y,m]=teSummaryMonth.split('-').map(Number);
-  const monthName=new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
-  const totalPresent=rows.reduce((s,r)=>s+r.presentDays,0);
-  const totalLeave=rows.reduce((s,r)=>s+r.leaveDays,0);
-  const totalOT=rows.reduce((s,r)=>s+r.otMin,0);
+  const monthName=teSummaryMonthName(teSummaryMonth);
+  const tot=k=>Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
+  const num=(v,warn)=>`<td style="padding:7px;${warn&&v>0?'color:var(--warn);font-weight:600;':''}">${v}</td>`;
   return `<div class="panel">
     <div class="panelHead">
-      <h3 style="margin:0;">${ico('chart')} Attendance &amp; OT Summary — ${monthName} <span style="font-weight:400;font-size:12px;color:var(--muted);">(consolidated from Time Entry &amp; Employee Leave)</span></h3>
+      <h3 style="margin:0;">${ico('chart')} Attendance &amp; OT Summary — ${monthName} <span style="font-weight:400;font-size:12px;color:var(--muted);">(same figures as Payroll)</span></h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('calendar-days')} Month
           <input type="month" value="${teSummaryMonth}" onchange="teSummarySetMonth(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
@@ -693,31 +702,41 @@ function renderTESummaryTab(){
         <button class="btn secondary" onclick="teSummaryNextMonth()">Next ›</button>
         <button class="btn secondary" onclick="teSummaryThisMonth()">This Month</button>
         <button class="btn secondary" onclick="printTESummary('${teSummaryMonth}')">${ico('printer')} Print</button>
+        ${hasPerm('timeentry','export')?`<button class="btn secondary" ${rows.length?'':'disabled'} onclick="downloadTESummaryExcel('${teSummaryMonth}')">${ico('file-spreadsheet')} Excel</button>`:''}
       </div>
     </div>
-    <p class="syncNote">This is a read-only, month-level roll-up of what's recorded in the Time Entry and Employee Leave tabs above — one row per active employee, with their working days, leave days, and Working / Late / OT hours totalled for the selected month. Days with an In Time count as Present (and leave as Loss of Pay / Half Day) in Attendance and Payroll, unless a different status is marked on the Attendance screen. The month's OT hours and Late minutes are used in Payroll too.</p>
+    <p class="syncNote">One row per employee on the roll in ${monthName}, with the figures Payroll uses: Present / Half Day / LOP / NOPH come from Attendance (days entered in Time Entry count there unless a different status is marked on the Attendance screen), Paid Days = Present + Half Day × 0.5 + NOPH, and OT / Late are the month's Time Entry totals unless a figure was typed on the Attendance screen. The first ${lateGraceMinutes(teSummaryMonth)} Late minutes in a month are free.</p>
     <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:18px;">
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('users')}</span></div><div class="n">${rows.length}</div><div class="l">Active Employees</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('circle-check')}</span></div><div class="n">${totalPresent}</div><div class="l">Total Present-Days</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('palm')}</span></div><div class="n">${totalLeave}</div><div class="l">Total Leave-Days</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('timer')}</span></div><div class="n">${teFmtHM(totalOT)}</div><div class="l">Total OT Hours</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('users')}</span></div><div class="n">${rows.length}</div><div class="l">Employees</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('circle-check')}</span></div><div class="n">${tot('paidDays')}</div><div class="l">Total Paid Days</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('timer')}</span></div><div class="n">${tot('otHours')}</div><div class="l">Total OT Hours</div></div>
+      <div class="stat"><div class="statTop"><span class="statIcon">${ico('alert')}</span></div><div class="n">${tot('lateMin')}</div><div class="l">Total Late Minutes</div></div>
     </div>
-    <div class="tableScrollWrap"><table style="min-width:900px;width:100%;border-collapse:collapse;font-size:13px;">
+    <div class="tableScrollWrap"><table style="min-width:1100px;width:100%;border-collapse:collapse;font-size:13px;">
       <thead><tr style="text-align:center;color:var(--muted);">
         <th style="padding:8px;">Sl No</th><th style="padding:8px;">Emp Code</th><th style="padding:8px;text-align:left;">Employee</th><th style="padding:8px;">Department</th>
-        <th style="padding:8px;">Present Days</th><th style="padding:8px;">Leave Days</th><th style="padding:8px;">Late Hours</th><th style="padding:8px;">OT Hours</th>
+        <th style="padding:8px;">Present</th><th style="padding:8px;">Half Day</th><th style="padding:8px;">LOP</th><th style="padding:8px;">NOPH</th><th style="padding:8px;" title="Working days up to today with no status — not paid">Not Marked</th><th style="padding:8px;">Paid Days</th>
+        <th style="padding:8px;">Working Hrs</th><th style="padding:8px;">OT Hrs</th><th style="padding:8px;">OT ₹</th><th style="padding:8px;">Late Min</th><th style="padding:8px;">Late Ded. ₹</th>
       </tr></thead>
       <tbody>
-      ${!rows.length?`<tr><td colspan="8" class="empty">No employees found.</td></tr>`:rows.map((r,idx)=>`<tr style="border-top:1px solid var(--line);text-align:center;">
+      ${!rows.length?`<tr><td colspan="15" class="empty">No employees on the roll this month.</td></tr>`:rows.map((r,idx)=>`<tr style="border-top:1px solid var(--line);text-align:center;">
         <td style="padding:7px;color:var(--muted);">${idx+1}</td>
         <td style="padding:7px;">${r.emp.code}</td>
-        <td style="padding:7px;text-align:left;">${r.emp.name}</td>
+        <td style="padding:7px;text-align:left;"><button type="button" class="teEmpLink" title="Open ${teEsc(r.emp.name)}'s month in Employee-wise view" onclick="teOpenEmpWise('${teEsc(r.emp.code)}','${teSummaryMonth}-01')">${teEsc(r.emp.name)}</button></td>
         <td style="padding:7px;">${r.emp.department||'-'}</td>
-        <td style="padding:7px;">${r.presentDays}</td>
-        <td style="padding:7px;">${r.leaveDays>0?`<span class="tag LossOfPay" style="padding:2px 10px;">${r.leaveDays}</span>`:'0'}</td>
-        <td style="padding:7px;${r.lateMin>0?'color:var(--warn);font-weight:600;':''}">${teFmtHM(r.lateMin)}</td>
-        <td style="padding:7px;${r.otMin>0?'color:var(--danger);font-weight:600;':''}">${teFmtHM(r.otMin)}</td>
+        ${num(r.presentDays)}${num(r.halfDays)}${num(r.lopDays,true)}${num(r.nophDays)}${num(r.unmarked,true)}
+        <td style="padding:7px;font-weight:700;">${r.paidDays}</td>
+        <td style="padding:7px;">${teFmtHM(r.workingMin)}</td>
+        <td style="padding:7px;${r.otHours>0?'color:var(--danger);font-weight:600;':''}">${r.otHours}</td>
+        <td style="padding:7px;">${fmt(r.otAmount)}</td>
+        <td style="padding:7px;${r.lateMin>0?'color:var(--warn);font-weight:600;':''}" title="${r.lateCharged} min charged after the grace">${r.lateMin}</td>
+        <td style="padding:7px;">${fmt(r.lateDeduction)}</td>
       </tr>`).join('')}
+      ${rows.length?`<tr style="border-top:2px solid var(--line);text-align:center;font-weight:700;background:var(--accent-soft);">
+        <td colspan="4" style="padding:7px;text-align:right;">Total</td>
+        <td style="padding:7px;">${tot('presentDays')}</td><td style="padding:7px;">${tot('halfDays')}</td><td style="padding:7px;">${tot('lopDays')}</td><td style="padding:7px;">${tot('nophDays')}</td><td style="padding:7px;">${tot('unmarked')}</td>
+        <td style="padding:7px;">${tot('paidDays')}</td><td style="padding:7px;">${teFmtHM(tot('workingMin'))}</td><td style="padding:7px;">${tot('otHours')}</td><td style="padding:7px;">${fmt(tot('otAmount'))}</td><td style="padding:7px;">${tot('lateMin')}</td><td style="padding:7px;">${fmt(tot('lateDeduction'))}</td>
+      </tr>`:''}
       </tbody>
     </table></div>
   </div>`;

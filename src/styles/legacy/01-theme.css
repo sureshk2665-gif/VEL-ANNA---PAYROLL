@@ -10,7 +10,6 @@
   --st-present-bg:#d7f5e3; --st-present-text:#166534; --st-present-border:#6ee7a4;
   --st-half-bg:#fdedc8;    --st-half-text:#92400e;    --st-half-border:#f5c451;
   --st-lop-bg:#fbdbdb;     --st-lop-text:#991b1b;     --st-lop-border:#f0938d;
-  --st-nopl-bg:#dbe8fd;    --st-nopl-text:#1e40af;    --st-nopl-border:#8fb4f5;
   --st-noph-bg:#ecdcf7;    --st-noph-text:#6b21a8;    --st-noph-border:#c79aeb;
   /* A neutral, non-clashing tint for Sundays / non-working-day structure,
      kept visually distinct from the LOP/red status color above. */

@@ -159,7 +159,7 @@ export async function buildTemplate(columns, ctx = {}) {
     ['S.No', 'Serial number (1, 2, 3…). Only used to point you to a row if something needs fixing.'],
     ['Required', 'Only "Full Name" is required. Fill whatever details you have — empty cells are left empty and can be completed later in the Employee form.'],
     ['Dropdowns', 'Status, Gender, Department, Designation, Employment Type, Working Unit, Contractor and Payment Mode have a dropdown in every row — click a cell and use the ▼ arrow. Departments and Designations come from the lists in the app.'],
-    ['Daily Wage', 'Enter the TOTAL daily wage (₹ per day). Basic = 60%, HRA = 40% and the 1-hour OT rate (Daily Wage ÷ 8 × 1.5) are calculated by the grey columns automatically. OT hours are not entered here — they are entered monthly in Attendance and paid by Payroll.'],
+    ['Daily Wage', 'Enter the TOTAL daily wage (₹ per day). Basic = 60%, HRA = 40% and the 1-hour OT rate (Daily Wage ÷ 8 × 1.5) are calculated by the grey columns automatically. OT hours are not entered here — they come from Employee Time Entry each month (a figure typed on the Attendance screen overrides it) and are paid by Payroll at Daily Wage ÷ 8 × 1.5.'],
     ['Grey columns', 'Employee Code, Basic / day, HRA / day and OT Rate — 1 hour are calculated automatically, exactly as in the Add Employee form. They are locked and ignored on import.'],
     ['PF / ESI', 'Not needed here: new employees start with PF and ESI deduction = Yes, and Payroll calculates the amounts. Change it later in the Employee form if someone is exempted.'],
     ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
