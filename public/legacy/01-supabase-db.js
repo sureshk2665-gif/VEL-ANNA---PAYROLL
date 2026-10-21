@@ -5,10 +5,15 @@
    which only lets signed-in staff accounts read or write. */
 const SUPABASE_URL = 'https://fhpfxpibqvreymhzhdxt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_IwJC0VtOf1WXbTJj6yCc4g_RaUbAsWH';
-// The Supabase Auth session is kept in sessionStorage, so (as before) a login lasts for this
-// browser tab only and closing the tab signs the person out.
+// The Supabase Auth session is kept in memory only — never saved in the browser — so every time
+// the site is opened (new tab, reopened browser, restored tab or page refresh) the username and
+// password must be entered again.
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { storage: window.sessionStorage, persistSession: true, autoRefreshToken: true }
+  auth: { persistSession: false, autoRefreshToken: true }
+});
+// Remove sessions saved by earlier versions, which let the site open without signing in.
+[window.sessionStorage, window.localStorage].forEach(store=>{
+  try{ Object.keys(store).filter(k=>/^sb-.*-auth-token/.test(k)).forEach(k=>store.removeItem(k)); }catch(e){}
 });
 
 /* ================= LOGIN ACCOUNTS (Supabase Auth) =================
