@@ -1,6 +1,6 @@
 /* ================= PAYROLL PROCESS (moved here from Admin) ================= */
 function renderPayrollProcess(){
-  const canEdit = hasPerm('payroll','edit');
+  const canEdit = hasPerm('payrollprocess','edit');
   const s=getSettings();
   const nowd=computeWorkingDays(payMonth);
   const totalDays=daysInMonth(payMonth);

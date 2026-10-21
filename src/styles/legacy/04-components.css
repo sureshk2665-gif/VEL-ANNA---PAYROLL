@@ -17,18 +17,6 @@
 .tableScrollWrap table{min-width:1180px;}
 @media (max-width:1180px){ .tableScrollWrap{box-shadow:inset -14px 0 10px -10px rgba(16,24,40,.10);} }
 
-/* Increment History — Previous vs Current (Revised) year colour coding */
-.incHistTable{min-width:1520px;}
-.incHistTable thead tr.groupRow th{position:sticky;top:0;z-index:2;text-align:center;font-size:11px;letter-spacing:.6px;border-bottom:2px solid var(--line);}
-.incHistTable thead tr.colRow th{position:sticky;top:33px;z-index:1;}
-.incHistTable td.prevYearCol,.incHistTable th.prevYearCol{background:#fff7e6;}
-.incHistTable td.currYearCol,.incHistTable th.currYearCol{background:#e8f7ee;}
-body.dark .incHistTable td.prevYearCol,body.dark .incHistTable th.prevYearCol{background:#3a2f14;}
-body.dark .incHistTable td.currYearCol,body.dark .incHistTable th.currYearCol{background:#123524;}
-.incHistTable th.prevYearGroup{background:#f4c95d;color:#5c4400;}
-.incHistTable th.currYearGroup{background:#4caf7d;color:#08321e;}
-.incHistTable th.deltaGroup{background:var(--accent-soft);color:var(--muted);}
-.incHistTable td.deltaCol{font-weight:700;color:var(--accent);}
 .legendSwatch{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-right:16px;}
 .legendSwatch .dot{width:11px;height:11px;border-radius:3px;display:inline-block;}
 .legendSwatch .dot.prev{background:#f4c95d;}

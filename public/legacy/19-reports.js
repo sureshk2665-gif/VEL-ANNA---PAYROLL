@@ -29,7 +29,6 @@ const REPORTS_LIST = [
   {key:'esi',        icon:'heart-pulse', title:'ESI Report (Monthly)',          desc:'Month-wise, employee-wise ESI contribution summary — Employee, Employer and Total ESI.', needsMonth:true, category:'monthly'},
   {key:'pfMonthly',  icon:'landmark', title:'PF Report (Monthly)',           desc:'Month-wise, employee-wise PF contribution summary — Employee, Employer and Total PF.', needsMonth:true, category:'monthly'},
   {key:'experience', icon:'cake', title:'Employee Experience Report',   desc:'Age and Company Experience (Years & Months) as on Financial Year end, with Department, Designation and Status filters.', needsMonth:false, needsExpFilters:true, category:'yearly'},
-  {key:'incrementHistory', icon:'trending-up', title:'Annual Increment History', desc:'Complete increment history for all employees, by Financial Year.', needsMonth:false, category:'yearly'},
   {key:'esiYearly',  icon:'heart-pulse', title:'ESI Report (Yearly)',           desc:'Yearly consolidated ESI summary — one row per employee, month-wise Total ESI plus Employee/Employer/Total ESI for the Financial Year.', needsMonth:false, needsFY:true, category:'yearly'},
   {key:'pf',         icon:'landmark', title:'PF Report (Yearly)',            desc:'Yearly consolidated PF summary — one row per employee, month-wise Total PF plus Employee/Employer/Total PF for the Financial Year.', needsMonth:false, needsFY:true, category:'yearly'},
   {key:'bonus833',   icon:'gift', title:'Bonus Report @ 8.33%',          desc:'Statutory minimum bonus on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.0833, category:'yearly'},
@@ -79,11 +78,6 @@ function renderReportDetail(key){
   else if(key==='experience'){
     const rows=experienceReportRows(expFY, expDept, expDesig, expStatus);
     if(!rows.length){ previewHtml='<div class="empty">No employees match the selected filters.</div>'; hasData=false; }
-    else previewHtml=tableFromRows(rows);
-  }
-  else if(key==='incrementHistory'){
-    const rows=incrementHistoryReportRows();
-    if(!rows.length){ previewHtml='<div class="empty">No increment records yet.</div>'; hasData=false; }
     else previewHtml=tableFromRows(rows);
   }
   else if(meta.needsDateRange){
@@ -248,7 +242,6 @@ function downloadReportPDF(key){
   if(key==='resignedEmp') return printSimpleReport('Resigned Employees Report', resignedReportRows());
   if(key==='department') return printSimpleReport('Department Report', departmentReportRows());
   if(key==='experience') return printSimpleReport('Employee Experience Report — FY '+expFY+' (as on '+fmtDate(fyEndDate(expFY))+')', experienceReportRows(expFY, expDept, expDesig, expStatus));
-  if(key==='incrementHistory') return printSimpleReport('Annual Increment History', incrementHistoryReportRows());
   if(key==='unit') return printPayrollReport('unit');
   if(key==='contractor') return printPayrollReport('contractor');
   if(key==='acquittance' || key==='acquittanceContractor') return printAcquittanceReport(key);
@@ -365,7 +358,6 @@ function downloadReportExcel(key){
   else if(key==='resignedEmp') spec=reportRowsExcelSpec('Resigned Employees Report', resignedReportRows(), {period:todayStr()});
   else if(key==='department') spec=reportRowsExcelSpec('Department Report', departmentReportRows(), {period:todayStr(), totals:true});
   else if(key==='experience') spec=reportRowsExcelSpec('Employee Experience Report', experienceReportRows(expFY, expDept, expDesig, expStatus), {period:'FY-'+expFY, sheetName:'Experience FY '+expFY, subtitle:'FY '+expFY+' (as on '+fmtDate(fyEndDate(expFY))+')'});
-  else if(key==='incrementHistory') spec=reportRowsExcelSpec('Annual Increment History', incrementHistoryReportRows(), {period:todayStr()});
   if(!spec){ alert('No data to export.'); return; }
   return window.downloadExcel(spec);
 }

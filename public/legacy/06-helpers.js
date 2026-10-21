@@ -9,6 +9,12 @@ function daysInMonth(ym){ const [y,m]=ym.split('-').map(Number); return new Date
 /* Display helper: converts a YYYY-MM-DD (or Date object) value into DD-MM-YYYY for
    on-screen/printed display. Underlying stored values stay in YYYY-MM-DD (ISO) since
    that's what <input type="date"> and all date comparisons/sorting need. */
+// Financial Year runs April -> March. Returns a label like "2026-2027".
+function financialYearOf(dateStr){
+  if(!dateStr) return '';
+  const [y,m]=dateStr.split('-').map(Number);
+  return (m>=4) ? (y+'-'+(y+1)) : ((y-1)+'-'+y);
+}
 function fmtDate(d){
   if(!d) return '';
   let y,mo,da;

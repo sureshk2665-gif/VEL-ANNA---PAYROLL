@@ -1,6 +1,6 @@
 import {
   Calculator, CalendarDays, DoorOpen, Folder, Landmark, LayoutDashboard, Receipt, Settings, ShieldCheck,
-  Tag, Timer, TrendingUp, Users, Wallet,
+  Tag, Timer, Users, Wallet,
 } from 'lucide-react';
 
 // Sidebar menu. `page` must match the keys handled by render() in public/legacy/05-navigation.js
@@ -17,7 +17,6 @@ export const NAV_ITEMS = [
   { section: 'Payroll' },
   { page: 'payroll', icon: Wallet, label: 'Payroll' },
   { page: 'payrollprocess', icon: Calculator, label: 'Payroll Process' },
-  { page: 'increment', icon: TrendingUp, label: 'Annual Increment' },
   { page: 'salaryadvance', icon: Landmark, label: 'Salary Advance' },
   { page: 'contractorbill', icon: Receipt, label: 'Contractors Bill' },
   { page: 'reports', icon: Folder, label: 'Reports' },
