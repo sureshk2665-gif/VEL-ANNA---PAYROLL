@@ -71,8 +71,9 @@ function lateDeductionFor(e, ym, dailyWage){
 }
 
 /* ---- Daily wage in force on a date ----
-   Annual increments (recorded per day on the Increment screen) and daily-wage changes made on the
-   Employee form (e.wageHistory) each say "from <date> the wage went from X to Y". A date before the
+   Daily-wage changes made on the Employee form (e.wageHistory), plus any per-day increments
+   recorded before the Annual Increment screen was removed (db.increments), each say "from <date>
+   the wage went from X to Y". A date before the
    first change uses that change's previous wage; a date on/after the latest change uses the
    employee's current wage; a date in between uses the wage set by the latest change on or before
    it. With no recorded changes every month uses the current wage. This keeps past months at the

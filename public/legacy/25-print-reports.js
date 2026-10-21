@@ -1,8 +1,7 @@
 // Report columns printed as money (₹) — an explicit list, so day/hour counts are never formatted
 // as rupees and every money column is (not just the ones whose key happens to contain "Salary").
 const REPORT_MONEY_KEYS=['Gross','Earnings','ESI','PF','Canteen','Late','Advance','OtherDed','Deductions','NetSalary',
-  'OTAmount','LateAmount','CanteenAmount','AdvanceAmount','DailyWage','IncrementAmount',
-  'PrevBasic','PrevHRA','PrevConveyance','PrevWashing','RevisedBasic','RevisedHRA','RevisedConveyance','RevisedWashing','RevisedGross'];
+  'OTAmount','LateAmount','CanteenAmount','AdvanceAmount','DailyWage'];
 // Columns that are never summed in a totals row (rates / per-month constants).
 const REPORT_NO_TOTAL_KEYS=['NOWD','DailyWage'];
 // Printed headers for the report row keys (anything not listed prints as its key).

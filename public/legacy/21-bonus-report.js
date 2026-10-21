@@ -118,15 +118,6 @@ function resignedReportRows(){
   return db.employees.filter(e=>e.status==='Resigned').map(e=>({Code:e.code,Name:e.name,Department:e.department||'-',Designation:e.designation||'-',JoiningDate:e.joining?fmtDate(e.joining):'-',ResignationDate:e.resignationDate?fmtDate(e.resignationDate):'-',Reason:e.resignReason||'-'}));
 }
 // unitLabel() / unitAddress() live in public/legacy/06b-units.js.
-function incrementHistoryReportRows(){
-  return db.increments.slice().sort((a,b)=> (b.effectiveDate||'').localeCompare(a.effectiveDate||'')).map(r=>({
-    FinancialYear:r.financialYear, Code:r.empCode, Name:r.empName, EffectiveDate:fmtDate(r.effectiveDate),
-    PrevBasic:r.prevBasic, PrevHRA:r.prevHra, PrevConveyance:r.prevConveyance, PrevWashing:r.prevWashing,
-    IncrementAmount:r.incrementAmount,
-    RevisedBasic:r.revisedBasic, RevisedHRA:r.revisedHra, RevisedConveyance:r.revisedConveyance, RevisedWashing:r.revisedWashing, RevisedGross:r.revisedGross,
-    Remarks:r.remarks||'-'
-  }));
-}
 function departmentReportRows(){
   return db.departments.map(d=>({Department:d,Employees:db.employees.filter(e=>e.department===d && e.status!=='Resigned').length}));
 }

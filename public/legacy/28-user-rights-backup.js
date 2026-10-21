@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ dbReady.then(startAutoBackup
 // otherwise the listener above handles it (prevents the watcher from starting twice).
 if(document.readyState==='complete') dbReady.then(startAutoBackupWatcher);
 function savePayrollConstants(){
-  if(!hasPerm('payroll','edit')){ alert('You do not have permission to edit payroll constants.'); return; }
+  if(!hasPerm('payrollprocess','edit')){ alert('You do not have permission to edit payroll constants.'); return; }
   const s=getSettings();
   // A blank box keeps the default; 0 is a valid rate (it used to snap back to the default).
   const rate=(id,def)=>{ const v=String(document.getElementById(id).value).trim(); return v===''||isNaN(+v) ? def : Math.max(0, +v); };

@@ -83,6 +83,7 @@ function computeWorkingDays(ym){ return daysInMonth(ym) - sundaysInMonth(ym) - h
 function weekdayShort(ym, day){ const [y,m]=ym.split('-').map(Number); return ['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(y,m-1,day).getDay()]; }
 function isSunday(ym, day){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,day).getDay()===0; }
 function addHolidayDate(dateVal){
+  if(!hasPerm('payrollprocess','edit')){ alert('You do not have permission to edit the Holiday Calendar.'); return; }
   if(!dateVal) return;
   if(!db.holidays) db.holidays=[];
   const existing=db.holidays.find(h=>h.date===dateVal);
@@ -92,6 +93,7 @@ function addHolidayDate(dateVal){
   render('payrollprocess');
 }
 function removeHolidayDate(dateVal){
+  if(!hasPerm('payrollprocess','edit')){ alert('You do not have permission to edit the Holiday Calendar.'); return; }
   if(!db.holidays) return;
   db.holidays = db.holidays.filter(h=>h.date!==dateVal);
   saveDB(db);

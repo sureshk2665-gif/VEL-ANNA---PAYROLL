@@ -8,7 +8,7 @@ const PERMISSION_MODULES=[
   {key:'attendance',label:'Attendance'},
   {key:'timeentry',label:'Employee Time Entry'},
   {key:'payroll',label:'Payroll'},
-  {key:'increment',label:'Annual Increment'},
+  {key:'payrollprocess',label:'Payroll Process'},
   {key:'salaryadvance',label:'Salary Advance'},
   {key:'contractorbill',label:'Contractors Bill'},
   {key:'reports',label:'Reports'},
@@ -47,6 +47,10 @@ function defaultPermsForRole(role){
 function ensureUserPermissions(u){
   if(u.role==='Admin' || u.role==='Software Admin'){ u.permissions=defaultPermsForRole(u.role); return u.permissions; }
   if(!u.permissions || typeof u.permissions!=='object') u.permissions=defaultPermsForRole(u.role||'Viewer');
+  // Payroll Process used to share the Payroll rights — start it from them so nobody gains or
+  // loses access. Annual Increment has been removed from the site.
+  if(!u.permissions.payrollprocess && u.permissions.payroll) u.permissions.payrollprocess={...u.permissions.payroll};
+  delete u.permissions.increment;
   PERMISSION_MODULES.forEach(m=>{
     // Missing module entirely (e.g. this user's saved permissions pre-date a newly added
     // module such as Employee Time Entry) → backfill with that role's sensible defaults
@@ -93,7 +97,7 @@ function actorCanManageUsers(){ return !!currentUser && (currentUser.role==='Sof
 // Which page a Software Admin vs. an Admin should land back on after a user-management action.
 function userAdminRedirectPage(){ return (currentUser && currentUser.role==='Software Admin') ? 'softwareadmin' : 'settings'; }
 // Convenience: does the user have ANY access at all to a module (used to show/hide nav + gate render()).
-function canOpenModule(moduleKey){ return hasPerm(moduleKey==='payrollprocess'?'payroll':moduleKey,'view'); }
+function canOpenModule(moduleKey){ return hasPerm(moduleKey,'view'); }
 function denyMsg(action,moduleLabel){
   return `<div class="panel"><h3>${ico('shield-x')} Access Denied</h3><p style="color:var(--muted);">You do not have permission to ${action} in the <b>${moduleLabel}</b> module. Please contact your Administrator if you believe this is a mistake.</p></div>`;
 }
