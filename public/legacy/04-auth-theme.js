@@ -172,8 +172,8 @@ window.addEventListener('DOMContentLoaded',()=>{
     let session=null;
     try{ ({ data:{ session } } = await sb.auth.getSession()); }catch(e){ session=null; }
     if(session && session.user){
-      // A Supabase session already exists in this browser tab (page reload) — reopen the app
-      // without asking for the password again.
+      // Sessions are not saved in the browser (01-supabase-db.js), so this only happens if the
+      // auth client already holds one in memory.
       const ok=await startSession(session.user, false);
       if(!ok) document.getElementById('loginScreen').style.display='flex';
       return;
