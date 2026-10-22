@@ -70,7 +70,7 @@ function cbContractorRows(ym){
     const days=emps.reduce((s,x)=>s+x.days,0);
     const net=Math.round(emps.reduce((s,x)=>s+x.net,0)*100)/100;
     const commission=Math.round(days*rate*100)/100;
-    return {c, emps, empCount:emps.length, days, rate, ownRate:cbStoredRate(ym, c.code)!==undefined, commission, net, total:Math.round((net+commission)*100)/100};
+    return {c, emps, empCount:emps.length, days, rate, commission, net, total:Math.round((net+commission)*100)/100};
   });
 }
 
@@ -84,7 +84,7 @@ function renderContractorBill(){
   const cols=company?8:6;
   // Rate / Day: a box per contractor while the month can still be set, else the fixed rate.
   const rateCell=r=>editable
-    ? `₹ <input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" onkeydown="if(event.key==='Enter')cbSaveRates()" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}"><span class="cbRateNote">${r.ownRate?'set':'from last month'}</span>`
+    ? `₹ <input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" onkeydown="if(event.key==='Enter')cbSaveRates()" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}">`
     : `<b>₹${r.rate}</b>`;
   // A contractor row (click to show / hide its employees) and, when open, its employee list.
   const contractorRow=r=>{
