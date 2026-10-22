@@ -4,14 +4,13 @@
      every employee that contractor supplied. Half Days, holidays (NOPH) and absent days don't count.
    - Company Payable: what MF pays the contractor for the month = the Net Pay of the employees it
      supplied + that service charge.
-   Each contractor has its own rate (₹30 per present day to start), fixed per month from the 1st:
+   Each contractor has its own rate (₹30 per present day to start), set per month from the 1st:
    db.contractorRates[ym] = {contractorCode: rate}. A month without a contractor's rate uses that
    contractor's latest earlier rate, so a new month starts from last month's rates. Only Admin /
-   Software Admin can set rates, and only for the current or a future month — a month that has
-   ended keeps the rates it was paid at. (Older data stored one number per month for every
-   contractor; that still reads as that month's rate for all of them.) Salary and present days are
-   the live payroll figures (computePayrollForEmployee), so they always match the Payroll screen
-   and the salary slips. */
+   Software Admin can change rates, for any month, at any time. (Older data stored one number per
+   month for every contractor; that still reads as that month's rate for all of them.) Salary and
+   present days are the live payroll figures (computePayrollForEmployee), so they always match the
+   Payroll screen and the salary slips. */
 let cbTab='commission';               // 'commission' | 'company'
 let cbMonth=monthKey(todayStr());
 let cbOpen={};                        // contractor code -> true when its employee list is expanded
@@ -32,13 +31,10 @@ function cbRateFor(ym, code){
   for(const k of earlier){ const v=cbStoredRate(k, code); if(v!==undefined) return v; }
   return CB_DEFAULT_RATE;
 }
-// Rates can be set for the current month (from the 1st) and later; a finished month is fixed.
-function cbMonthLocked(ym){ return ym < monthKey(todayStr()); }
 function cbEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function cbCanEditRate(){ return !!currentUser && (currentUser.role==='Admin' || currentUser.role==='Software Admin'); }
 function cbSaveRates(){
   if(!cbCanEditRate()){ alert('Only an Admin can change the service charge.'); return; }
-  if(cbMonthLocked(cbMonth)){ alert(`${monthLabel(cbMonth)} has ended — its service charge is fixed.`); return; }
   const next={};
   for(const c of getContractors()){
     const el=document.getElementById('cb_rate_'+c.code);
@@ -81,7 +77,7 @@ function cbContractorRows(ym){
 function renderContractorBill(){
   const rows=cbContractorRows(cbMonth);
   const generated=payrollGenerated(cbMonth);
-  const editable=cbCanEditRate() && !cbMonthLocked(cbMonth);
+  const editable=cbCanEditRate();
   const sum=k=>Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
   const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
   const company=cbTab==='company';
@@ -109,12 +105,12 @@ function renderContractorBill(){
     ${rows.length?`<tr class="cbTotal"><td></td><td style="text-align:left;">Total — all contractors</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td></td>${company?`<td>${fmt(sum('net'))}</td>`:''}<td>${fmt(sum('commission'))}</td>${company?`<td>${fmt(sum('total'))}</td>`:''}</tr>`:''}
     </tbody></table></div>`;
   const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);
-  // Fixed / editable status of this month's rates, with the one Save for every contractor's box.
+  // Who can change this month's rates, with the one Save for every contractor's box.
   const rateBar=`<div class="cbRateBox">
     <span>${ico('tag')} Service charge per present day — ${monthLabel(cbMonth)} (from the 1st):</span>
     ${editable
       ? `<span class="cbRateNote">Enter each contractor's rate in the table, then</span> <button class="btn tiny" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button>`
-      : `<span class="cbRateNote">${cbMonthLocked(cbMonth)?`${ico('lock')} Fixed — ${monthLabel(cbMonth)} has ended`:'Only an Admin can change the rates'}</span>`}
+      : `<span class="cbRateNote">Only an Admin can change the rates</span>`}
   </div>`;
   return `
   <div class="panel">
@@ -139,7 +135,7 @@ function renderContractorBill(){
     <p class="syncNote">${cbTab==='company'
       ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge. ${generated?'':`<b>Payroll for ${monthLabel(cbMonth)} is not generated yet</b> — salary shown is worked out from the current attendance and Time Entry.`}`
       : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
-      ${cbCanEditRate()?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed, and a month that has ended cannot be changed.':''}</p>
+      ${cbCanEditRate()?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''}</p>
   </div>`;
 }
 
