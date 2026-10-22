@@ -11,6 +11,13 @@ function slipHeadingHtml(e, logoSize, h2Style){
   if(c) return `<h2${h2Style?` style="${h2Style}"`:''}>${c.replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]))}</h2>`;
   return `${companyLogoImgHtml(logoSize)}<h2${h2Style?` style="${h2Style}"`:''}>${db.companyName||'YOUR COMPANY PVT LTD'}</h2>`;
 }
+// Address under the slip heading: the contractor's address (Software Admin → Contractors) for a
+// contractor's employee, else the working unit's address. Read live, so an edit shows on every slip.
+function slipAddressHtml(e){
+  const c=getContractors().find(x=>x.code===(e && e.contractor));
+  const a=(c && String(c.address||'').trim()) || unitAddress(e && e.unit);
+  return String(a).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+}
 // Small notes under the slip table: days not marked in Attendance, and a wage change during the month.
 function slipNotesHtml(r){
   const notes=[];
@@ -30,7 +37,7 @@ function openSlip(code, ym){
   <div class="slip" id="slipPrintArea">
     <div style="text-align:center;border-bottom:1px solid #1c2430;padding-bottom:8px;margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:center;gap:10px;">${slipHeadingHtml(e, 36, 'margin:0;font-size:24px;')}</div>
-      <p style="margin:2px 0;font-size:17px;">${unitAddress(e.unit)}</p>
+      <p class="slipAddr" style="margin:2px 0;font-size:17px;">${slipAddressHtml(e)}</p>
     </div>
     <p style="margin:4px 0;font-weight:600;font-size:19px;white-space:normal;overflow:visible;line-height:1.4;">EMP.CODE ${e.code} &nbsp;|&nbsp; ${e.name} &nbsp;|&nbsp; <span style="font-weight:400;">${e.designation||'-'}</span> &nbsp;|&nbsp; <span style="font-weight:400;font-size:14px;">${unitLabel(e.unit)}</span></p>
     <table style="font-size:17px;margin-bottom:8px;">
@@ -88,7 +95,7 @@ function slipCardHTML(e, r, ym){
   <div class="slipCard">
     <div class="slipHead">
       <div style="display:flex;align-items:center;justify-content:center;gap:8px;">${slipHeadingHtml(e, 22)}</div>
-      <p>${unitAddress(e.unit)}</p>
+      <p class="slipAddr">${slipAddressHtml(e)}</p>
       <p class="slipTitle">Salary Slip — ${monthLabel(ym)}</p>
     </div>
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}</div>
