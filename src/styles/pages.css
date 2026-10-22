@@ -193,5 +193,4 @@ table.cbTable.cbInner{margin-top:0;background:var(--card);font-size:12.5px;}
 .cbRateBox input{width:90px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;}
 table.cbTable td.cbRateCell{white-space:nowrap;cursor:default;}
 table.cbTable td.cbRateCell input{width:72px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;text-align:right;}
-table.cbTable td.cbRateCell .cbRateNote{display:block;margin-top:2px;}
 table.cbTable tr.cbTotal td{font-weight:700;background:var(--accent-soft);border-top:2px solid var(--line);}
