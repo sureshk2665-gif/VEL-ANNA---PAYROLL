@@ -160,7 +160,6 @@ function renderReportDetail(key){
           <select onchange="acqContractor=this.value;render('reports')">
             <option value="All" ${acqContractor==='All'?'selected':''}>All Contractors (each on its own pages)</option>
             ${getContractors().map(c=>`<option value="${c.code}" ${acqContractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-            <option value="-" ${acqContractor==='-'?'selected':''}>Non Contractor</option>
           </select>
         </label>
         <label style="font-size:12px;color:var(--muted);">Working Unit
@@ -263,7 +262,7 @@ function downloadReportPDF(key){
 function attRegFilterText(){
   const parts=[];
   if(attRegUnit && attRegUnit!=='All') parts.push(unitLabel(attRegUnit));
-  if(attRegContractor) parts.push(attRegContractor==='-' ? 'Non Contractor' : (contractorName(attRegContractor)||attRegContractor));
+  if(attRegContractor) parts.push(attRegContractor==='-' ? 'Contractor not set' : (contractorName(attRegContractor)||attRegContractor));
   return parts.join(' · ');
 }
 // Payroll records of a month for the employees matching a unit ('All' or a code) and contractor
@@ -278,7 +277,7 @@ function attendanceRegisterRows(ym){
   const n=v=>Number(v)||0;
   return payrollRecordsFiltered(ym, attRegUnit, attRegContractor).map(r=>{
     const e=db.employees.find(x=>x.code===r.code);
-    return {Code:r.code, Name:(e&&e.name)||r.name||'-', Unit:unitLabel(e?e.unit:r.unit), Contractor:contractorName(e?(e.contractor||''):(r.contractor||''))||'Non Contractor',
+    return {Code:r.code, Name:(e&&e.name)||r.name||'-', Unit:unitLabel(e?e.unit:r.unit), Contractor:contractorName(e?(e.contractor||''):(r.contractor||''))||'-',
       NOWD:n(r.nowd), Present:n(r.presentDays), HalfDay:n(r.halfDayCount), LOP:n(r.lopDays), NOPH:n(r.holidayDays), NotMarked:n(r.unmarkedDays), PaidDays:n(r.daysWorking),
       OTHrs:n(r.otHours), OTAmount:n(r.otAmount), LateMin:n(r.lateMinutes), LateChargedMin:n(r.lateChargedMinutes), LateAmount:n(r.lateDeduction),
       CanteenTokens:n(r.canteenTokens), CanteenAmount:n(r.canteen), AdvanceAmount:n(r.advance)};
@@ -319,7 +318,7 @@ function payrollReportExcelSpec(key){
     label='Contractor-wise-Payroll';
     getContractors().forEach(c=>{ const list=rows.filter(r=>contractorFilterMatches(empOf(r), c.code)); if(list.length) sheets.push(sheet(c.name||c.code, list, 'Contractor: '+(c.name||c.code))); });
     const none=rows.filter(r=>!getContractors().some(c=>c.code===(empOf(r).contractor||'')));
-    if(none.length) sheets.push(sheet('Non Contractor', none, 'Non Contractor'));
+    if(none.length) sheets.push(sheet('Contractor not set', none, 'Contractor not set'));
   } else if(key==='mode'){
     label='Mode-wise-Payroll';
     const modeOf=r=>r.mode||'-';

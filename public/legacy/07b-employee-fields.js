@@ -72,7 +72,7 @@ function employeeFields(){
       formValue:e=>unitCodeOf(e.unit), width:16},
     // Who supplied the employee — independent of the unit (see 06c-contractors.js).
     {key:'contractor', label:'Contractor', section:'basic', input:'select',
-      options:()=>[{value:'', label:'Non Contractor'}, ...getContractors().map(c=>({value:c.code, label:c.name||c.code, aliases:[c.code]}))],
+      options:()=>[{value:'', label:'— Select —'}, ...getContractors().map(c=>({value:c.code, label:c.name||c.code, aliases:[c.code]}))],
       formValue:e=>e.contractor||'', width:22},
     // ---- Bank & Statutory Details ----
     {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},
@@ -199,11 +199,10 @@ function employeeSheetFields(){
     blankDefault:!!f.blankDefault, width:f.width||14, formula:f.sheetFormula||'',
     defaultValue:f.sheetDefault,
     // Every dropdown (except those with a default, like Status) ends with a "None" choice that
-    // leaves the field empty — the Contractor dropdown calls it "Non Contractor". An empty cell
-    // means the same.
+    // leaves the field empty. An empty cell means the same.
     options: f.input==='select'
       ? employeeFieldOptions(f).filter(o=>o.value!=='' && (!f.sheetOptions || f.sheetOptions.includes(o.value))).map(o=>({value:o.value, label:String(o.label), aliases:o.aliases||[]}))
-          .concat(f.blankDefault ? [] : [f.key==='contractor' ? {value:'', label:'Non Contractor', aliases:['None']} : {value:'', label:'None', aliases:[]}])
+          .concat(f.blankDefault ? [] : [{value:'', label:'None', aliases:f.key==='contractor' ? ['Non Contractor'] : []}])
       : undefined
   }));
 }

@@ -196,7 +196,7 @@ function teCodeInFilter(code){
   return teEmpMatchesFilter((db.employees||[]).find(e=>e.code===code));
 }
 function teFilterText(){
-  return [teUnitFilter?unitLabel(teUnitFilter):'', teContractorFilter?(teContractorFilter==='-'?'Non Contractor':contractorName(teContractorFilter)):''].filter(Boolean).join(' · ');
+  return [teUnitFilter?unitLabel(teUnitFilter):'', teContractorFilter?(teContractorFilter==='-'?'Contractor not set':contractorName(teContractorFilter)):''].filter(Boolean).join(' · ');
 }
 function teSetUnitFilter(v){ teUnitFilter=v||''; teDwSel.clear(); render('timeentry'); }
 function teSetContractorFilter(v){ teContractorFilter=v||''; teDwSel.clear(); render('timeentry'); }
