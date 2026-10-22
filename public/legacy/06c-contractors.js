@@ -40,12 +40,10 @@ function contractorFilterMatches(e, filter){
   if(!filter) return true;
   return (e && e.contractor || '') === (filter==='-' ? '' : filter);
 }
-// <option>s for a contractor filter <select>: All Contractors, each contractor, and "Non Contractor"
-// (employees the company employs directly — no contractor).
+// <option>s for a contractor filter <select>: All Contractors and each contractor.
 function contractorFilterOptionsHtml(selected){
   return `<option value="" ${!selected?'selected':''}>All Contractors</option>`
-    + getContractors().map(c=>`<option value="${c.code}" ${selected===c.code?'selected':''}>${c.name||c.code}</option>`).join('')
-    + `<option value="-" ${selected==='-'?'selected':''}>Non Contractor</option>`;
+    + getContractors().map(c=>`<option value="${c.code}" ${selected===c.code?'selected':''}>${c.name||c.code}</option>`).join('');
 }
 // How many employees (any status — active, inactive or resigned) a contractor has supplied.
 function contractorEmployeeCount(code){

@@ -112,7 +112,7 @@ function bonusExcelSpec(){
 function employeeReportRows(){
   // Active Employee Report: resigned employees are tracked separately in the
   // Resigned Employees module and its own report, not mixed in here.
-  return db.employees.filter(e=>e.status!=='Resigned').map(e=>({Code:e.code,Name:e.name,Department:e.department||'-',Designation:e.designation||'-',WorkingUnit:unitLabel(e.unit),Contractor:contractorName(e)||'Non Contractor',Status:e.status,Mobile:e.mobile||'-',DailyWage:calcGross(e)}));
+  return db.employees.filter(e=>e.status!=='Resigned').map(e=>({Code:e.code,Name:e.name,Department:e.department||'-',Designation:e.designation||'-',WorkingUnit:unitLabel(e.unit),Contractor:contractorName(e)||'-',Status:e.status,Mobile:e.mobile||'-',DailyWage:calcGross(e)}));
 }
 function resignedReportRows(){
   return db.employees.filter(e=>e.status==='Resigned').map(e=>({Code:e.code,Name:e.name,Department:e.department||'-',Designation:e.designation||'-',JoiningDate:e.joining?fmtDate(e.joining):'-',ResignationDate:e.resignationDate?fmtDate(e.resignationDate):'-',Reason:e.resignReason||'-'}));

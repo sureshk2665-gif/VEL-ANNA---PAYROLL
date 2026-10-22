@@ -160,7 +160,7 @@ function renderPaySlipDialog(focusId){
   const printing = psEmp ? list.filter(e=>e.code===psEmp) : list;
   const n=printing.length;
   const esc=v=>String(v==null?'':v).replace(/[&<>"]/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
-  const sel=[psUnit?unitLabel(psUnit):'All units', psContractor?(psContractor==='-'?'Non Contractor':contractorName(psContractor)):'All contractors'].join(' · ');
+  const sel=[psUnit?unitLabel(psUnit):'All units', psContractor?(psContractor==='-'?'Contractor not set':contractorName(psContractor)):'All contractors'].join(' · ');
   const canGen=hasPerm('payroll','add')||hasPerm('payroll','edit');
   document.getElementById('modalContent').innerHTML=`
     <h3>${ico('printer')} Print Pay Slips</h3>
@@ -212,7 +212,7 @@ function printAllSlips(unit, contractor, ym, empCode){
     return (!unit || unitCodeOf(e && e.unit) === unit) && contractorFilterMatches(e, contractor) && (!empCode || r.code===empCode);
   }).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
   const one = empCode && db.employees.find(x=>x.code===empCode);
-  const sel = [unit?unitLabel(unit):'', contractor?(contractor==='-'?'Non Contractor':contractorName(contractor)):'', one?`${one.code} ${one.name}`:''].filter(Boolean).join(' · ');
+  const sel = [unit?unitLabel(unit):'', contractor?(contractor==='-'?'Contractor not set':contractorName(contractor)):'', one?`${one.code} ${one.name}`:''].filter(Boolean).join(' · ');
   const unitTitle = sel ? ` — ${sel}` : '';
   if(!records.length){ alert(sel ? `No payroll records to print for ${sel}.` : 'No payroll records to print.'); return; }
   const perPage = 2;

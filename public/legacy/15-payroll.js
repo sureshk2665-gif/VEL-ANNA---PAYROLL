@@ -13,7 +13,7 @@ function payrollRowsOnScreen(){
   return all ? all.filter(r=>payrollFilterMatches(r.code)) : null;
 }
 function payrollSelText(){
-  return [payUnitFilter?unitLabel(payUnitFilter):'', payContractorFilter?(payContractorFilter==='-'?'Non Contractor':contractorName(payContractorFilter)):''].filter(Boolean).join(' · ');
+  return [payUnitFilter?unitLabel(payUnitFilter):'', payContractorFilter?(payContractorFilter==='-'?'Contractor not set':contractorName(payContractorFilter)):''].filter(Boolean).join(' · ');
 }
 function renderPayroll(){
   const generated = payrollGenerated(payMonth);

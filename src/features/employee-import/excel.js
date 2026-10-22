@@ -166,7 +166,7 @@ export async function buildTemplate(columns, ctx = {}) {
     ['PF / ESI', 'Not needed here: new employees start with PF and ESI deduction = Yes, and Payroll calculates the amounts. Change it later in the Employee form if someone is exempted.'],
     ['New employees', 'This sheet is for adding new employees, so Status is always Active. Resignations are recorded later from the Employees page.'],
     ['Dates', 'Date of Birth and Joining Date: DD-MM-YYYY (e.g. 25-04-2024). Selecting a cell in those columns shows the format.'],
-    ['None', 'Every dropdown except Status has a "None" choice (Contractor: "Non Contractor") that leaves the field empty — the same as leaving the cell blank.'],
+    ['None', 'Every dropdown except Status has a "None" choice that leaves the field empty — the same as leaving the cell blank.'],
     ['Highlighting', 'You can colour cells (Home → Fill Color) to mark rows while editing; colours are ignored on import.'],
     ['Copying down', 'Dragging a dropdown value (e.g. Unit-1) down copies the same value. To copy the SAME date down, hold Ctrl while dragging — otherwise Excel counts the dates up.'],
     ['Amounts', 'Numbers only. Canteen Tokens = tokens bought per month.'],
