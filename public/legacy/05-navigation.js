@@ -39,7 +39,7 @@ function render(page){
   if(page==='contractorbill') body.innerHTML=renderContractorBill();
   if(page==='reports') body.innerHTML=renderReports();
   if(page==='settings') body.innerHTML=renderSettings();
-  if(page==='softwareadmin') body.innerHTML=isSoftwareAdmin() ? renderSoftwareAdmin() : denyMsg('view this page','Software Admin');
+  if(page==='softwareadmin') body.innerHTML=isSoftwareAdmin() ? renderSoftwareAdmin() : denyMsg('view this page','System');
   // Animate only when the page changes — render() also runs on every filter keystroke.
   if(page!==lastRenderedPage) animatePageEnter(body);
   lastRenderedPage=page;

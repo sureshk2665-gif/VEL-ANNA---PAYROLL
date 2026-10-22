@@ -122,7 +122,7 @@ function nextEmpCode(){
    (src/features/employee-import/BulkImportDialog.jsx); it is opened with the
    'vipl:open-bulk-import' event and uses the two functions below. */
 function openBulkImport(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can bulk import employees.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to bulk import employees.'); return; }
   closeModal();
   window.dispatchEvent(new CustomEvent('vipl:open-bulk-import'));
 }
@@ -142,7 +142,7 @@ function employeeImportContext(){
 // Adds already-validated NEW employees (fields as produced by the import) exactly like saving the
 // Add Employee form once per employee, but with a single save at the end.
 async function importEmployees(list){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can bulk import employees.'); return null; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to bulk import employees.'); return null; }
   if(!Array.isArray(list) || !list.length) return null;
   const codes=[];
   const now=new Date().toISOString();

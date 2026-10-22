@@ -17,7 +17,7 @@ function renderSettings(){
   </div>
   ${isAdmin() ? `
   <div class="panel"><h3>${ico('download')} Backup</h3>
-    <p style="font-size:13px;color:var(--muted);">Download a full backup of the ERP database. This is an additional right granted to the Admin account — Restore Data and Reset All Data remain exclusive to Software Admin.</p>
+    <p style="font-size:13px;color:var(--muted);">Download a full backup of the ERP database. Keep the downloaded file somewhere safe.</p>
     <div class="modalActions" style="justify-content:flex-start;">
       <button class="btn" onclick="backupData()">${ico('download')} Backup Data (Download)</button>
     </div>

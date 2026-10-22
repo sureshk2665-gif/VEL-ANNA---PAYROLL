@@ -58,7 +58,7 @@ async function rejectSession(message){
 // session restored on page reload. Loads the data, matches the ERP user profile and opens the app.
 async function startSession(authUser, isNewLogin){
   const meta=(authUser && authUser.app_metadata) || {};
-  if(!meta.role) return rejectSession('This account is not set up for this payroll system. Contact your Software Admin.');
+  if(!meta.role) return rejectSession('This account is not set up for this payroll system. Contact your administrator.');
   try{
     await initDB();
   }catch(e){

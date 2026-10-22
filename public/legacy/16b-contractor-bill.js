@@ -101,7 +101,7 @@ function renderContractorBill(){
   };
   const mainTable=`<div class="tableScrollWrap"><table class="cbTable">
     <thead><tr><th style="width:28px;"></th><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Rate / Day</th>${company?'<th>Salary (Net Pay)</th>':''}<th>Service Charge</th>${company?'<th>Total Payable</th>':''}</tr></thead>
-    <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="${cols}" class="empty">No contractors. Add them in Software Admin → Contractors.</td></tr>`}
+    <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="${cols}" class="empty">No contractors yet.</td></tr>`}
     ${rows.length?`<tr class="cbTotal"><td></td><td style="text-align:left;">Total — all contractors</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td></td>${company?`<td>${fmt(sum('net'))}</td>`:''}<td>${fmt(sum('commission'))}</td>${company?`<td>${fmt(sum('total'))}</td>`:''}</tr>`:''}
     </tbody></table></div>`;
   const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);

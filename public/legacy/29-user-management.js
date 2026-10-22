@@ -30,7 +30,7 @@ async function addUser(){
   const username=document.getElementById('u_username').value.trim().toLowerCase();
   const password=document.getElementById('u_password').value;
   const role=document.getElementById('u_role').value;
-  if(currentUser.role==='Admin' && (role==='Admin' || role==='Software Admin')){ alert('Admin cannot create Admin or Software Admin accounts. Only a Software Admin can do this.'); return; }
+  if(currentUser.role==='Admin' && (role==='Admin' || role==='Software Admin')){ alert('You do not have permission to create an account with this role.'); return; }
   if(!username){ alert('Username is required.'); return; }
   if(!USERNAME_PATTERN.test(username)){ alert('Username can only use lowercase letters, numbers, dot, dash and underscore (2–40 characters).'); return; }
   if(!password || password.length<MIN_PASSWORD_LENGTH){ alert('Password must be at least '+MIN_PASSWORD_LENGTH+' characters.'); return; }
@@ -54,7 +54,7 @@ async function editUser(i){
   const roleHint = currentUser.role==='Software Admin' ? 'Admin/Software Admin/HR/Accounts/Viewer' : 'HR/Accounts/Viewer';
   const role=prompt('Role ('+roleHint+'):', u.role||'');
   if(role===null) return;
-  if(currentUser.role==='Admin' && (role==='Admin' || role==='Software Admin')){ alert('Admin cannot assign the Admin or Software Admin role. Only a Software Admin can do this.'); return; }
+  if(currentUser.role==='Admin' && (role==='Admin' || role==='Software Admin')){ alert('You do not have permission to assign this role.'); return; }
   const pw=prompt('New Password (min. '+MIN_PASSWORD_LENGTH+' characters — leave blank to keep current):','');
   if(pw && pw.length<MIN_PASSWORD_LENGTH){ alert('Password must be at least '+MIN_PASSWORD_LENGTH+' characters.'); return; }
   const result=await callUserAdminApi({action:'save', username:u.username, role, password:pw||undefined, active:u.active!==false});
@@ -91,7 +91,7 @@ async function toggleUserActive(i){
   render(userAdminRedirectPage());
 }
 async function resetAllData(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can reset all data.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to reset all data.'); return; }
   if(!confirm('This will erase ALL data in Supabase (user accounts are kept). Continue?')) return;
   const fresh=defaultDB();
   // Keep the user profiles: their login accounts live in Supabase Auth and would otherwise be
