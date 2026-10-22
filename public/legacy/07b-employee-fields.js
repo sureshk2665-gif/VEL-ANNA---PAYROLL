@@ -19,6 +19,8 @@
      auto       shown in the form but not editable (filled automatically) — grey, ignored on import
      sheet      false = not a template column (e.g. resignation details: the sheet is for new employees)
      sheetOptions  limit the template dropdown to these values (e.g. Status: only Active)
+     blankDefault  an empty sheet cell takes a default instead of staying empty (no "None" choice)
+     sheetDefault  that default's option value (default: the first option)
      required, full (full-width row), title (tooltip), attrs (extra HTML), wrap (wrapper div attrs),
      width      sheet column width (characters)
 */
@@ -85,16 +87,21 @@ function employeeFields(){
     // ---- Salary Details ----
     // Daily wage (TOTAL per day). Basic and HRA follow from it automatically — see
     // dailyWageSplit(); the Excel template carries the same formulas (sheetFormula). The 1-hour OT
-    // rate is only SHOWN (displayOnly — never stored): Payroll works it out itself (Daily Wage ÷ 8 × 1.5).
+    // rate is only SHOWN (displayOnly — never stored): Payroll works it out itself
+    // (Daily Wage ÷ 8 × the employee's OT Factor — 1.0, 1.5 or 2.0; 1.5 when not set).
     {key:'dailyWage', label:'Daily Wage — TOTAL (₹ per day)', section:'salary', input:'number',
       attrs:'oninput="updateWageSplit(this.value)"', formValue:e=>e.dailyWage||0, width:16},
     {key:'basic', label:'Basic / day (60%)', section:'salary', input:'number', auto:true,
       title:'Basic = 60% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*60%,2)', width:13},
     {key:'hra', label:'HRA / day (40%)', section:'salary', input:'number', auto:true,
       title:'HRA = 40% of the Daily Wage', sheetFormula:'ROUND({dailyWage}*40%,2)', width:13},
+    {key:'otFactor', label:'OT Factor', section:'salary', input:'select',
+      options:OT_FACTORS.map(f=>({value:String(f), label:f.toFixed(1)})), attrs:'onchange="updateWageSplit()"',
+      title:'OT pay per hour = Daily Wage ÷ 8 × OT Factor', formValue:e=>String(otFactorOf(e)),
+      readValue:v=>+v>0 ? +v : OT_FACTOR_DEFAULT, blankDefault:true, sheetDefault:String(OT_FACTOR_DEFAULT), width:11},
     {key:'otRate', label:'OT Rate — 1 hour (₹)', section:'salary', input:'number', auto:true, displayOnly:true,
-      title:'1-hour OT rate = Daily Wage ÷ 8 × 1.5 (shown for reference; Payroll calculates OT from the monthly OT hours in Employee Time Entry (or a figure typed on Attendance))',
-      formValue:e=>dailyWageSplit(e.dailyWage).otRate, sheetFormula:'ROUND({dailyWage}/8*1.5,0)', width:13},
+      title:'1-hour OT rate = Daily Wage ÷ 8 × OT Factor (shown for reference; Payroll calculates OT from the monthly OT hours in Employee Time Entry (or a figure typed on Attendance))',
+      formValue:e=>dailyWageSplit(e.dailyWage, otFactorOf(e)).otRate, sheetFormula:'ROUND({dailyWage}/8*IFERROR(VALUE(LEFT({otFactor},3)),1.5),0)', width:13},
     {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:blankOpt(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.
     // PF / ESI Deduction are set in the form only — not in the bulk-import sheet (new employees
@@ -113,20 +120,26 @@ function employeeFields(){
       title:'Number of canteen tokens this employee buys each month. Deducted from salary at the Canteen Token Price set in Payroll Process.', width:14}
   ];
 }
-// Daily wage → Basic (60%), HRA (40%) and OT rate per hour (wage ÷ 8 × 1.5), same as the sheet.
-// The OT rate is used by Payroll only; employee records store dailyWage / basic / hra
-// (employeeWageFields()).
-function dailyWageSplit(wage){
-  const w=Math.max(0, +wage||0);
-  return { dailyWage:w, basic:Math.round(w*0.6*100)/100, hra:Math.round(w*0.4*100)/100, otRate:Math.round(w/8*1.5) };
+// OT Factor (Employee form): the multiplier in the OT rate. Employees without one use 1.5.
+const OT_FACTORS=[1, 1.5, 2];
+const OT_FACTOR_DEFAULT=1.5;
+function otFactorOf(e){ const f=+(e && e.otFactor); return f>0 ? f : OT_FACTOR_DEFAULT; }
+// Daily wage → Basic (60%), HRA (40%) and OT rate per hour (wage ÷ 8 × OT Factor), same as the
+// sheet. The OT rate is used by Payroll only; employee records store dailyWage / basic / hra
+// (employeeWageFields()) and otFactor.
+function dailyWageSplit(wage, otFactor){
+  const w=Math.max(0, +wage||0), f=+otFactor>0 ? +otFactor : OT_FACTOR_DEFAULT;
+  return { dailyWage:w, basic:Math.round(w*0.6*100)/100, hra:Math.round(w*0.4*100)/100, otRate:Math.round(w/8*f) };
 }
 function employeeWageFields(wage){
   const s=dailyWageSplit(wage);
   return { dailyWage:s.dailyWage, basic:s.basic, hra:s.hra };
 }
-// Live update of the read-only Basic / HRA / 1-hour OT rate while the Daily Wage is typed in the form.
+// Live update of the read-only Basic / HRA / 1-hour OT rate while the Daily Wage is typed or the
+// OT Factor is changed in the form.
 function updateWageSplit(v){
-  const s=dailyWageSplit(v);
+  const wage=v!==undefined ? v : (document.getElementById('f_dailyWage')||{}).value;
+  const s=dailyWageSplit(wage, (document.getElementById('f_otFactor')||{}).value);
   [['f_basic',s.basic],['f_hra',s.hra],['f_otRate',s.otRate]].forEach(([id,val])=>{ const el=document.getElementById(id); if(el) el.value=val; });
 }
 function employeeFieldId(f){ return f.id===undefined ? 'f_'+f.key : f.id; }
@@ -184,11 +197,13 @@ function employeeSheetFields(){
   return employeeFields().filter(f=>f.sheet!==false).map(f=>({
     key:f.key, label:f.sheetLabel||f.label, altLabels:f.sheetLabel?[f.label]:[], input:f.input, auto:!!f.auto, required:!!f.required,
     blankDefault:!!f.blankDefault, width:f.width||14, formula:f.sheetFormula||'',
-    // Every dropdown (except Status) ends with a "None" choice that leaves the field empty — the
-    // Contractor dropdown calls it "Non Contractor". An empty cell means the same.
+    defaultValue:f.sheetDefault,
+    // Every dropdown (except those with a default, like Status) ends with a "None" choice that
+    // leaves the field empty — the Contractor dropdown calls it "Non Contractor". An empty cell
+    // means the same.
     options: f.input==='select'
       ? employeeFieldOptions(f).filter(o=>o.value!=='' && (!f.sheetOptions || f.sheetOptions.includes(o.value))).map(o=>({value:o.value, label:String(o.label), aliases:o.aliases||[]}))
-          .concat(f.key==='status' ? [] : [f.key==='contractor' ? {value:'', label:'Non Contractor', aliases:['None']} : {value:'', label:'None', aliases:[]}])
+          .concat(f.blankDefault ? [] : [f.key==='contractor' ? {value:'', label:'Non Contractor', aliases:['None']} : {value:'', label:'None', aliases:[]}])
       : undefined
   }));
 }

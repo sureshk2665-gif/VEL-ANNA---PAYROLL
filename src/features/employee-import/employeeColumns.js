@@ -24,7 +24,8 @@ export function buildColumns(fields) {
           || opts.find((o) => (o.aliases || []).some((a) => String(a).toLowerCase() === String(v).toLowerCase()));
         return hit ? hit.value : v;
       };
-      col.default = opts.length ? opts[0].label : '';
+      const def = opts.find((o) => f.defaultValue !== undefined && String(o.value) === String(f.defaultValue)) || opts[0];
+      col.default = def ? def.label : '';
     } else {
       col.type = f.input === 'date' ? 'date' : f.input === 'number' ? 'number' : 'text';
     }

@@ -109,7 +109,7 @@ function computePayrollForEmployee(e, ym){
   // DAILY WAGE payroll (as in the company's model sheet), worked out day by day:
   //   Paid days  = Present + Half Day × 0.5 + Holidays (NOPH), only on days the employee is on the roll
   //   Basic/HRA  = each paid day at that day's wage (60% / 40% of the Daily Wage — wageOnDate)
-  //   OT         = OT rate/hr (Daily Wage ÷ 8 × 1.5) × OT hours (from Employee Time Entry — otHoursFor)
+  //   OT         = OT rate/hr (Daily Wage ÷ 8 × OT Factor) × OT hours (from Employee Time Entry — otHoursFor)
   //   GROSS      = Basic + OT                    Total Earnings = GROSS + HRA (+ one-off allowance)
   // Sundays are never paid days. Working days on the roll with no status up to today are "not marked"
   // (unpaid). NOWD is shown for reference.
@@ -131,7 +131,8 @@ function computePayrollForEmployee(e, ym){
     else if(ds<=today) unmarked++;
     if(paid){ const sp=dailyWageSplit(w); basicSum+=sp.basic*paid; hraSum+=sp.hra*paid; paidDays+=paid; }
   }
-  const wage = dailyWageSplit(segs[segs.length-1].dailyWage); // wage at month end — the rate shown on the slip
+  const otFactor = otFactorOf(e); // 1.0 / 1.5 / 2.0 from the Employee form
+  const wage = dailyWageSplit(segs[segs.length-1].dailyWage, otFactor); // wage at month end — the rate shown on the slip
   const daysWorking = paidDays;
   const lopDays = (adj.lopOverride!==null && adj.lopOverride!==undefined) ? adj.lopOverride : lop + halfDay*0.5;
 
@@ -142,7 +143,7 @@ function computePayrollForEmployee(e, ym){
   let otAmount;
   if(segs.length>1 && !otTypedFor(adj) && typeof teMonthOTByDay==='function'){
     // The wage changed during the month: each day's OT is paid at that day's rate.
-    otAmount=Math.round(teMonthOTByDay(e.code, ym).reduce((s,x)=>s + x.min/60*dailyWageSplit(wageOnDate(e, x.date, ev)).otRate, 0));
+    otAmount=Math.round(teMonthOTByDay(e.code, ym).reduce((s,x)=>s + x.min/60*dailyWageSplit(wageOnDate(e, x.date, ev), otFactor).otRate, 0));
   } else otAmount=Math.round(otHours*otPerHourRate);
   const otherAllowance=+adj.otherAllowanceOneOff||0; // one-off, entered on the Attendance screen
 
