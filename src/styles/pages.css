@@ -175,12 +175,23 @@ input[type=file]::file-selector-button:hover{border-color:color-mix(in srgb,var(
 /* Contractors Bill */
 .cbTop{display:flex;align-items:center;flex-wrap:wrap;gap:10px 14px;}
 .cbLbl{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);}
-.cbLbl svg,.cbRate svg{width:15px;height:15px;}
+.cbLbl svg{width:15px;height:15px;}
 .cbLbl input,.cbLbl select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font:inherit;font-size:13px;font-weight:600;}
-.cbRate{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px;padding:6px 10px;border:1.5px dashed var(--accent);border-radius:10px;background:var(--accent-soft);}
-.cbRate input{width:80px;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;}
 .cbRateNote{font-size:11.5px;color:var(--muted);}
 table.cbTable{width:100%;border-collapse:collapse;font-size:13px;margin-top:14px;}
 table.cbTable th{color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;padding:8px 6px;border-bottom:1px solid var(--line);text-align:center;}
 table.cbTable td{padding:8px 6px;border-top:1px solid var(--line);text-align:center;}
+.tableScrollWrap table.cbTable{min-width:640px;}
+table.cbTable tr.cbRow{cursor:pointer;}
+table.cbTable tr.cbRow:hover td{background:var(--accent-soft);}
+table.cbTable tr.cbRow.open td{background:var(--accent-soft);}
+table.cbTable td.cbCaret{color:var(--accent);font-size:14px;width:28px;}
+table.cbTable tr.cbDetail>td{padding:0 0 12px 28px;border-top:0;background:var(--accent-soft);}
+table.cbTable.cbInner{margin-top:0;background:var(--card);font-size:12.5px;}
+.cbRateBox{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:14px;padding:10px 14px;border:1.5px dashed var(--accent);border-radius:12px;background:var(--accent-soft);font-size:13.5px;font-weight:600;}
+.cbRateBox svg{width:15px;height:15px;}
+.cbRateBox input{width:90px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;}
+table.cbTable td.cbRateCell{white-space:nowrap;cursor:default;}
+table.cbTable td.cbRateCell input{width:72px;padding:5px 7px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-weight:700;text-align:right;}
+table.cbTable td.cbRateCell .cbRateNote{display:block;margin-top:2px;}
 table.cbTable tr.cbTotal td{font-weight:700;background:var(--accent-soft);border-top:2px solid var(--line);}

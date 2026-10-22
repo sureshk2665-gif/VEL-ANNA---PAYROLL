@@ -1,46 +1,71 @@
 /* ================= CONTRACTORS BILL =================
-   Two views for a month, one or all contractors:
+   Two views for a month, listing every contractor (click a contractor to see its employees):
    - Contractor Service Charge: MF pays each contractor a fixed amount for every FULL Present day of
      every employee that contractor supplied. Half Days, holidays (NOPH) and absent days don't count.
    - Company Payable: what MF pays the contractor for the month = the Net Pay of the employees it
      supplied + that service charge.
-   The rate (₹30 per present day to start) is kept per month in db.contractorRates[ym]. A month
-   without its own rate uses the latest earlier month's rate. Only Admin / Software Admin can
-   change it. Salary and present days are the live payroll figures (computePayrollForEmployee),
-   so they always match the Payroll screen and the salary slips. */
+   Each contractor has its own rate (₹30 per present day to start), fixed per month from the 1st:
+   db.contractorRates[ym] = {contractorCode: rate}. A month without a contractor's rate uses that
+   contractor's latest earlier rate, so a new month starts from last month's rates. Only Admin /
+   Software Admin can set rates, and only for the current or a future month — a month that has
+   ended keeps the rates it was paid at. (Older data stored one number per month for every
+   contractor; that still reads as that month's rate for all of them.) Salary and present days are
+   the live payroll figures (computePayrollForEmployee), so they always match the Payroll screen
+   and the salary slips. */
 let cbTab='commission';               // 'commission' | 'company'
 let cbMonth=monthKey(todayStr());
-let cbContractor='';                  // '' = all contractors, else a contractor code
+let cbOpen={};                        // contractor code -> true when its employee list is expanded
 const CB_DEFAULT_RATE=30;
 
-function cbRateFor(ym){
-  const r=db.contractorRates||{};
-  if(r[ym]!==undefined && r[ym]!==null) return +r[ym]||0;
-  const earlier=Object.keys(r).filter(k=>k<ym).sort().pop();
-  return earlier ? (+r[earlier]||0) : CB_DEFAULT_RATE;
+// The rate stored for one contractor in month ym, or undefined when the month has none for it.
+function cbStoredRate(ym, code){
+  const m=(db.contractorRates||{})[ym];
+  if(m===undefined || m===null) return undefined;
+  if(typeof m!=='object') return +m||0;           // old data: one rate for every contractor
+  return (m[code]!==undefined && m[code]!==null) ? (+m[code]||0) : undefined;
 }
+// Contractor's rate for month ym: that month's own rate, else its latest earlier one, else ₹30.
+function cbRateFor(ym, code){
+  const own=cbStoredRate(ym, code);
+  if(own!==undefined) return own;
+  const earlier=Object.keys(db.contractorRates||{}).filter(k=>k<ym).sort().reverse();
+  for(const k of earlier){ const v=cbStoredRate(k, code); if(v!==undefined) return v; }
+  return CB_DEFAULT_RATE;
+}
+// Rates can be set for the current month (from the 1st) and later; a finished month is fixed.
+function cbMonthLocked(ym){ return ym < monthKey(todayStr()); }
+function cbEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function cbCanEditRate(){ return !!currentUser && (currentUser.role==='Admin' || currentUser.role==='Software Admin'); }
-function cbSaveRate(){
-  if(!cbCanEditRate()){ alert('Only an Admin can change the service charge rate.'); return; }
-  const v=String(document.getElementById('cb_rate').value).trim();
-  if(v==='' || isNaN(+v) || +v<0){ alert('Please enter the amount per present day (for example 30).'); return; }
+function cbSaveRates(){
+  if(!cbCanEditRate()){ alert('Only an Admin can change the service charge.'); return; }
+  if(cbMonthLocked(cbMonth)){ alert(`${monthLabel(cbMonth)} has ended — its service charge is fixed.`); return; }
+  const next={};
+  for(const c of getContractors()){
+    const el=document.getElementById('cb_rate_'+c.code);
+    if(!el) continue;
+    const v=String(el.value).trim();
+    if(v==='' || isNaN(+v) || +v<0){ alert(`Please enter the service charge per present day for ${c.name||c.code} (for example 30).`); el.focus(); return; }
+    next[c.code]=Math.round(+v*100)/100;
+  }
   if(!db.contractorRates) db.contractorRates={};
-  db.contractorRates[cbMonth]=Math.round(+v*100)/100;
+  const old=db.contractorRates[cbMonth];
+  // Keep any contractor rates not on screen; old single-number months become per-contractor.
+  db.contractorRates[cbMonth]={...(old && typeof old==='object' ? old : {}), ...next};
   saveDB(db);
   render('contractorbill');
 }
 function cbSet(field, val){
   if(field==='tab') cbTab=val;
   else if(field==='month'){ if(!val) return; cbMonth=val; }
-  else if(field==='contractor') cbContractor=val;
+  else if(field==='toggle') cbOpen[val]=!cbOpen[val];
   render('contractorbill');
 }
 
-// One entry per contractor (narrowed by the contractor filter) with its employees for the month.
+// One entry per contractor with its employees for the month.
 function cbContractorRows(ym){
-  const rate=cbRateFor(ym);
   const generated=payrollGenerated(ym);
-  return getContractors().filter(c=>!cbContractor || c.code===cbContractor).map(c=>{
+  return getContractors().map(c=>{
+    const rate=cbRateFor(ym, c.code);
     const emps=payrollEmployeesFor(ym).filter(e=>e.contractor===c.code).map(e=>{
       const r=(generated && payrollRecordFor(e.code, ym)) || computePayrollForEmployee(e, ym);
       const days=+r.presentDays||0;
@@ -49,48 +74,55 @@ function cbContractorRows(ym){
     const days=emps.reduce((s,x)=>s+x.days,0);
     const net=Math.round(emps.reduce((s,x)=>s+x.net,0)*100)/100;
     const commission=Math.round(days*rate*100)/100;
-    return {c, emps, empCount:emps.length, days, rate, commission, net, total:Math.round((net+commission)*100)/100};
+    return {c, emps, empCount:emps.length, days, rate, ownRate:cbStoredRate(ym, c.code)!==undefined, commission, net, total:Math.round((net+commission)*100)/100};
   });
 }
 
 function renderContractorBill(){
   const rows=cbContractorRows(cbMonth);
-  const rate=cbRateFor(cbMonth);
   const generated=payrollGenerated(cbMonth);
+  const editable=cbCanEditRate() && !cbMonthLocked(cbMonth);
   const sum=k=>Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
-  const ownRate=db.contractorRates && db.contractorRates[cbMonth]!==undefined;
   const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
-  const one=cbContractor ? rows[0] : null;
-  const commissionTable=`<div class="tableScrollWrap"><table class="cbTable">
-    <thead><tr><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Rate / Day</th><th>Service Charge</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td style="text-align:left;"><b>${r.c.name||r.c.code}</b></td><td>${r.empCount}</td><td>${r.days}</td><td>₹${rate}</td><td><b>${fmt(r.commission)}</b></td></tr>`).join('') || `<tr><td colspan="5" class="empty">No contractors.</td></tr>`}
-    ${rows.length>1?`<tr class="cbTotal"><td style="text-align:left;">Total</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td>₹${rate}</td><td>${fmt(sum('commission'))}</td></tr>`:''}
+  const company=cbTab==='company';
+  const cols=company?8:6;
+  // Rate / Day: a box per contractor while the month can still be set, else the fixed rate.
+  const rateCell=r=>editable
+    ? `₹ <input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" onkeydown="if(event.key==='Enter')cbSaveRates()" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}"><span class="cbRateNote">${r.ownRate?'set':'from last month'}</span>`
+    : `<b>₹${r.rate}</b>`;
+  // A contractor row (click to show / hide its employees) and, when open, its employee list.
+  const contractorRow=r=>{
+    const open=!!cbOpen[r.c.code];
+    const head=`<tr class="cbRow${open?' open':''}" onclick="cbSet('toggle','${r.c.code}')" title="Show / hide the employees">
+      <td class="cbCaret">${open?'▾':'▸'}</td><td style="text-align:left;"><b>${cbEsc(r.c.name||r.c.code)}</b></td><td>${r.empCount}</td><td>${r.days}</td><td onclick="event.stopPropagation()" class="cbRateCell">${rateCell(r)}</td>
+      ${company?`<td>${fmt(r.net)}</td>`:''}<td><b>${fmt(r.commission)}</b></td>${company?`<td><b>${fmt(r.total)}</b></td>`:''}</tr>`;
+    if(!open) return head;
+    const emp=`<table class="cbTable cbInner">
+      <thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th><th>Present Days</th>${company?'<th>Paid Days</th><th>Total Earnings</th><th>Deductions</th><th>Net Pay</th>':''}<th>Service Charge</th>${company?'<th>Total Payable</th>':''}</tr></thead>
+      <tbody>${r.emps.map((x,i)=>`<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${cbEsc(x.e.name)}</td><td>${unitLabel(x.e.unit)}</td><td>${x.days}</td>${company?`<td>${x.paidDays}</td><td>${fmt(x.earnings)}</td><td>${fmt(x.deductions)}</td><td>${fmt(x.net)}</td>`:''}<td>${fmt(x.commission)}</td>${company?`<td><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="11" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
+    </table>`;
+    return head+`<tr class="cbDetail"><td colspan="${cols}"><div class="tableScrollWrap">${emp}</div></td></tr>`;
+  };
+  const mainTable=`<div class="tableScrollWrap"><table class="cbTable">
+    <thead><tr><th style="width:28px;"></th><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Rate / Day</th>${company?'<th>Salary (Net Pay)</th>':''}<th>Service Charge</th>${company?'<th>Total Payable</th>':''}</tr></thead>
+    <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="${cols}" class="empty">No contractors. Add them in Software Admin → Contractors.</td></tr>`}
+    ${rows.length?`<tr class="cbTotal"><td></td><td style="text-align:left;">Total — all contractors</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td></td>${company?`<td>${fmt(sum('net'))}</td>`:''}<td>${fmt(sum('commission'))}</td>${company?`<td>${fmt(sum('total'))}</td>`:''}</tr>`:''}
     </tbody></table></div>`;
-  const companyTable=`<div class="tableScrollWrap"><table class="cbTable">
-    <thead><tr><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Salary (Net Pay)</th><th>Service Charge</th><th>Total Payable</th></tr></thead>
-    <tbody>${rows.map(r=>`<tr><td style="text-align:left;"><b>${r.c.name||r.c.code}</b></td><td>${r.empCount}</td><td>${r.days}</td><td>${fmt(r.net)}</td><td>${fmt(r.commission)}</td><td><b>${fmt(r.total)}</b></td></tr>`).join('') || `<tr><td colspan="6" class="empty">No contractors.</td></tr>`}
-    ${rows.length>1?`<tr class="cbTotal"><td style="text-align:left;">Total</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td>${fmt(sum('net'))}</td><td>${fmt(sum('commission'))}</td><td>${fmt(sum('total'))}</td></tr>`:''}
-    </tbody></table></div>`;
-  const detail = one ? `<h4 style="margin:18px 0 8px;">${ico('users')} ${one.c.name||one.c.code} — employees, ${monthLabel(cbMonth)}</h4>
-    <div class="tableScrollWrap"><table class="cbTable">
-      <thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th><th>Present Days</th>${cbTab==='company'?'<th>Paid Days</th><th>Total Earnings</th><th>Deductions</th><th>Net Pay</th>':''}<th>Service Charge</th>${cbTab==='company'?'<th>Total Payable</th>':''}</tr></thead>
-      <tbody>${one.emps.map((x,i)=>`<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${x.e.name}</td><td>${unitLabel(x.e.unit)}</td><td>${x.days}</td>${cbTab==='company'?`<td>${x.paidDays}</td><td>${fmt(x.earnings)}</td><td>${fmt(x.deductions)}</td><td>${fmt(x.net)}</td>`:''}<td>${fmt(x.commission)}</td>${cbTab==='company'?`<td><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="11" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
-    </table></div>` : '';
+  const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);
+  // Fixed / editable status of this month's rates, with the one Save for every contractor's box.
+  const rateBar=`<div class="cbRateBox">
+    <span>${ico('tag')} Service charge per present day — ${monthLabel(cbMonth)} (from the 1st):</span>
+    ${editable
+      ? `<span class="cbRateNote">Enter each contractor's rate in the table, then</span> <button class="btn tiny" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button>`
+      : `<span class="cbRateNote">${cbMonthLocked(cbMonth)?`${ico('lock')} Fixed — ${monthLabel(cbMonth)} has ended`:'Only an Admin can change the rates'}</span>`}
+  </div>`;
   return `
   <div class="panel">
     <div class="cbTop">
       <div class="attTabsInline">${tab('commission','users','Contractor Service Charge')}${tab('company','wallet','Company Payable')}</div>
       <label class="cbLbl">${ico('calendar-days')} Month <input type="month" value="${cbMonth}" onchange="cbSet('month',this.value)"></label>
-      <label class="cbLbl">${ico('building')} Contractor
-        <select onchange="cbSet('contractor',this.value)"><option value="">All Contractors</option>${getContractors().map(c=>`<option value="${c.code}" ${cbContractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}</select>
-      </label>
-      <span class="cbRate">${ico('tag')} Service charge rate for ${monthLabel(cbMonth)}:
-        ${cbCanEditRate()
-          ? `₹ <input id="cb_rate" type="number" min="0" step="0.5" value="${rate}" title="Amount paid to the contractor for each full Present day of each of its employees"> per present day <button class="btn tiny" onclick="cbSaveRate()">${ico('save')} Save</button>`
-          : `<b>₹${rate}</b> per present day`}
-        <span class="cbRateNote">${ownRate?'set for this month':'carried from the previous rate'}</span>
-      </span>
       <span style="margin-left:auto;display:flex;gap:8px;">
+        ${rows.length?`<button class="btn secondary" onclick="cbToggleAll(${allOpen?0:1})">${ico('users')} ${allOpen?'Hide':'Show'} all employees</button>`:''}
         <button class="btn secondary" onclick="printContractorBill()">${ico('printer')} Print</button>
         ${hasPerm('contractorbill','export')?`<button class="btn secondary" onclick="downloadContractorBillExcel()">${ico('file-spreadsheet')} Excel</button>`:''}
       </span>
@@ -102,26 +134,31 @@ function renderContractorBill(){
       <div class="stat" style="--stat-color:#b45309;"><div class="n">${fmt(sum('commission'))}</div><div class="l">Service Charge</div></div>
       ${cbTab==='company'?`<div class="stat" style="--stat-color:#dc2626;"><div class="n">${fmt(sum('total'))}</div><div class="l">Total Payable</div></div>`:''}
     </div>
-    ${cbTab==='company' ? companyTable : commissionTable}
-    ${detail}
+    ${rateBar}
+    ${mainTable}
     <p class="syncNote">${cbTab==='company'
       ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge. ${generated?'':`<b>Payroll for ${monthLabel(cbMonth)} is not generated yet</b> — salary shown is worked out from the current attendance and Time Entry.`}`
-      : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × ₹${rate}. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
-      ${cbCanEditRate()?' The rate can be changed for any month (usually from the 1st); later months keep it until it is changed again.':''}</p>
+      : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
+      ${cbCanEditRate()?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed, and a month that has ended cannot be changed.':''}</p>
   </div>`;
 }
 
+function cbToggleAll(open){
+  cbOpen={};
+  if(open) getContractors().forEach(c=>{ cbOpen[c.code]=true; });
+  render('contractorbill');
+}
 function cbExcelSheets(){
-  const rows=cbContractorRows(cbMonth), rate=cbRateFor(cbMonth), company=cbTab==='company';
+  const rows=cbContractorRows(cbMonth), company=cbTab==='company';
   const summary={ name:company?'Company Payable':'Contractor Service Charge',
     title:`${db.companyName||''} — ${company?'Company Payable to Contractors':'Contractor Service Charge'} — ${monthLabel(cbMonth)}`,
-    subtitle:`Service charge ₹${rate} per full present day`,
+    subtitle:'Service charge per full present day, at each contractor\'s rate',
     columns:[{header:'Contractor', key:'name', width:28},{header:'Employees Supplied', key:'empCount', type:'number'},{header:'Total Present Days', key:'days', type:'number'},
       {header:'Rate / Day', key:'rate', type:'money', noTotal:true},
       ...(company?[{header:'Salary (Net Pay)', key:'net', type:'money'}]:[]),
       {header:'Service Charge', key:'commission', type:'money'},
       ...(company?[{header:'Total Payable', key:'total', type:'money'}]:[])],
-    rows:rows.map(r=>({name:r.c.name||r.c.code, empCount:r.empCount, days:r.days, rate, net:r.net, commission:r.commission, total:r.total})), totals:true };
+    rows:rows.map(r=>({name:r.c.name||r.c.code, empCount:r.empCount, days:r.days, rate:r.rate, net:r.net, commission:r.commission, total:r.total})), totals:true };
   const detail={ name:'Employees', title:`${monthLabel(cbMonth)} — employees by contractor`,
     columns:[{header:'Contractor', key:'contractor', width:24},{header:'Emp Code', key:'code'},{header:'Name', key:'name', width:24},{header:'Unit', key:'unit'},
       {header:'Present Days', key:'days', type:'number'},
@@ -134,8 +171,7 @@ function cbExcelSheets(){
 }
 function downloadContractorBillExcel(){
   if(!hasPerm('contractorbill','export')){ alert('You do not have permission to export.'); return; }
-  const sel=cbContractor?'-'+(contractorName(cbContractor)||cbContractor).replace(/[^A-Za-z0-9]+/g,'-'):'';
-  window.downloadExcel({ fileName:`${companyFilePrefix()}-${cbTab==='company'?'Company-Payable':'Contractor-Service-Charge'}-${monthLabel(cbMonth)}${sel}.xlsx`, sheets:cbExcelSheets() });
+  window.downloadExcel({ fileName:`${companyFilePrefix()}-${cbTab==='company'?'Company-Payable':'Contractor-Service-Charge'}-${monthLabel(cbMonth)}.xlsx`, sheets:cbExcelSheets() });
 }
 function printContractorBill(){
   const sheets=cbExcelSheets();
@@ -149,5 +185,5 @@ function printContractorBill(){
   };
   const html=`<p style="margin:0 0 8px;">${sheets[0].subtitle}. ${cbTab==='company'?'Total Payable = Net Pay of the employees supplied + service charge.':'Service Charge = full present days × rate (half days and holidays not counted).'}</p>
     ${table(sheets[0])}<h3 style="margin:14px 0 6px;font-size:13px;">Employees</h3>${table(sheets[1])}`;
-  openPrintWindow(`${cbTab==='company'?'Company Payable to Contractors':'Contractor Service Charge'} — ${monthLabel(cbMonth)}${cbContractor?' — '+contractorName(cbContractor):''}`, html, {orientation:'landscape'});
+  openPrintWindow(`${cbTab==='company'?'Company Payable to Contractors':'Contractor Service Charge'} — ${monthLabel(cbMonth)}`, html, {orientation:'landscape'});
 }
