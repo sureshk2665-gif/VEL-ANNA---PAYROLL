@@ -1,6 +1,7 @@
 /* ================= ATTENDANCE ================= */
 let attMonth = monthKey(todayStr());
 let attSearch = '';
+let attDayFilter = ''; // Day View: '' = everyone, or 'Present' / 'LossOfPay' / 'HalfDay' (the count chips)
 let attCompact = true;
 let attViewMode = 'overview'; // 'overview' (all employees, month calendar with counts), 'day' (one day, every employee) or 'employee' (one employee's month)
 let attDate = todayStr();
@@ -182,7 +183,7 @@ function attDayStatusCounts(date){
   });
   return c;
 }
-function openAttDay(date){ attDate=date; attMonth=monthKey(date); attViewMode='day'; render('attendance'); }
+function openAttDay(date){ attDayFilter=''; attDate=date; attMonth=monthKey(date); attViewMode='day'; render('attendance'); }
 function shiftAttMonth(delta){
   const [y,m]=attMonth.split('-').map(Number); const d=new Date(y, m-1+delta, 1);
   attMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('attendance');
@@ -319,7 +320,10 @@ function dayCounts(date){
 
 // Day View (read only): who was Present, Absent (Loss Of Pay) or on Half Day that day, with their
 // Time Entry In / Out times. Nothing is shown for a day without attendance; a holiday shows "Holiday".
+// Clicking a count chip lists only those employees (Absent / Half Day with their leave remarks).
 // Attendance is entered and changed only in Employee Time Entry.
+function attEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function setAttDayFilter(s){ attDayFilter = attDayFilter===s ? '' : s; render('attendance'); }
 function renderAttendanceDay(){
   const dObj=new Date(attDate+'T00:00:00');
   const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dObj.getDay()];
@@ -328,15 +332,21 @@ function renderAttendanceDay(){
   const q=attSearch.toLowerCase();
   const rows=attFilteredOnDate(attDate)
     .map(e=>({e, s:getAttStatus(attDate, e.code)}))
-    .filter(x=>x.s && x.s!=='NOPH' && (!q || (`${x.e.name} ${x.e.code}`).toLowerCase().includes(q)))
+    .filter(x=>x.s && x.s!=='NOPH' && (!attDayFilter || x.s===attDayFilter) && (!q || (`${x.e.name} ${x.e.code}`).toLowerCase().includes(q)))
     .sort((a,b)=>({Present:0,HalfDay:1,LossOfPay:2}[a.s]-{Present:0,HalfDay:1,LossOfPay:2}[b.s]) || a.e.code.localeCompare(b.e.code,undefined,{numeric:true}));
   const c=attDayStatusCounts(attDate);
   const tm=code=>{ const t=db.timeEntries&&db.timeEntries[attDate]&&db.timeEntries[attDate][code]; return t&&t.inH!==''&&t.inH!==undefined ? {inT:teEwFmtTime(t.inH,t.inM,t.inAP), outT:teEwFmtTime(t.outH,t.outM,t.outAP)} : {inT:'',outT:''}; };
+  // Leave remarks from Employee Time Entry (Loss of Pay / Half Day).
+  const remarks=code=>{ const l=typeof teGetLeave==='function' ? teGetLeave(attDate, code) : null; return (l && l.remarks) || ''; };
+  const absentOnly=attDayFilter==='LossOfPay';
+  const leaveCols=attDayFilter==='LossOfPay' || attDayFilter==='HalfDay';
+  const cols=8+(leaveCols?1:0);
   const body = hol ? `<div class="attDayEmpty hol">${ico('palm')} <b>Holiday</b> — ${dateLabel} (${STATUS_LABEL[hol]||hol})</div>`
     : !(c.Present+c.LossOfPay+c.HalfDay) ? `<div class="attDayEmpty">No attendance recorded for ${dateLabel}.</div>`
-    : `<div class="tableScrollWrap"><table class="attDayTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th><th>Contractor</th><th>In Time</th><th>Out Time</th><th>Status</th></tr></thead><tbody>
-      ${rows.map((x,i)=>{ const t=tm(x.e.code); return `<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${x.e.name}</td><td>${unitLabel(x.e.unit)}</td><td>${contractorName(x.e)||'-'}</td><td>${t.inT||'-'}</td><td>${t.outT||'-'}</td><td><span class="tag ${x.s}">${STATUS_LABEL[x.s]}</span></td></tr>`; }).join('') || `<tr><td colspan="8" class="empty">No employees match your search.</td></tr>`}
+    : `<div class="tableScrollWrap attDayScroll"><table class="attDayTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th>${absentOnly?'<th>Designation</th><th>Mobile</th>':''}<th>Unit</th><th>Contractor</th>${absentOnly?'':'<th>In Time</th><th>Out Time</th>'}${leaveCols?'<th style="text-align:left;">Remarks</th>':''}<th>Status</th></tr></thead><tbody>
+      ${rows.map((x,i)=>{ const t=tm(x.e.code); return `<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${attEsc(x.e.name)}</td>${absentOnly?`<td>${attEsc(x.e.designation||'-')}</td><td>${attEsc(x.e.mobile||'-')}</td>`:''}<td>${unitLabel(x.e.unit)}</td><td>${attEsc(contractorName(x.e)||'-')}</td>${absentOnly?'':`<td>${t.inT||'-'}</td><td>${t.outT||'-'}</td>`}${leaveCols?`<td style="text-align:left;">${attEsc(remarks(x.e.code)||'-')}</td>`:''}<td><span class="tag ${x.s}">${STATUS_LABEL[x.s]}</span></td></tr>`; }).join('') || `<tr><td colspan="${cols}" class="empty">${q?'No employees match your search.':`No ${attDayFilter==='LossOfPay'?'absent':attDayFilter==='HalfDay'?'half-day':'present'} employees on ${dateLabel}.`}</td></tr>`}
     </tbody></table></div>`;
+  const chip=(s,cls,label)=>`<button type="button" class="chip ${cls}${attDayFilter===s?' on':''}" onclick="setAttDayFilter('${s}')" title="${attDayFilter===s?'Show everyone':'Show only these employees'}">${c[s]} ${label}</button>`;
   return `${attUnitTabsHTML()}
   <div class="attDateBar">
     ${attTabsInline()}
@@ -349,15 +359,14 @@ function renderAttendanceDay(){
     <input type="search" placeholder="Search employee..." value="${attSearch}" oninput="attSearch=this.value;render('attendance')" style="margin-left:auto;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);">
   </div>
   ${!hol && (c.Present+c.LossOfPay+c.HalfDay) ? `<div class="attDaySumBar">
-    <span class="chip ok">${c.Present} Present</span>
-    <span class="chip danger">${c.LossOfPay} Absent</span>
-    <span class="chip warn">${c.HalfDay} Half Day</span>
+    ${chip('Present','ok','Present')}${chip('LossOfPay','danger','Absent')}${chip('HalfDay','warn','Half Day')}
+    ${attDayFilter?`<button type="button" class="chip" onclick="setAttDayFilter('')">Show all ${c.Present+c.LossOfPay+c.HalfDay}</button>`:''}
   </div>` : ''}
   <div class="attBulkBar">
     <button class="btn secondary" onclick="teOpenDateWise('${attDate}')">${ico('clock')} Enter / change in Employee Time Entry</button>
     <button class="attTab" style="margin-left:auto;" onclick="setAttView('overview')">← Month Overview</button>
   </div>
-  <div class="panel">${body}
+  <div class="panel attDayPanel">${body}
     <p class="syncNote">View only — attendance is entered in <b>Employee Time Entry</b> and worked out from the In / Out times and leave recorded there.</p>
   </div>`;
 }

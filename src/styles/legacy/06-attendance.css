@@ -204,3 +204,20 @@ table.attGrid input.otInput{width:52px;height:24px;border:1px solid var(--line);
 table.attDayTable{width:100%;border-collapse:collapse;font-size:13px;}
 table.attDayTable th{color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;padding:8px 6px;border-bottom:1px solid var(--line);}
 table.attDayTable td{padding:7px 6px;border-top:1px solid var(--line);text-align:center;}
+
+/* Day View: the employee list scrolls inside the page (Attendance is a full-height screen); the
+   count chips are buttons that filter the list. */
+.attDayPanel{flex:1;min-height:0;display:flex;flex-direction:column;margin-bottom:0;}
+.attDayPanel .attDayScroll{flex:1;min-height:0;overflow:auto;}
+.attDayPanel .attDayScroll table.attDayTable{min-width:760px;}
+.attDayPanel table.attDayTable thead th{position:sticky;top:0;z-index:1;background:var(--card);}
+.attDaySumBar button.chip{border:1.5px solid transparent;cursor:pointer;font:inherit;font-size:12px;font-weight:600;}
+.attDaySumBar button.chip:hover{filter:brightness(1.08);}
+.attDaySumBar button.chip.on{border-color:currentColor;box-shadow:0 0 0 2px color-mix(in srgb,currentColor 25%,transparent);}
+/* Phones: the Attendance screen scrolls as a normal page instead of inside a fixed-height panel. */
+@media (max-width:800px){
+  .main.fullScreenPage{height:auto;overflow:visible;}
+  .main.fullScreenPage #pageBody{overflow:visible;}
+  .attStage{height:auto;}
+  .attDayPanel .attDayScroll{overflow-x:auto;overflow-y:visible;}
+}
