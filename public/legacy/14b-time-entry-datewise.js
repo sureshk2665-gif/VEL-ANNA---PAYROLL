@@ -223,7 +223,8 @@ function teDwLock(){
   teGridEditMode=false; teDwSel.clear(); render('timeentry');
   teDwShowSaveSummary(dt);
 }
-// Pop-up after Save: the date, how many are present, and who is absent / on half day (with unit).
+// Pop-up after Save: the date, how many are present, and who is absent / on half day (with
+// contractor and unit).
 function teDwShowSaveSummary(dt){
   const present=[], absent=[], half=[];
   teDwEmployees().forEach(e=>{
@@ -231,8 +232,8 @@ function teDwShowSaveSummary(dt){
     if(st==='Present') present.push(e); else if(st==='LossOfPay') absent.push(e); else if(st==='HalfDay') half.push(e);
   });
   const list=(arr, empty)=>arr.length
-    ? `<div class="teSumScroll"><table class="teSumTable"><thead><tr><th>#</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th></tr></thead><tbody>
-        ${arr.map((e,i)=>`<tr><td>${i+1}</td><td>${teEsc(e.code)}</td><td style="text-align:left;">${teEsc(e.name)}</td><td>${teEsc(unitLabel(e.unit))}</td></tr>`).join('')}
+    ? `<div class="teSumScroll"><table class="teSumTable"><thead><tr><th>#</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Contractor</th><th>Unit</th></tr></thead><tbody>
+        ${arr.map((e,i)=>`<tr><td>${i+1}</td><td>${teEsc(e.code)}</td><td style="text-align:left;">${teEsc(e.name)}</td><td>${teEsc(contractorName(e)||'-')}</td><td>${teEsc(unitLabel(e.unit))}</td></tr>`).join('')}
       </tbody></table></div>`
     : `<p class="teSumNone">${empty}</p>`;
   const dayName=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
