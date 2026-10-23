@@ -6,7 +6,7 @@
    Admin and Software Admin accounts too). This is intentionally kept out of the regular per-user
    permission checkboxes so Software Admin access can never be handed out by accident. */
 function renderSoftwareAdmin(){
-  if(!isSoftwareAdmin()) return denyMsg('view this page','Software Admin');
+  if(!isSoftwareAdmin()) return denyMsg('view this page','System');
   return `
   <div class="panel"><h3>${ico('building')} Company Details</h3>
     <p style="font-size:12px;color:var(--muted);">These appear in the header of printed slips and reports.</p>

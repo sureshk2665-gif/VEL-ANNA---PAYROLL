@@ -56,7 +56,7 @@ export default async function handler(req, res) {
   if (callerError || !caller) return res.status(401).json({ error: 'Your session has expired. Please log in again.' });
   const callerRole = caller.app_metadata?.role;
   if (!PRIVILEGED.includes(callerRole)) {
-    return res.status(403).json({ error: 'Only an Admin or Software Admin can manage user accounts.' });
+    return res.status(403).json({ error: 'You do not have permission to manage user accounts.' });
   }
 
   let body = req.body || {};
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
     const account = await findAccount(admin, username);
     const accountRole = account?.app_metadata?.role;
     if (callerRole === 'Admin' && PRIVILEGED.includes(accountRole)) {
-      return res.status(403).json({ error: 'Admin cannot manage Admin or Software Admin accounts. Only a Software Admin can do this.' });
+      return res.status(403).json({ error: 'You do not have permission to manage this account.' });
     }
     const isSelf = account && account.id === caller.id;
 
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
       const role = body.role;
       if (!ROLES.includes(role)) return res.status(400).json({ error: 'Invalid role.' });
       if (callerRole === 'Admin' && PRIVILEGED.includes(role)) {
-        return res.status(403).json({ error: 'Admin cannot assign the Admin or Software Admin role. Only a Software Admin can do this.' });
+        return res.status(403).json({ error: 'You do not have permission to assign this role.' });
       }
       const password = body.password ? String(body.password) : '';
       if (password && password.length < MIN_PASSWORD_LENGTH) {

@@ -22,7 +22,7 @@ function renderUserRightsPanel(){
     <p style="font-size:12px;color:var(--muted);">
       ${actorIsSA
         ? 'As <b>Software Admin</b> — the highest-level software authority — you can create, edit, delete and activate/deactivate every account, including other Admin and Software Admin accounts, and assign any role.'
-        : 'As <b>Admin</b> you can create, edit, delete and activate/deactivate normal user accounts, and assign their module-wise permissions. Admin and Software Admin accounts are managed exclusively by a Software Admin and are not shown here.'}
+        : 'As <b>Admin</b> you can create, edit, delete and activate/deactivate normal user accounts, and assign their module-wise permissions. Other administrator accounts are not shown here.'}
     </p>
     <table>
       <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
@@ -52,12 +52,12 @@ function renderUserRightsPanel(){
     <p style="font-size:12px;color:var(--muted);">
       ${actorIsSA
         ? 'New users get sensible default permissions for their role — fine-tune them afterwards with the '+ico('key')+' Permissions button.'
-        : 'Admin cannot create Admin or Software Admin accounts — only the roles above are available. New users get sensible default permissions — fine-tune them afterwards with the '+ico('key')+' Permissions button.'}
+        : 'Only the roles above are available. New users get sensible default permissions — fine-tune them afterwards with the '+ico('key')+' Permissions button.'}
     </p>
     <div class="modalActions"><button class="btn" onclick="addUser()">Add User</button></div>
   </div>
   <div class="panel"><h3>${ico('key')} User Rights Management</h3>
-    <p style="font-size:12px;color:var(--muted);">Pick a user, tick the permissions they should have for each module, then Save. Users only see and can perform the actions checked here. ${actorIsSA ? '' : 'Access to the Software Admin module itself is never granted from here — it is controlled solely by the Admin / Software Admin role, which only a Software Admin can assign.'}</p>
+    <p style="font-size:12px;color:var(--muted);">Pick a user, tick the permissions they should have for each module, then Save. Users only see and can perform the actions checked here. ${actorIsSA ? '' : 'Administrator settings are not part of these permissions.'}</p>
     ${renderPermissionsMatrix()}
   </div>`;
 }
@@ -137,7 +137,7 @@ function backupData(){
   // Downloading a backup is now an additional right granted to the operational Admin role too
   // (on top of Software Admin, who retains full backup/restore/reset access elsewhere). Restore
   // and Reset All Data remain exclusive to Software Admin — see restoreData() / resetAllData().
-  if(!isSoftwareAdmin() && !isAdmin()){ alert('Only the Admin or Software Admin can access data backup.'); return; }
+  if(!isSoftwareAdmin() && !isAdmin()){ alert('Only an administrator can access data backup.'); return; }
   try{
     const payload={
       app:db.companyName||DEFAULT_BRAND_NAME,
@@ -163,7 +163,7 @@ function backupData(){
   }
 }
 function restoreData(file){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can restore data.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to restore data.'); return; }
   if(!file) return;
   if(!confirm('Restoring will REPLACE all current data with the contents of this backup file (user accounts are kept as they are). Continue?')) return;
   const reader=new FileReader();
@@ -222,7 +222,7 @@ function computeNextRun(cfg, from){
   return next;
 }
 function saveAutoBackupSchedule(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can configure automatic backup.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to configure automatic backup.'); return; }
   const enabled = document.getElementById('ab_enabled').value==='1';
   const frequency = document.getElementById('ab_frequency').value;
   const time = document.getElementById('ab_time').value || '20:00';
@@ -323,7 +323,7 @@ function savePayrollConstants(){
 }
 // Adds the next working unit (Unit-5, Unit-6, …). Existing units are never renumbered.
 function addWorkingUnit(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can add units.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to add units.'); return; }
   const next=Math.max(0,...db.units.map(u=>+((String(u.code).match(/(\d+)$/)||[0,0])[1])))+1;
   if(!confirm(`Add ${unitDisplayName({code:'Unit-'+next})}? (Save any other changes on this page first.)`)) return;
   readCompanySettingsForm(); // keep anything typed on the page
@@ -335,7 +335,7 @@ function addWorkingUnit(){
 // Deletes a working unit that no employee belongs to (employee history must keep its unit).
 // Anything else typed on the page is kept and saved along with it.
 function deleteWorkingUnit(code){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete units.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to delete units.'); return; }
   const n=unitEmployeeCount(code);
   if(n){ alert(`${unitLabel(code)} still has ${n} employee(s) (including inactive/resigned). Move them to another unit first — Employees → Edit → Working Unit.`); return; }
   if(getUnits().length<=1){ alert('At least one working unit is needed.'); return; }
@@ -371,7 +371,7 @@ function readCompanySettingsForm(){
 }
 // Adds a contractor (C-5, C-6, …). Contractors are never renumbered.
 function addContractor(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can add contractors.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to add contractors.'); return; }
   const name=prompt('Name of the new contractor:');
   if(name===null) return;
   if(!name.trim()){ alert('Please enter the contractor name.'); return; }
@@ -384,7 +384,7 @@ function addContractor(){
 }
 // Deletes a contractor no employee was supplied by (employee history must keep its contractor).
 function deleteContractor(code){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete contractors.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to delete contractors.'); return; }
   const n=contractorEmployeeCount(code);
   if(n){ alert(`${contractorName(code)} still has ${n} employee(s) (including inactive/resigned). Move them to another contractor first — Employees → Edit → Contractor.`); return; }
   if(!confirm(`Delete contractor ${contractorName(code)}? It will no longer be offered anywhere.`)) return;
@@ -394,7 +394,7 @@ function deleteContractor(code){
   render('softwareadmin');
 }
 function saveCompanySettings(){
-  if(!isSoftwareAdmin()){ alert('Only the Software Admin can edit company details.'); return; }
+  if(!isSoftwareAdmin()){ alert('You do not have permission to edit company details.'); return; }
   readCompanySettingsForm();
   saveDB(db);
   applyCompanyBranding();

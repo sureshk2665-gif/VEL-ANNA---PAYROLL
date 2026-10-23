@@ -81,7 +81,7 @@ export default function LoginScreen() {
             </button>
             <div className="loginNote">
               <ShieldCheck size={20} aria-hidden="true" />
-              <span>Accounts are created by your Software Admin. Forgot your password? Ask them to reset it.</span>
+              <span>Accounts are created by your administrator. Forgot your password? Ask your administrator to reset it.</span>
             </div>
           </div>
         </div>
