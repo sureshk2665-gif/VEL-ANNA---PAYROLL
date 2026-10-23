@@ -5,7 +5,8 @@
    teCompute): times are typed (930, 9:30, 5:30p, 17:30) instead of picked from dropdowns,
    AM/PM is inferred, rows update in place (no full re-render while typing) and saves are
    queued (teEwQueueSave). Extras for a whole roster: Bulk Shift (tick employees, pick a
-   shift, apply both times at once), copy-from-row-above, jump-to-employee search, the day's
+   shift, apply both times at once; on Save the ticked employees without a time get that shift and
+   the unticked ones are marked Loss of Pay), copy-from-row-above, jump-to-employee search, the day's
    totals, and previous / next date without leaving the keyboard.
    ================================================================================ */
 let teDwSel=new Set();        // employee codes ticked for Bulk Shift (current date only)
@@ -196,9 +197,60 @@ function teDwUnlock(){
   if(!teDwCanEdit()){ alert('You do not have permission to edit time entries.'); return; }
   teGridEditMode=true; teDwFocus={r:teDwFirstEmptyRow(),c:0}; render('timeentry');
 }
+// Save. When employees are ticked: each ticked employee without an In time gets the Bulk Shift,
+// and every unticked employee (not already on leave) is marked Loss of Pay — their time is
+// cleared. Sundays / holidays are never marked Loss of Pay. Nothing ticked = save as typed.
+// Then a summary of the day opens (present count, absent names with unit).
 function teDwLock(){
   const a=document.activeElement; if(a && a.closest && a.closest('#teDwGrid') && a.tagName==='INPUT') teDwCommitTime(a);
+  const dt=teGridDate;
+  let changed=false;
+  if(teDwUnlocked() && teDwSel.size){
+    const s=TE_SHIFTS.find(x=>x.key===teDwBulkShift);
+    const nonWorking=teIsHolidayDate(dt);
+    teDwEmployees().forEach(e=>{
+      const md=teEwRowModel(e.code, dt);
+      if(md.onLeave) return;
+      if(teDwSel.has(e.code)){
+        if(!md.hasIn && s){ teWriteTimeFor(dt, e.code, 'in', teMinToHMAP(s.inMin)); teWriteTimeFor(dt, e.code, 'out', teMinToHMAP(s.outMin)); changed=true; }
+      } else if(!nonWorking){
+        if(md.hasIn||md.hasOut){ teWriteTimeFor(dt, e.code, 'in', null); teWriteTimeFor(dt, e.code, 'out', null); }
+        if(teSetLeaveFor(dt, e.code, 'Loss of Pay')) changed=true;
+      }
+    });
+  }
+  if(changed) teEwQueueSave();
   teGridEditMode=false; teDwSel.clear(); render('timeentry');
+  teDwShowSaveSummary(dt);
+}
+// Pop-up after Save: the date, how many are present, and who is absent / on half day (with unit).
+function teDwShowSaveSummary(dt){
+  const present=[], absent=[], half=[];
+  teDwEmployees().forEach(e=>{
+    const st=timeEntryAttStatus(dt, e.code);
+    if(st==='Present') present.push(e); else if(st==='LossOfPay') absent.push(e); else if(st==='HalfDay') half.push(e);
+  });
+  const list=(arr, empty)=>arr.length
+    ? `<div class="teSumScroll"><table class="teSumTable"><thead><tr><th>#</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th></tr></thead><tbody>
+        ${arr.map((e,i)=>`<tr><td>${i+1}</td><td>${teEsc(e.code)}</td><td style="text-align:left;">${teEsc(e.name)}</td><td>${teEsc(unitLabel(e.unit))}</td></tr>`).join('')}
+      </tbody></table></div>`
+    : `<p class="teSumNone">${empty}</p>`;
+  const dayName=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
+  document.getElementById('modalContent').innerHTML=`
+  <div class="teSum">
+    <button type="button" class="teSumClose" onclick="closeModal()" title="Close" aria-label="Close">${ico('x')}</button>
+    <h3>${ico('circle-check')} Attendance saved</h3>
+    <p class="teSumDate">${fmtDate(dt)} · ${dayName}${teFilterText()?' · '+teEsc(teFilterText()):''}</p>
+    <div class="teSumCounts">
+      <div class="ok"><b>${present.length}</b><span>Present</span></div>
+      <div class="danger"><b>${absent.length}</b><span>Absent</span></div>
+      <div class="warn"><b>${half.length}</b><span>Half Day</span></div>
+    </div>
+    <h4>Absent (Loss of Pay) — ${absent.length}</h4>
+    ${list(absent, 'No one is absent.')}
+    ${half.length?`<h4>Half Day — ${half.length}</h4>${list(half,'')}`:''}
+  </div>`;
+  showModal();
 }
 // "Search employee, Enter to jump": moves to that employee's row (In Time when unlocked).
 function teDwJump(v){
@@ -237,10 +289,9 @@ function teDwApplyShift(){
   if(filled && !confirm(`${filled} of the ${codes.length} selected employee(s) already have a time on ${fmtDate(teGridDate)}. Replace it with ${teShiftLabel(s)}?`)) return;
   const tin=teMinToHMAP(s.inMin), tout=teMinToHMAP(s.outMin);
   codes.forEach(code=>{ teWriteTimeFor(teGridDate, code, 'in', tin); teWriteTimeFor(teGridDate, code, 'out', tout); teDwUpdateRow(code); });
-  teDwSel.clear();
-  document.querySelectorAll('#teDwGrid .teDwChk input').forEach(b=>{ b.checked=false; });
+  // The ticks stay: untick anyone absent, then Save marks them Loss of Pay.
   teDwRefreshSel(); teDwRefreshStats(); teEwQueueSave();
-  const note=document.getElementById('teDwBulkNote'); if(note){ note.textContent=`${s.label} applied to ${codes.length} employee(s). Adjust any row by hand.`; note.classList.add('ok'); }
+  const note=document.getElementById('teDwBulkNote'); if(note){ note.textContent=`${s.label} applied to ${codes.length} employee(s). Untick anyone absent, then Save — unticked employees are marked Loss of Pay.`; note.classList.add('ok'); }
 }
 
 /* ---- The tab ---- */
@@ -287,7 +338,7 @@ function renderTEDateGrid(){
       </select>
       <button class="btn" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply to selected</button>
       <span id="teDwSelCount" class="teDwSelCount">${teDwSel.size} selected</span>
-      <span id="teDwBulkNote" class="teDwBulkNote">Tick employees, pick a shift, apply — then adjust any row by hand.</span>
+      <span id="teDwBulkNote" class="teDwBulkNote">Tick the employees who came, pick their shift, then Save — ticked employees get the shift and unticked ones are marked Loss of Pay. (Nothing ticked = save as typed.)</span>
     </div>
     <div class="teEwKeys">
       <span><kbd>930</kbd> <kbd>9:30</kbd> <kbd>5:30p</kbd> <kbd>17:30</kbd> type a time</span>

@@ -128,3 +128,25 @@ table.teEwGrid tr.teDwFlash td{animation:teDwFlash 1.6s ease-out;}
 .teFilterClear{display:inline-flex;align-items:center;gap:3px;border:0;background:none;padding:2px 4px;color:var(--accent);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;border-radius:6px;}
 .teFilterClear:hover{background:var(--hover);}
 .teFilterClear svg{width:13px;height:13px;}
+
+/* Summary pop-up after Save in the Date-wise grid. */
+.teSum{position:relative;min-width:min(560px,100%);}
+.teSum h3{margin:0 40px 2px 0;display:flex;align-items:center;gap:8px;}
+.teSum h3 svg{color:var(--st-present-text);}
+.teSum h4{margin:16px 0 6px;font-size:13.5px;}
+.teSumClose{position:absolute;top:-6px;right:-6px;width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);display:grid;place-items:center;cursor:pointer;}
+.teSumClose:hover{background:var(--accent-soft);}
+.teSumDate{margin:0 0 12px;color:var(--muted);font-size:13px;}
+.teSumCounts{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.teSumCounts div{border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;}
+.teSumCounts b{font-size:24px;line-height:1.1;}
+.teSumCounts span{font-size:12px;font-weight:600;}
+.teSumCounts .ok{background:var(--st-present-bg);color:var(--st-present-text);}
+.teSumCounts .danger{background:var(--st-lop-bg);color:var(--st-lop-text);}
+.teSumCounts .warn{background:var(--st-half-bg);color:var(--st-half-text);}
+table.teSumTable{width:100%;border-collapse:collapse;font-size:13px;}
+table.teSumTable th{color:var(--muted);font-size:11.5px;font-weight:600;text-transform:uppercase;padding:6px;border-bottom:1px solid var(--line);}
+table.teSumTable td{padding:6px;border-top:1px solid var(--line);text-align:center;}
+.teSumScroll{max-height:45vh;overflow:auto;}
+.teSumScroll table.teSumTable thead th{position:sticky;top:0;background:var(--card);}
+.teSumNone{margin:0;color:var(--muted);font-size:13px;}
