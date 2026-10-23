@@ -1,4 +1,4 @@
-import { ArrowRight, CalendarCheck, Eye, EyeOff, FileText, Lock, ShieldCheck, User, Wallet } from 'lucide-react';
+import { ArrowRight, CalendarCheck, Eye, EyeOff, FileText, Lock, User, Wallet } from 'lucide-react';
 import { APP_NAME } from '../config/brand.js';
 import { callLegacy } from '../legacyBridge.js';
 
@@ -79,10 +79,6 @@ export default function LoginScreen() {
             <button type="button" className="loginSubmit" onClick={() => callLegacy('attemptLogin')}>
               Sign In <ArrowRight size={18} aria-hidden="true" />
             </button>
-            <div className="loginNote">
-              <ShieldCheck size={20} aria-hidden="true" />
-              <span>Accounts are created by your administrator. Forgot your password? Ask your administrator to reset it.</span>
-            </div>
           </div>
         </div>
 

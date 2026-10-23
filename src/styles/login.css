@@ -60,9 +60,6 @@ body.dark .loginHeadline{color:#eef1f6;}
 }
 .loginSubmit svg{transition:transform .2s var(--ease-out);}
 .loginSubmit:hover svg{transform:translateX(3px);}
-.loginNote{display:flex;align-items:flex-start;gap:12px;margin-top:22px;padding:14px 16px;border-radius:14px;font-size:12.5px;line-height:1.5;
-  color:color-mix(in srgb, var(--ink) 75%, transparent);background:color-mix(in srgb, var(--accent) 7%, var(--card));}
-.loginNote svg{flex:none;color:var(--accent);margin-top:1px;}
 
 /* Right: decorative art */
 .loginArt{position:relative;align-self:stretch;min-height:480px;animation:loginFade 1s ease .2s both;}
