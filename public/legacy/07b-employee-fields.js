@@ -114,10 +114,10 @@ function employeeFields(){
       options:[{value:'yes',label:'Yes'},{value:'no',label:'Exempted'}],
       formValue:e=>e.esiApplicable===false ? 'no' : 'yes',
       readValue:v=>v==='yes', width:13},
-    // Canteen tokens bought each month — deducted at the Canteen Token Price (Payroll Process).
+    // Canteen tokens bought each month — deducted at the canteen token price (Payroll → Payroll Rates).
     // This is the usual monthly count; it can be changed for a single month on the Attendance screen.
     {key:'canteenTokens', label:'Canteen Tokens (per month)', section:'salary', input:'number',
-      title:'Number of canteen tokens this employee buys each month. Deducted from salary at the Canteen Token Price set in Payroll Process.', width:14}
+      title:'Number of canteen tokens this employee buys each month. Deducted from salary at the canteen token price (Payroll → Payroll Rates).', width:14}
   ];
 }
 // OT Factor (Employee form): the multiplier in the OT rate. Employees without one use 1.5.

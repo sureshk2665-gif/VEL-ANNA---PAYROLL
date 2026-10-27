@@ -140,7 +140,7 @@ function companyFilePrefix(){
 
 // Attendance module supports exactly these 4 manually-selectable statuses.
 // 'NOPH' is a separate, auto-applied status driven by the Holiday Calendar
-// (Payroll → Payroll Process) — it is never manually selectable, only shown/locked.
+// (Employee Time Entry → Holiday Calendar) — it is never manually selectable, only shown/locked.
 // No NOPL (paid leave): contractor employees get no paid leave, so an absent day is Loss Of Pay.
 const STATUS_LIST=['Present','HalfDay','LossOfPay'];
 const STATUS_LABEL={Present:'Present',HalfDay:'Half Day',LossOfPay:'Loss Of Pay',NOPH:'NOPH'};
