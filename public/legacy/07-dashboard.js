@@ -9,7 +9,6 @@ const DASHBOARD_APPS = [
   {page:'attendance',     label:'Attendance',          icon:'calendar-days', hue:'green'},
   {page:'timeentry',      label:'Employee Time Entry', icon:'timer',         hue:'cyan'},
   {page:'payroll',        label:'Payroll',             icon:'wallet',        hue:'violet'},
-  {page:'payrollprocess', label:'Payroll Process',     icon:'calculator',    hue:'indigo'},
   {page:'salaryadvance',  label:'Salary Advance',      icon:'landmark',      hue:'orange'},
   {page:'contractorbill', label:'Contractors Bill',    icon:'receipt',       hue:'amber'},
   {page:'reports',        label:'Reports',             icon:'chart',         hue:'rose'},

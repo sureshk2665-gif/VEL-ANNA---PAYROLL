@@ -1,5 +1,5 @@
 import {
-  Calculator, CalendarDays, DoorOpen, Folder, Landmark, LayoutDashboard, Receipt, Settings, ShieldCheck,
+  CalendarDays, DoorOpen, Folder, Landmark, LayoutDashboard, Receipt, Settings, ShieldCheck,
   Tag, Timer, Users, Wallet,
 } from 'lucide-react';
 
@@ -16,7 +16,6 @@ export const NAV_ITEMS = [
   { page: 'timeentry', icon: Timer, label: 'Employee Time Entry' },
   { section: 'Payroll' },
   { page: 'payroll', icon: Wallet, label: 'Payroll' },
-  { page: 'payrollprocess', icon: Calculator, label: 'Payroll Process' },
   { page: 'salaryadvance', icon: Landmark, label: 'Salary Advance' },
   { page: 'contractorbill', icon: Receipt, label: 'Contractors Bill' },
   { page: 'reports', icon: Folder, label: 'Reports' },

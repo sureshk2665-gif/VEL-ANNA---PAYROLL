@@ -8,7 +8,6 @@ const PERMISSION_MODULES=[
   {key:'attendance',label:'Attendance'},
   {key:'timeentry',label:'Employee Time Entry'},
   {key:'payroll',label:'Payroll'},
-  {key:'payrollprocess',label:'Payroll Process'},
   {key:'salaryadvance',label:'Salary Advance'},
   {key:'contractorbill',label:'Contractors Bill'},
   {key:'reports',label:'Reports'},
@@ -47,10 +46,8 @@ function defaultPermsForRole(role){
 function ensureUserPermissions(u){
   if(u.role==='Admin' || u.role==='Software Admin'){ u.permissions=defaultPermsForRole(u.role); return u.permissions; }
   if(!u.permissions || typeof u.permissions!=='object') u.permissions=defaultPermsForRole(u.role||'Viewer');
-  // Payroll Process used to share the Payroll rights — start it from them so nobody gains or
-  // loses access. Annual Increment has been removed from the site.
-  if(!u.permissions.payrollprocess && u.permissions.payroll) u.permissions.payrollprocess={...u.permissions.payroll};
-  delete u.permissions.increment;
+  // Annual Increment and Payroll Process have been removed from the site.
+  delete u.permissions.increment; delete u.permissions.payrollprocess;
   PERMISSION_MODULES.forEach(m=>{
     // Missing module entirely (e.g. this user's saved permissions pre-date a newly added
     // module such as Employee Time Entry) → backfill with that role's sensible defaults

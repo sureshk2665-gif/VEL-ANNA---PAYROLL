@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', ()=>{ dbReady.then(startAutoBackup
 // otherwise the listener above handles it (prevents the watcher from starting twice).
 if(document.readyState==='complete') dbReady.then(startAutoBackupWatcher);
 function savePayrollConstants(){
-  if(!hasPerm('payrollprocess','edit')){ alert('You do not have permission to edit payroll constants.'); return; }
+  if(!hasPerm('payroll','edit')){ alert('You do not have permission to edit payroll rates.'); return; }
   const s=getSettings();
   // A blank box keeps the default; 0 is a valid rate (it used to snap back to the default).
   const rate=(id,def)=>{ const v=String(document.getElementById(id).value).trim(); return v===''||isNaN(+v) ? def : Math.max(0, +v); };
@@ -318,8 +318,9 @@ function savePayrollConstants(){
   const lg=document.getElementById('s_lateGraceMinutes').value;
   s.lateGraceMinutes = lg==='' ? 120 : Math.max(0, Math.round(+lg||0));
   saveDB(db);
-  alert('Payroll constants saved. They apply to months generated from now on; to apply them to a month already generated, open Payroll for that month and click Regenerate Payroll.');
-  render('payrollprocess');
+  closeModal();
+  alert('Payroll rates saved. They apply to months generated from now on; to apply them to a month already generated, click Regenerate Payroll for that month.');
+  render('payroll');
 }
 // Adds the next working unit (Unit-5, Unit-6, …). Existing units are never renumbered.
 function addWorkingUnit(){

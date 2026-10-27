@@ -14,8 +14,6 @@ let teGridDate=todayStr();         // date currently selected in the Time Entrie
 let teGridEditMode=false;          // false = grid rows are locked/view-only until "Edit" is pressed
 let teCalMonth=monthKey(todayStr());
 let teSummaryMonth=monthKey(todayStr()); // month shown in the Attendance & OT Summary tab
-let teSelHolDate=null;
-let teHolRemarks='';
 const TE_LEAVE_TYPES=['Loss of Pay','Half Day']; // no NOPL (paid leave)
 let teLeaveDate=todayStr();
 let teLeaveEmp='';

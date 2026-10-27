@@ -473,8 +473,8 @@ function renderTimeEntry(){
     <div class="teTab ${teTab==='entry'?'active':''}" onclick="teSetTab('entry')">${ico('calendar')} Date-wise Time Entry</div>
     <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">${ico('user')} Employee-wise Time Entry</div>
     <div class="teTab ${teTab==='leave'?'active':''}" onclick="teSetTab('leave')">${ico('palm')} Employee Leave</div>
-    <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holiday Booking</div>
     <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">${ico('chart')} Attendance &amp; OT Summary</div>
+    <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holiday Calendar</div>
   </div>
   ${teTab!=='holiday' ? renderTEFilterBar() : ''}
   ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : renderTESummaryTab()}`;
@@ -568,68 +568,90 @@ function printTEDay(dt){
   openPrintWindow(`Employee Time Entry — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
 }
 
-/* ---------------- Holiday Booking tab (this module's own calendar — separate from
-   the Payroll → Payroll Process Holiday Calendar, which drives NOWD/NOPH). ---------------- */
+/* ---------------- Holiday Calendar tab — every holiday in one month calendar:
+   - Paid holiday (NOPH, db.holidays): paid to every employee, taken off NOWD, time worked = OT;
+   - Holiday without pay (db.timeHolidays): not a paid day; time worked on it = full-day OT.
+   Sundays are always off (time worked = OT). Click a date to set or change it. ---------------- */
 function teCalPrevMonth(){ const [y,m]=teCalMonth.split('-').map(Number); const d=new Date(y,m-2,1); teCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
 function teCalNextMonth(){ const [y,m]=teCalMonth.split('-').map(Number); const d=new Date(y,m,1); teCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
-function teCalToday(){ teCalMonth=monthKey(todayStr()); render('timeentry'); }
-function teSelectCalDate(dt){ teSelHolDate=dt; teHolRemarks=(db.timeHolidays.find(h=>h.date===dt)||{}).remarks||''; render('timeentry'); }
-function teSetHolRemarks(v){ teHolRemarks=v; }
-function teBookHoliday(){
-  if(!hasPerm('timeentry','add') && !hasPerm('timeentry','edit')){ alert('You do not have permission to book holidays.'); return; }
-  if(!teSelHolDate){ alert('Please click a date on the calendar first.'); return; }
-  const existingIdx=db.timeHolidays.findIndex(h=>h.date===teSelHolDate);
-  const rec={date:teSelHolDate, remarks:teHolRemarks||''};
-  if(existingIdx>-1) db.timeHolidays[existingIdx]=rec; else db.timeHolidays.push(rec);
-  saveDB(db); render('timeentry');
+function teCalGoMonth(v){ if(v){ teCalMonth=v; render('timeentry'); } }
+function teHolCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
+// 'paid' | 'unpaid' | '' for a date, with its name.
+function teHolKind(dt){
+  const p=(db.holidays||[]).find(h=>h.date===dt); if(p) return {kind:'paid', name:p.name||''};
+  const u=(db.timeHolidays||[]).find(h=>h.date===dt); if(u) return {kind:'unpaid', name:u.remarks||''};
+  return {kind:'', name:''};
 }
-function teRemoveHoliday(dt, ev){
-  if(ev) ev.stopPropagation();
-  if(!hasPerm('timeentry','delete')){ alert('You do not have permission to remove a booked holiday.'); return; }
-  db.timeHolidays=db.timeHolidays.filter(h=>h.date!==dt);
-  if(teSelHolDate===dt){ teSelHolDate=null; teHolRemarks=''; }
-  saveDB(db); render('timeentry');
+function teHolOpen(dt){
+  if(!teHolCanEdit()) return;
+  const cur=teHolKind(dt);
+  const opt=(v,label,sub)=>`<label class="teHolOpt"><input type="radio" name="teHolKind" value="${v}" ${cur.kind===v?'checked':''}><span><b>${label}</b><small>${sub}</small></span></label>`;
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${fmtDate(dt)} · ${new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'})}</h3>
+    <div class="teHolOpts">
+      ${opt('','Working day','A normal day.')}
+      ${opt('paid','Paid holiday (NOPH)','Paid to every employee and taken off the working days (NOWD). Time worked is OT.')}
+      ${opt('unpaid','Holiday without pay','Not a paid day. Time worked is paid as full-day OT.')}
+    </div>
+    <div class="formGrid" style="margin-top:14px;"><div class="full"><label>Name (optional)</label><input id="teHolName" value="${teEsc(cur.name)}" placeholder="e.g. Diwali, Ayudha Pooja"></div></div>
+    <div class="modalActions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="teHolSave('${dt}')">${ico('save')} Save</button></div>`;
+  showModal();
+}
+function teHolSave(dt){
+  if(!teHolCanEdit()){ alert('You do not have permission to change the Holiday Calendar.'); return; }
+  const sel=document.querySelector('input[name="teHolKind"]:checked');
+  const kind=sel?sel.value:'';
+  const name=String((document.getElementById('teHolName')||{}).value||'').trim();
+  const cur=teHolKind(dt);
+  if(cur.kind && !kind && !hasPerm('timeentry','delete')){ alert('You do not have permission to remove a holiday.'); return; }
+  db.holidays=(db.holidays||[]).filter(h=>h.date!==dt);
+  db.timeHolidays=(db.timeHolidays||[]).filter(h=>h.date!==dt);
+  if(kind==='paid') db.holidays.push({date:dt, type:'NOPH', name});
+  if(kind==='unpaid') db.timeHolidays.push({date:dt, remarks:name});
+  db.holidays.sort((a,b)=>a.date.localeCompare(b.date));
+  saveDB(db); closeModal(); render('timeentry');
 }
 function renderTEHolidayTab(){
-  const canEdit=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
-  const [y,m]=teCalMonth.split('-').map(Number);
+  const canEdit=teHolCanEdit();
+  const ym=teCalMonth, [y,m]=ym.split('-').map(Number);
   const dim=new Date(y,m,0).getDate();
-  const firstDow=new Date(y,m-1,1).getDay(); // 0=Sun
-  const monthName=new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
+  const lead=(new Date(y,m-1,1).getDay()+6)%7; // Monday first
+  const today=todayStr();
   const cells=[];
-  for(let i=0;i<firstDow;i++) cells.push('<div class="teCalCell empty"></div>');
+  for(let i=0;i<lead;i++) cells.push('<div class="teCalCell empty"></div>');
   for(let d=1; d<=dim; d++){
-    const dt=y+'-'+String(m).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    const dt=ym+'-'+String(d).padStart(2,'0');
     const isSun=new Date(y,m-1,d).getDay()===0;
-    const booked=db.timeHolidays.find(h=>h.date===dt);
-    let cls='teCalCell'+(isSun?' sunday':'')+(booked?' booked':'')+(teSelHolDate===dt?' selected':'');
-    cells.push(`<div class="${cls}" onclick="${isSun?'':`teSelectCalDate('${dt}')`}">
-      <b>${d}</b>
-      ${isSun?`<span class="teSunTag">Sun · Auto OT</span>`:''}
-      ${booked?`<span class="teOcc">${ico('bookmark')} ${booked.remarks||'Booked'}</span>${canEdit?`<span class="teRemove" onclick="teRemoveHoliday('${dt}',event)">${ico('x')}</span>`:''}`:''}
-    </div>`);
+    const h=teHolKind(dt);
+    const cls='teCalCell'+(isSun?' sunday':'')+(h.kind==='paid'?' paid':'')+(h.kind==='unpaid'?' unpaid':'')+(dt===today?' today':'')+(canEdit&&!isSun?' editable':'');
+    const tag=isSun?'<span class="teHolTag sun">Sunday</span>':h.kind==='paid'?'<span class="teHolTag paid">Paid holiday</span>':h.kind==='unpaid'?'<span class="teHolTag unpaid">Holiday · OT</span>':'';
+    cells.push(`<div class="${cls}" ${canEdit&&!isSun?`role="button" tabindex="0" onclick="teHolOpen('${dt}')" onkeydown="if(event.key==='Enter')teHolOpen('${dt}')" title="Click to set this day"`:''}>
+      <div class="teCalTop"><b>${d}</b>${dt===today?'<span class="teCalToday">Today</span>':''}</div>${tag}${h.name?`<span class="teHolName">${teEsc(h.name)}</span>`:''}</div>`);
   }
-  const dows=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  return `<div class="panel">
-    <h3>${ico('calendar')} Time Entry — Holiday Booking</h3>
-    <p class="syncNote">Click any date below to select it, then use Book Holiday to confirm (with an optional occasion/remarks name). A booked date makes every In/Out entry on that date full-day OT (no Late), and that OT is paid in Payroll; time worked on a booked date is paid as OT only, not as a Present day. Sundays (shaded, marked "Sun · Auto OT") and Payroll NOPH holidays already work this way. This calendar does not change NOWD or NOPH — paid holidays are set in Payroll → Payroll Process → Holiday Calendar.</p>
-    <div class="teCalWrap">
-      <div class="teCalHead">
-        <button class="btn secondary" onclick="teCalPrevMonth()">‹ Prev</button>
-        <b>${monthName}</b>
-        <button class="btn secondary" onclick="teCalNextMonth()">Next ›</button>
-        <button class="btn secondary" onclick="teCalToday()" style="margin-left:auto;">Today</button>
-      </div>
-      <div class="teCalGrid">
-        ${dows.map(d=>`<div class="teCalDow">${d}</div>`).join('')}
-        ${cells.join('')}
+  const sundays=sundaysInMonth(ym), paid=holidaysInMonth(ym);
+  const unpaid=(db.timeHolidays||[]).filter(h=>h.date.startsWith(ym) && new Date(h.date+'T00:00:00').getDay()!==0).length;
+  return `<div class="teStatRow">
+      <div class="teStatBox"><b>${dim}</b><span>Total days</span></div>
+      <div class="teStatBox"><b>${sundays}</b><span>Sundays</span></div>
+      <div class="teStatBox"><b>${paid}</b><span>Paid holidays (NOPH)</span></div>
+      <div class="teStatBox"><b>${computeWorkingDays(ym)}</b><span>NOWD = ${dim} − ${sundays} − ${paid}</span></div>
+      <div class="teStatBox"><b>${unpaid}</b><span>Holidays without pay</span></div>
+    </div>
+    <div class="panel">
+    <div class="teCalHead">
+      <h3 style="margin:0;">${ico('calendar')} Holiday Calendar</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto;">
+        <button class="btn secondary" onclick="teCalPrevMonth()" aria-label="Previous month">‹</button>
+        <b style="min-width:120px;text-align:center;">${new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'})}</b>
+        <button class="btn secondary" onclick="teCalNextMonth()" aria-label="Next month">›</button>
+        <input type="month" value="${ym}" onchange="teCalGoMonth(this.value)">
       </div>
     </div>
-    <div class="formGrid" style="margin-top:16px;">
-      <div><label>Selected Date</label><input type="text" value="${teSelHolDate?fmtDate(teSelHolDate):''}" disabled></div>
-      <div><label>Occasion / Remarks (optional)</label><input type="text" placeholder="e.g. Diwali, Independence Day" value="${teHolRemarks}" ${canEdit?'':'disabled'} oninput="teSetHolRemarks(this.value)"></div>
-      <div class="full"><button class="btn" ${canEdit&&teSelHolDate?'':'disabled'} onclick="teBookHoliday()">${ico('pin')} Book Holiday</button></div>
+    <div class="teCalGrid">
+      ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="teCalDow">${d}</div>`).join('')}
+      ${cells.join('')}
     </div>
+    <p class="syncNote">${canEdit?'Click a date to mark it as a <b>Paid holiday (NOPH)</b> or a <b>Holiday without pay</b>, or set it back to a working day. ':''}Paid holidays are paid to every employee, show as NOPH in Attendance and are taken off the working days (NOWD) used by Payroll. Time worked on a Sunday or any holiday is OT.</p>
   </div>`;
 }
 

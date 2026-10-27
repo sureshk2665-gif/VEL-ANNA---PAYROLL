@@ -83,23 +83,6 @@ function holidaysInMonth(ym){
 function computeWorkingDays(ym){ return daysInMonth(ym) - sundaysInMonth(ym) - holidaysInMonth(ym); }
 function weekdayShort(ym, day){ const [y,m]=ym.split('-').map(Number); return ['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(y,m-1,day).getDay()]; }
 function isSunday(ym, day){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,day).getDay()===0; }
-function addHolidayDate(dateVal){
-  if(!hasPerm('payrollprocess','edit')){ alert('You do not have permission to edit the Holiday Calendar.'); return; }
-  if(!dateVal) return;
-  if(!db.holidays) db.holidays=[];
-  const existing=db.holidays.find(h=>h.date===dateVal);
-  if(!existing){ db.holidays.push({date:dateVal, type:'NOPH'}); }
-  db.holidays.sort((a,b)=>a.date.localeCompare(b.date));
-  saveDB(db);
-  render('payrollprocess');
-}
-function removeHolidayDate(dateVal){
-  if(!hasPerm('payrollprocess','edit')){ alert('You do not have permission to edit the Holiday Calendar.'); return; }
-  if(!db.holidays) return;
-  db.holidays = db.holidays.filter(h=>h.date!==dateVal);
-  saveDB(db);
-  render('payrollprocess');
-}
 // Single source of truth for "what is this employee's status on this date" — used everywhere
 // attendance is displayed or summarized (Attendance, Payroll, Dashboard). In order:
 //   1. a Holiday Calendar date shows/counts as 'NOPH' for every employee;
@@ -724,7 +707,7 @@ function renderAttendanceGrid(){
 }
 function setCellStatus(date, code, status){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  if(isHolidayDate(date)){ alert('This date is set as NOPH in the Holiday Calendar and is locked. Remove it from the Holiday Calendar (Payroll → Payroll Process) to edit attendance for this date.'); return; }
+  if(isHolidayDate(date)){ alert('This date is set as NOPH in the Holiday Calendar and is locked. Change it in the Holiday Calendar (Employee Time Entry → Holiday Calendar) to edit attendance for this date.'); return; }
   if(!db.attendance[date]) db.attendance[date]={};
   if(status) db.attendance[date][code]=status; else delete db.attendance[date][code];
   saveDB(db);
