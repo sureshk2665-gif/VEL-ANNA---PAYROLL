@@ -161,3 +161,11 @@ table.teSumTable td{padding:6px;border-top:1px solid var(--line);text-align:cent
 .teSumScroll{max-height:45vh;overflow:auto;}
 .teSumScroll table.teSumTable thead th{position:sticky;top:0;background:var(--card);}
 .teSumNone{margin:0;color:var(--muted);font-size:13px;}
+
+/* Monthly Token Entry */
+.teTokWrap{max-height:62vh;overflow:auto;}
+.teTokWrap table.teTokTable{min-width:820px;}
+table.teTokTable thead th{position:sticky;top:0;z-index:1;}
+table.teTokTable input.teTokIn{width:88px;height:32px;text-align:right;padding:0 8px;}
+table.teTokTable input.teTokIn.bad{border-color:var(--danger);}
+table.teTokTable .teTokSrc{color:var(--muted);font-size:12.5px;}

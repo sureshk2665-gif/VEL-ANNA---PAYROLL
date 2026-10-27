@@ -474,10 +474,11 @@ function renderTimeEntry(){
     <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">${ico('user')} Employee-wise Time Entry</div>
     <div class="teTab ${teTab==='leave'?'active':''}" onclick="teSetTab('leave')">${ico('palm')} Employee Leave</div>
     <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">${ico('chart')} Attendance &amp; OT Summary</div>
+    <div class="teTab ${teTab==='tokens'?'active':''}" onclick="teSetTab('tokens')">${ico('clipboard')} Monthly Token Entry</div>
     <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holiday Calendar</div>
   </div>
   ${teTab!=='holiday' ? renderTEFilterBar() : ''}
-  ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : renderTESummaryTab()}`;
+  ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : teTab==='tokens' ? renderTETokensTab() : renderTESummaryTab()}`;
 }
 
 function renderTEEntryTab(){
@@ -652,6 +653,87 @@ function renderTEHolidayTab(){
       ${cells.join('')}
     </div>
     <p class="syncNote">${canEdit?'Click a date to mark it as a <b>Paid holiday (NOPH)</b> or a <b>Holiday without pay</b>, or set it back to a working day. ':''}Paid holidays are paid to every employee, show as NOPH in Attendance and are taken off the working days (NOWD) used by Payroll. Time worked on a Sunday or any holiday is OT.</p>
+  </div>`;
+}
+
+/* ---------------- Monthly Token Entry tab — canteen tokens per employee for a month.
+   A typed figure is that month's count (db.payrollAdjustments[ym][code].canteenTokens, the field
+   payroll reads through canteenTokensFor()); an empty box uses the employee's usual monthly count
+   from the Employee form. Payroll deducts tokens × the canteen token price (Payroll Rates). ---- */
+let teTokSearch='';
+function teTokCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
+function teTokSetMonth(v){ if(!v) return; teTokMonth=v; render('timeentry'); }
+function teTokTyped(ym, code){ const a=db.payrollAdjustments&&db.payrollAdjustments[ym]&&db.payrollAdjustments[ym][code]; return !!a && a.canteenTokens!==undefined && a.canteenTokens!==null; }
+function teTokSet(inp){
+  if(!teTokCanEdit()){ alert('You do not have permission to enter tokens.'); return; }
+  const code=inp.dataset.code, ym=teTokMonth, raw=String(inp.value).trim();
+  if(raw!=='' && (isNaN(+raw) || +raw<0)){ inp.classList.add('bad'); return; }
+  inp.classList.remove('bad');
+  if(!db.payrollAdjustments) db.payrollAdjustments={};
+  if(!db.payrollAdjustments[ym]) db.payrollAdjustments[ym]={};
+  const a=db.payrollAdjustments[ym][code]||(db.payrollAdjustments[ym][code]={});
+  if(raw==='') delete a.canteenTokens; else a.canteenTokens=Math.round(+raw);
+  teTokRefresh(); teEwQueueSave();
+}
+function teTokKey(ev, inp){
+  if(ev.key!=='Enter' && ev.key!=='ArrowDown' && ev.key!=='ArrowUp') return;
+  ev.preventDefault();
+  const all=[...document.querySelectorAll('#teTokTable tbody tr:not([hidden]) input.teTokIn')];
+  const next=all[all.indexOf(inp)+(ev.key==='ArrowUp'?-1:1)];
+  if(next){ next.focus(); next.select(); }
+}
+function teTokFilter(v){
+  teTokSearch=v; const q=v.trim().toLowerCase();
+  document.querySelectorAll('#teTokTable tbody tr[data-s]').forEach(tr=>{ tr.hidden=!!q && !tr.dataset.s.includes(q); });
+}
+// Recomputes each row's count, amount and the totals in place (no re-render, so typing keeps focus).
+function teTokRefresh(){
+  const price=+(getSettings().canteenTokenPrice)||0, ym=teTokMonth;
+  let tokens=0, typed=0;
+  document.querySelectorAll('#teTokTable tbody tr[data-code]').forEach(tr=>{
+    const e=(db.employees||[]).find(x=>x.code===tr.dataset.code); if(!e) return;
+    const n=canteenTokensFor(e, ym), t=teTokTyped(ym, e.code);
+    tokens+=n; if(t) typed++;
+    tr.querySelector('.teTokAmt').textContent=fmt(Math.round(n*price*100)/100);
+    tr.querySelector('.teTokSrc').textContent=t?'This month':'Usual';
+  });
+  const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
+  set('teTokTotal', tokens); set('teTokAmount', fmt(Math.round(tokens*price*100)/100)); set('teTokTyped', typed);
+}
+function renderTETokensTab(){
+  const ym=teTokMonth, can=teTokCanEdit(), price=+(getSettings().canteenTokenPrice)||0;
+  const emps=teFilteredEmployees(ym), q=teTokSearch.trim().toLowerCase();
+  const rows=emps.map((e,i)=>{
+    const n=canteenTokensFor(e, ym), t=teTokTyped(ym, e.code), s=`${e.code} ${e.name}`.toLowerCase();
+    return `<tr data-code="${teEsc(e.code)}" data-s="${teEsc(s)}" ${q&&!s.includes(q)?'hidden':''}>
+      <td class="num">${i+1}</td><td>${teEsc(e.code)}</td><td style="text-align:left;">${teEsc(e.name)}</td><td>${teEsc(unitLabel(e.unit))}</td><td>${teEsc(contractorName(e)||'-')}</td>
+      <td class="num">${+e.canteenTokens||0}</td>
+      <td class="num"><input class="teTokIn" type="number" min="0" step="1" data-code="${teEsc(e.code)}" value="${t?n:''}" placeholder="${+e.canteenTokens||0}" ${can?'':'disabled'}
+        onchange="teTokSet(this)" onkeydown="teTokKey(event,this)" aria-label="Tokens for ${teEsc(e.name)}"></td>
+      <td class="teTokSrc">${t?'This month':'Usual'}</td>
+      <td class="num teTokAmt">${fmt(Math.round(n*price*100)/100)}</td></tr>`;
+  }).join('');
+  const total=emps.reduce((s,e)=>s+canteenTokensFor(e, ym),0), typed=emps.filter(e=>teTokTyped(ym,e.code)).length;
+  return `<div class="teStatRow">
+      <div class="teStatBox"><b>${emps.length}</b><span>Employees</span></div>
+      <div class="teStatBox"><b id="teTokTotal">${total}</b><span>Tokens this month</span></div>
+      <div class="teStatBox"><b>${fmt(price)}</b><span>Price per token</span></div>
+      <div class="teStatBox"><b id="teTokAmount">${fmt(Math.round(total*price*100)/100)}</b><span>Deducted from salary</span></div>
+      <div class="teStatBox"><b id="teTokTyped">${typed}</b><span>Entered for this month</span></div>
+    </div>
+    <div class="panel">
+    <div class="teCalHead">
+      <h3 style="margin:0;">${ico('clipboard')} Monthly Token Entry — ${monthLabel(ym)}</h3>
+      <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap;">
+        <input type="month" value="${ym}" onchange="teTokSetMonth(this.value)" aria-label="Month">
+        <input type="search" placeholder="Search employee" value="${teEsc(teTokSearch)}" oninput="teTokFilter(this.value)" aria-label="Search employee">
+      </div>
+    </div>
+    <div class="tableScrollWrap teTokWrap"><table class="teTokTable" id="teTokTable">
+      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Unit</th><th>Contractor</th><th class="num" title="From the Employee form">Usual</th><th class="num">Tokens this month</th><th>From</th><th class="num">Amount</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="9" class="empty">No employees on the roll in ${monthLabel(ym)}${teFilterText()?' for '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
+    </table></div>
+    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee). Leave a box empty to use the usual count from the Employee form. ':''}Payroll deducts tokens × ${fmt(price)} (Payroll → Payroll Rates). The figures show on the salary slip.</p>
   </div>`;
 }
 
