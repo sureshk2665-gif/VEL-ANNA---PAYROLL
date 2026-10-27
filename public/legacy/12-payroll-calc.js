@@ -16,8 +16,8 @@ function adjFor(ym, code){
   const a=db.payrollAdjustments && db.payrollAdjustments[ym] && db.payrollAdjustments[ym][code];
   return a ? {...ADJ_DEFAULTS, ...a} : {...ADJ_DEFAULTS};
 }
-// Canteen tokens for an employee in a month: the month's own figure if one was entered on the
-// Attendance screen, otherwise the employee's usual monthly count (Employee form).
+// Canteen tokens for an employee in a month: the month's own figure if one was entered in
+// Employee Time Entry → Monthly Token Entry, otherwise the employee's usual monthly count (Employee form).
 function canteenTokensFor(e, ym){
   const adj=adjFor(ym, e.code);
   return (adj.canteenTokens!==undefined && adj.canteenTokens!==null) ? (+adj.canteenTokens||0) : (+e.canteenTokens||0);

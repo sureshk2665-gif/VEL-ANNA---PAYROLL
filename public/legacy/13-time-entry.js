@@ -9,7 +9,8 @@
        (teMonthLateMinutes / teMonthOTMinutes).
    db.timeHolidays (holiday OT here) is separate from the Payroll Holiday Calendar.
    ================================================================================ */
-let teTab='entry';                 // 'entry' (Date-wise) | 'empwise' (Employee-wise) | 'leave' | 'holiday' | 'summary'
+let teTab='entry';                 // 'entry' (Date-wise) | 'empwise' (Employee-wise) | 'leave' | 'summary' | 'tokens' | 'holiday'
+let teTokMonth=monthKey(todayStr()); // Monthly Token Entry month
 let teGridDate=todayStr();         // date currently selected in the Time Entries grid (defaults to today)
 let teGridEditMode=false;          // false = grid rows are locked/view-only until "Edit" is pressed
 let teCalMonth=monthKey(todayStr());
@@ -177,7 +178,7 @@ function activeEmployeesForTE(scope){
 }
 // The date or month the open Time Entry tab is showing.
 function teScope(){
-  return teTab==='empwise' ? teEwMonth : teTab==='summary' ? teSummaryMonth : teTab==='leave' ? teLeaveDate : teGridDate;
+  return teTab==='empwise' ? teEwMonth : teTab==='summary' ? teSummaryMonth : teTab==='tokens' ? teTokMonth : teTab==='leave' ? teLeaveDate : teGridDate;
 }
 /* ---- Unit / Contractor filter (one filter for the whole Time Entry page: Date-wise grid,
    Employee-wise picker, Employee Leave, Attendance & OT Summary and their prints). It only
