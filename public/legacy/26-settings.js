@@ -2,6 +2,7 @@
 function renderSettings(){
   const canEditSettings = hasPerm('settings','edit');
   return `
+  ${(isAdmin()||isSoftwareAdmin()) ? renderPayrollRatesPanel() : ''}
   ${renderDesignationsPanel()}
   <div class="panel"><h3>Change Password</h3>
     <div class="formGrid">
@@ -79,4 +80,23 @@ function deleteDesignation(i){
   if(!confirm('Delete designation "'+d+'"?')) return;
   db.designations.splice(i,1);
   saveDB(db); render('settings');
+}
+
+// Payroll Rates (Admin and Software Admin only): PF / ESI rates, canteen token price and the
+// monthly late grace, used by every payroll run.
+function renderPayrollRatesPanel(){
+  const s=getSettings();
+  return `<div class="panel"><h3>${ico('percent')} Payroll Rates</h3>
+    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Used by every payroll run. A change applies to months generated from now on; regenerate a month on the Payroll page to apply it there. There is no paid leave: an absent day is Loss Of Pay.</p>
+    <div class="formGrid">
+      <div><label>PF rate — employee (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfRate" value="${s.pfRate}"></div>
+      <div><label>PF rate — employer (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
+      <div><label>ESI rate — employee (0.0075 = 0.75%)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
+      <div><label>ESI rate — employer (0.0325 = 3.25%)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
+      <div><label>Canteen token price (₹ per token)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${s.canteenTokenPrice}"></div>
+      <div><label>Late grace (minutes per month)</label><input type="number" step="1" min="0" id="s_lateGraceMinutes" value="${lateGraceMinutes()}"></div>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for Present + Half Day × 0.5 + paid holidays. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the free late minutes above. <b>Canteen:</b> tokens (Employee Time Entry → Monthly Token Entry) × the token price. <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
+    <div class="modalActions"><button class="btn" onclick="savePayrollConstants()">${ico('save')} Save Payroll Rates</button></div>
+  </div>`;
 }

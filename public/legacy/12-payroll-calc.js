@@ -159,7 +159,7 @@ function computePayrollForEmployee(e, ym){
   const pfWages = basicE;
   const pf = e.pfApplicable ? Math.round(pfWages*rates.pfRate) : 0;
   const pfEmployer = e.pfApplicable ? Math.round(pfWages*rates.pfEmployerRate) : 0;
-  // Canteen: tokens bought this month × the month's canteen token price (Payroll → Payroll Rates).
+  // Canteen: tokens bought this month × the month's canteen token price (Admin → Payroll Rates).
   const canteenTokens = canteenTokensFor(e, ym);
   const tokenPrice = canteenTokenPrice(ym);
   const canteen = Math.round(canteenTokens*tokenPrice*100)/100;

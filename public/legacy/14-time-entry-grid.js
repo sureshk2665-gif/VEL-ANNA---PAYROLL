@@ -733,7 +733,7 @@ function renderTETokensTab(){
       <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Unit</th><th>Contractor</th><th class="num" title="From the Employee form">Usual</th><th class="num">Tokens this month</th><th>From</th><th class="num">Amount</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="9" class="empty">No employees on the roll in ${monthLabel(ym)}${teFilterText()?' for '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
     </table></div>
-    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee). Leave a box empty to use the usual count from the Employee form. ':''}Payroll deducts tokens × ${fmt(price)} (Payroll → Payroll Rates). The figures show on the salary slip.</p>
+    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee). Leave a box empty to use the usual count from the Employee form. ':''}Payroll deducts tokens × ${fmt(price)} (Admin → Payroll Rates). The figures show on the salary slip.</p>
   </div>`;
 }
 

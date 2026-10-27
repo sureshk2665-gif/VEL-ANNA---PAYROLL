@@ -46,7 +46,6 @@ function renderPayroll(){
     <select onchange="payContractorFilter=this.value;render('payroll')" title="Filter by contractor">
       ${contractorFilterOptionsHtml(payContractorFilter)}
     </select>
-    ${hasPerm('payroll','edit') ? `<button class="btn secondary" onclick="openPayrollRates()" title="PF, ESI, canteen token price and late grace">${ico('percent')} Payroll Rates</button>` : ''}
     ${hasPerm('payroll','print') ? `<button class="btn secondary" onclick="openPaySlipDialog()" title="Print pay slips by month, unit, contractor or employee">${ico('printer')} Print Pay Slips…</button>` : ''}
     ${generated && hasPerm('payroll','export') ? `<button class="btn secondary" ${rows.length?'':'disabled'} onclick="downloadPayrollExcel()" title="Every figure on the salary slip, one row per employee">${ico('file-spreadsheet')} Excel</button>` : ''}
     <span style="font-size:12px;color:var(--muted);margin-left:auto;">NOWD: ${computeWorkingDays(payMonth)} (auto-calculated: Total Days − Sundays − Holidays for ${monthLabel(payMonth)} — holidays are set in Employee Time Entry → Holiday Calendar)</span>
@@ -119,26 +118,4 @@ function generatePayrollFor(ym){
   db.payroll[ym]=rec; // marks the month as generated (figures are always recomputed live — payrollMonthRecords)
   saveDB(db);
   return true;
-}
-
-
-// Payroll Rates: PF / ESI rates, canteen token price and the monthly late grace, used by every
-// payroll run (they used to live on the separate Payroll Process screen).
-function openPayrollRates(){
-  if(!hasPerm('payroll','edit')){ alert('You do not have permission to edit payroll rates.'); return; }
-  const s=getSettings();
-  document.getElementById('modalContent').innerHTML=`
-  <h3>${ico('percent')} Payroll Rates</h3>
-  <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Used by every payroll run. A change applies to months generated from now on; regenerate a month to apply it there.</p>
-  <div class="formGrid">
-    <div><label>PF rate — employee (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfRate" value="${s.pfRate}"></div>
-    <div><label>PF rate — employer (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
-    <div><label>ESI rate — employee (0.0075 = 0.75%)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
-    <div><label>ESI rate — employer (0.0325 = 3.25%)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
-    <div><label>Canteen token price (₹ per token)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${s.canteenTokenPrice}"></div>
-    <div><label>Late grace (minutes per month)</label><input type="number" step="1" min="0" id="s_lateGraceMinutes" value="${lateGraceMinutes()}"></div>
-  </div>
-  <p style="font-size:12px;color:var(--muted);margin-top:12px;">Wages: Basic = 60% and HRA = 40% of the Daily Wage, paid for Present + Half Day × 0.5 + paid holidays. OT per hour = Daily Wage ÷ 8 × the employee's OT Factor. Late: one minute = Daily Wage ÷ 8 ÷ 60, after the free late minutes above. Working days (NOWD) = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
-  <div class="modalActions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="savePayrollConstants()">${ico('save')} Save</button></div>`;
-  showModal();
 }
