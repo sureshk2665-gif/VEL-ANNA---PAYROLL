@@ -10,10 +10,8 @@ import BulkImportDialog from './features/employee-import/BulkImportDialog.jsx';
 export default function App() {
   return (
     <>
-      {/* The app shell comes first so its page title is the document's first h1 (the login
-          screen's title is hidden while the app is open). */}
-      <AppShell />
       <LoginScreen />
+      <AppShell />
       <ModalOverlay />
       <BulkImportDialog />
     </>
