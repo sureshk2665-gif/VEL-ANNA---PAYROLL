@@ -300,12 +300,15 @@ function teDwLock(){
   if(teDwUnlocked() && teDwSel.size){
     const bulk=teShiftByKey(teDwBulkShift);
     const nonWorking=teIsHolidayDate(dt);
+    // Only shifts with at least one ticked employee are being marked: in those, the unticked are
+    // Loss of Pay. A shift where nobody is ticked is saved as typed.
+    const marked=new Set([...teDwSel].map(code=>teEmpShiftKey(code, dt)||''));
     teDwEmployees().forEach(e=>{
       const md=teEwRowModel(e.code, dt);
       if(md.onLeave) return;
       if(teDwSel.has(e.code)){
         if(!md.hasIn && teDwFillShift(dt, e.code, teEmpShift(e.code, dt)||bulk)) changed=true;
-      } else if(!nonWorking){
+      } else if(!nonWorking && marked.has(teEmpShiftKey(e.code, dt)||'')){
         if(md.hasIn||md.hasOut){ teWriteTimeFor(dt, e.code, 'in', null); teWriteTimeFor(dt, e.code, 'out', null); }
         if(teSetLeaveFor(dt, e.code, 'Loss of Pay')) changed=true;
       }
@@ -468,7 +471,7 @@ function renderTEDateGrid(){
           ${teShiftPresets().map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
         </select><button class="btn secondary" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply</button></span>
       </div>
-      <p id="teDwBulkNote" class="teDwBulkNote">Tick all, untick who is absent, then Save: ticked employees get their shift, unticked ones are marked Loss of Pay. Type late In times and Half Day by hand.</p>
+      <p id="teDwBulkNote" class="teDwBulkNote">Tick a shift (or all), untick who is absent, then Save: ticked employees get their shift, unticked ones in that shift are marked Loss of Pay. Shifts with nobody ticked are saved as typed. Type late In times and Half Day by hand.</p>
     </div>
     <details class="teKeysBox"><summary>Keyboard shortcuts</summary><div class="teEwKeys">
       <span><kbd>930</kbd> <kbd>9:30</kbd> <kbd>5:30p</kbd> <kbd>17:30</kbd> type a time</span>
