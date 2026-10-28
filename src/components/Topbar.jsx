@@ -9,7 +9,7 @@ export default function Topbar() {
     <div className="topbar">
       <div className="topTitle">
         <h1 id="pageTitle">Dashboard</h1>
-        <p className="pageSubtitle" id="pageSubtitle">Today's attendance, the last two weeks and this month's payroll</p>
+        <p className="pageSubtitle" id="pageSubtitle">Welcome back — here's today's snapshot</p>
       </div>
       <div className="topActions">
         <div className="globalSearch" role="search">
