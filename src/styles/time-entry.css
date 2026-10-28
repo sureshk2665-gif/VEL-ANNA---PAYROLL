@@ -1,0 +1,71 @@
+/* =====================================================================================
+   EMPLOYEE TIME ENTRY — screen layout on top of the ledger system (loaded after ledger.css).
+   One control height for every toolbar, figures in one slim strip instead of big boxes,
+   the Date-wise fill / bulk tools in one bar, keyboard tips folded away.
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Toolbars: one control height ---------- */
+.teDwTop{gap:8px 16px;}
+.teDwGroup{gap:6px;}
+.teBarSep{width:1px;align-self:stretch;margin:4px 6px;background:var(--border);}
+.teDwTop select,.teDwTop input,.teDwLbl input[type=date],.teDwLbl input[type=month],
+.teCalHead input,.teCalHead select,.teSmBar input,.teSmBar select,.panelHead .teDwLbl input{
+  box-sizing:border-box;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);
+  background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;}
+.teDwTop .btn,.teCalHead .btn,.teSmBar .btn,.panelHead .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
+.teDwNav{min-width:var(--control-height);padding:0 8px;justify-content:center;}
+.teDwLbl{font-size:13px;font-weight:500;color:var(--muted);}
+.teDwFindWrap input{height:var(--control-height);width:230px;padding:0 10px 0 30px;border-color:var(--control);}
+.teDwFindWrap input:focus,.teDwTop select:focus,.teCalHead input:focus,.teSmBar input:focus{outline:none;box-shadow:var(--focus);}
+.teEwTop{margin-bottom:12px;}
+.teEwTop .teDwFindWrap input{width:200px;}
+.teEwTop select{max-width:130px;}
+.teEwTop input[type=month]{width:150px;}
+.teEwTop .teEwSave{font-size:12px;white-space:nowrap;}
+.teCalHead input[type=search],.teSmBar input[type=search]{min-width:220px;}
+
+/* ---------- Figures: one slim strip ---------- */
+.teStatRow{display:flex;flex-wrap:wrap;gap:0;margin:12px 0;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--surface);overflow:hidden;}
+.teStatBox{flex:1 1 120px;display:flex;flex-direction:column;gap:2px;padding:9px 14px;border:0;border-left:1px solid var(--rule);border-radius:0;background:none;text-align:left;}
+.teStatBox:first-child{border-left:0;}
+.teStatBox b{font-size:18px;font-weight:600;line-height:1.2;font-variant-numeric:tabular-nums;color:var(--text);}
+.teStatBox span{font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0;}
+.teStatBox.warn,.teStatBox.danger{border-left-color:var(--rule);}
+.teStatBox:first-child.warn,.teStatBox:first-child.danger{border-left:0;}
+.teStatBox.warn b{color:var(--st-half-text);}
+.teStatBox.danger b{color:var(--negative);}
+
+/* ---------- Date-wise ---------- */
+.teDwBanner{margin-top:12px;padding:9px 14px;border:1px solid var(--border);border-left:3px solid var(--text);border-radius:var(--radius-card);background:var(--raised);}
+.teDwActions{margin-top:0;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--raised);font-size:13px;}
+.teDwActRow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;}
+.teDwActRow + .teDwActRow{margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);}
+.teDwActLbl{display:inline-flex;align-items:center;gap:6px;min-width:112px;font-weight:600;color:var(--text);}
+.teDwActLbl svg{width:15px;height:15px;color:var(--muted);}
+.teDwActions .teDwBulkGrp{gap:6px;padding-right:10px;margin-right:2px;border-right:1px solid var(--rule);}
+.teDwActions .teDwBulkGrp:last-child{border-right:0;}
+.teDwActions label{color:var(--muted);font-weight:500;}
+.teDwActions input,.teDwActions select{box-sizing:border-box;height:32px;padding:0 8px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.teDwActions input[type=number]{width:64px;text-align:center;}
+.teDwActions .btn{height:32px;padding-top:0;padding-bottom:0;}
+.teDwQBtn{height:32px;border-color:var(--control);background:var(--surface);}
+.teDwBulkNote{margin:8px 0 0;}
+.teKeysBox{margin:8px 0 10px;font-size:12px;color:var(--muted);}
+.teKeysBox summary{display:inline-flex;align-items:center;gap:6px;list-style:none;cursor:pointer;font-weight:500;user-select:none;}
+.teKeysBox summary::-webkit-details-marker{display:none;}
+.teKeysBox summary::before{content:'';width:0;height:0;border-left:5px solid currentColor;border-top:4px solid transparent;border-bottom:4px solid transparent;transition:transform .15s;}
+.teKeysBox[open] summary::before{transform:rotate(90deg);}
+.teKeysBox summary:hover{color:var(--text);}
+.teKeysBox .teEwKeys{margin:8px 0 0;}
+.teDwGrid .teEwAtt{max-width:140px;}
+.teDwGrid input.teEwTime{width:84px;}
+.teDwGrid td.teDwOTCell input.teDwOT{width:54px;}
+.teEwSave:empty{min-width:0;}
+.teDwTop > .teDwGroup:last-child{margin-left:auto;}
+
+/* ---------- Other tabs ---------- */
+.teCalHead{gap:8px 12px;flex-wrap:wrap;}
+.teSmBar{gap:8px;}
+
+}
