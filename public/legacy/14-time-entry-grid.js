@@ -433,26 +433,22 @@ function renderTEEmpWiseTab(){
   const unlocked=canEdit&&teEwEditMode;
   const [y,m]=teEwMonth.split('-').map(Number);
   const monthName=new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
-  const inputStyle='padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;';
-  const picker=`<div class="panelHead" style="margin-bottom:10px;">
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <select onchange="teEwSetGrpFilter(this.value)" aria-label="Group" title="Show one group's employees" style="${inputStyle}">
+  const picker=`<div class="teDwTop teEwTop">
+      <div class="teDwGroup">
+        <select onchange="teEwSetGrpFilter(this.value)" aria-label="Group" title="Show one group's employees">
           <option value="">All Groups</option>${teGroups().map(g=>`<option value="${g.key}" ${teEwGrpFilter===g.key?'selected':''}>${teEsc(g.label)}</option>`).join('')}<option value="-" ${teEwGrpFilter==='-'?'selected':''}>No group</option></select>
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('user')} Employee
-          <input id="teEwFind" class="teEwFind" list="teEwEmpList" placeholder="Type code or name, press Enter" value="${emp?teEsc(emp.code+' — '+emp.name):''}"
-            onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault();teEwPickFromText(this.value);}" onchange="teEwPickFromText(this.value)" style="${inputStyle}width:260px;">
-        </label>
+        <span class="teDwFindWrap">${ico('user')}<input id="teEwFind" class="teEwFind" list="teEwEmpList" placeholder="Code or name, press Enter" value="${emp?teEsc(emp.code+' — '+emp.name):''}" aria-label="Employee"
+          onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault();teEwPickFromText(this.value);}" onchange="teEwPickFromText(this.value)"></span>
         <datalist id="teEwEmpList">${emps.map(e=>`<option value="${teEsc(e.code+' — '+e.name)}">${teEsc(e.department||'')}</option>`).join('')}</datalist>
-        <button class="btn secondary" title="Previous employee (Alt+↑)" onclick="teEwStepEmp(-1)">‹</button>
-        <button class="btn secondary" title="Next employee (Alt+↓)" onclick="teEwStepEmp(1)">›</button>
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;margin-left:6px;">${ico('calendar-days')} Month
-          <input type="month" value="${teEwMonth}" onchange="teEwSetMonth(this.value)" style="${inputStyle}">
-        </label>
-        <button class="btn secondary" title="Previous month (Alt+PageUp)" onclick="teEwStepMonth(-1)">‹</button>
-        <button class="btn secondary" title="Next month (Alt+PageDown)" onclick="teEwStepMonth(1)">›</button>
+        <button class="btn secondary teDwNav" title="Previous employee (Alt+↑)" onclick="teEwStepEmp(-1)">‹</button>
+        <button class="btn secondary teDwNav" title="Next employee (Alt+↓)" onclick="teEwStepEmp(1)">›</button>
+        <span class="teBarSep"></span>
+        <label class="teDwLbl">${ico('calendar-days')} Month <input type="month" value="${teEwMonth}" onchange="teEwSetMonth(this.value)"></label>
+        <button class="btn secondary teDwNav" title="Previous month (Alt+PageUp)" onclick="teEwStepMonth(-1)">‹</button>
+        <button class="btn secondary teDwNav" title="Next month (Alt+PageDown)" onclick="teEwStepMonth(1)">›</button>
         ${teEwMonth!==monthKey(todayStr())?`<button class="btn secondary" onclick="teEwSetMonth('${monthKey(todayStr())}')">This month</button>`:''}
       </div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <div class="teDwGroup">
         <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
         ${!unlocked
           ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teEwUnlock()">${ico('pencil')} Edit</button>`
@@ -502,8 +498,8 @@ function renderTEEmpWiseTab(){
       <div style="font-size:12px;color:var(--muted);">${monthName}${unlocked?' · unlocked for editing':' · locked — click '+ico('pencil')+' Edit to enter time'}</div>
     </div>
     <div class="teStatRow" id="teEwStats">${teEwStatsHtml(t)}</div>
-    ${unlocked?(()=>{ const r=teEwFillRange(), g=teEmpGroup(emp.code); return `<div class="teDwQuick teEwFill">
-      <b>${ico('zap')} Fill days</b>
+    ${unlocked?(()=>{ const r=teEwFillRange(), g=teEmpGroup(emp.code); return `<div class="teDwActions teEwFill"><div class="teDwActRow">
+      <span class="teDwActLbl">${ico('zap')} Fill days</span>
       <select onchange="teEwFillMode=this.value" aria-label="Fill with">
         <option value="rot" ${teEwFillMode==='rot'?'selected':''}>As per group rotation${g?' ('+teEsc(teGroupLabel(g))+')':' (no group)'}</option>
         ${teShiftPresets().map(p=>`<option value="${p.key}" ${teEwFillMode===p.key?'selected':''}>${teEsc(p.label)} (${tePresetTimes(p)})</option>`).join('')}
@@ -512,9 +508,10 @@ function renderTEEmpWiseTab(){
       <label>To <input type="date" value="${r.to}" min="${teEwMonthDates(teEwMonth)[0]}" max="${teEwMonthDates(teEwMonth).slice(-1)[0]}" onchange="teEwFillTo=this.value"></label>
       <label class="teEwFillOver"><input type="checkbox" ${teEwFillOver?'checked':''} onchange="teEwFillOver=this.checked"> Replace days already entered</label>
       <button class="btn" onclick="teEwFillDays()">Fill</button>
-      <span id="teEwFillNote" class="teDwQNote">Sundays, holidays and leave days are skipped. Type late In times and set Half Day by hand afterwards.</span>
+      </div>
+      <p id="teEwFillNote" class="teDwQNote teDwBulkNote">Sundays, holidays and leave days are skipped. Type late In times and set Half Day by hand afterwards.</p>
     </div>`; })():''}
-    ${unlocked?`<div class="teEwKeys">
+    ${unlocked?`<details class="teKeysBox"><summary>Keyboard shortcuts</summary><div class="teEwKeys">
       <span><kbd>930</kbd> <kbd>9:30</kbd> <kbd>5:30p</kbd> <kbd>17:30</kbd> type a time</span>
       <span><kbd>Enter</kbd> / <kbd>↓</kbd> next date</span>
       <span><kbd>←</kbd> <kbd>→</kbd> In · Out · Attendance</span>
@@ -522,7 +519,7 @@ function renderTEEmpWiseTab(){
       <span><kbd>F2</kbd> edit inside a cell</span>
       <span><kbd>Esc</kbd> undo cell</span>
       <span><kbd>Alt</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> employee · <kbd>Alt</kbd>+<kbd>PgUp</kbd>/<kbd>PgDn</kbd> month</span>
-    </div>`:''}
+    </div></details>`:''}
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid" id="teEwGrid" data-emp="${teEsc(teEwEmp)}">
       <thead><tr>
         <th>Date</th><th>Day</th><th title="Shift from the group's weekly rotation (* = changed for that day)">Planned shift</th>
@@ -869,9 +866,7 @@ function renderTESummaryTab(){
     <div class="panelHead">
       <h3 style="margin:0;">${ico('chart')} Attendance &amp; OT Summary — ${monthName} <span style="font-weight:400;font-size:12px;color:var(--muted);">(same figures as Payroll)</span></h3>
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('calendar-days')} Month
-          <input type="month" value="${teSummaryMonth}" onchange="teSummarySetMonth(this.value)" style="padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;">
-        </label>
+        <label class="teDwLbl">${ico('calendar-days')} Month <input type="month" value="${teSummaryMonth}" onchange="teSummarySetMonth(this.value)"></label>
         <button class="btn secondary" onclick="teSummaryPrevMonth()">‹ Prev</button>
         <button class="btn secondary" onclick="teSummaryNextMonth()">Next ›</button>
         <button class="btn secondary" onclick="teSummaryThisMonth()">This Month</button>
@@ -879,12 +874,11 @@ function renderTESummaryTab(){
         ${hasPerm('timeentry','export')?`<button class="btn secondary" ${rows.length?'':'disabled'} onclick="downloadTESummaryExcel('${teSummaryMonth}')">${ico('file-spreadsheet')} Excel</button>`:''}
       </div>
     </div>
-    <p class="syncNote">One row per employee on the roll in ${monthName}, with the figures Payroll uses: Present / Half Day / LOP / NOPH come from Attendance (days entered in Time Entry count there unless a different status is marked on the Attendance screen), Paid Days = Present + Half Day × 0.5 + NOPH, and OT / Late are the month's Time Entry totals unless a figure was typed on the Attendance screen. The first ${lateGraceMinutes(teSummaryMonth)} Late minutes in a month are free.</p>
-    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:18px;">
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('users')}</span></div><div class="n">${rows.length}</div><div class="l">Employees</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('circle-check')}</span></div><div class="n">${tot('paidDays')}</div><div class="l">Total Paid Days</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('timer')}</span></div><div class="n">${tot('otHours')}</div><div class="l">Total OT Hours</div></div>
-      <div class="stat"><div class="statTop"><span class="statIcon">${ico('alert')}</span></div><div class="n">${tot('lateMin')}</div><div class="l">Total Late Minutes</div></div>
+    <div class="teStatRow">
+      <div class="teStatBox"><b>${rows.length}</b><span>Employees</span></div>
+      <div class="teStatBox"><b>${tot('paidDays')}</b><span>Total paid days</span></div>
+      <div class="teStatBox ${tot('otHours')?'danger':''}"><b>${tot('otHours')}</b><span>Total OT hours</span></div>
+      <div class="teStatBox ${tot('lateMin')?'warn':''}"><b>${tot('lateMin')}</b><span>Total late minutes</span></div>
     </div>
     <div class="tableScrollWrap"><table style="min-width:1100px;width:100%;border-collapse:collapse;font-size:13px;">
       <thead><tr style="text-align:center;color:var(--muted);">
@@ -913,6 +907,7 @@ function renderTESummaryTab(){
       </tr>`:''}
       </tbody>
     </table></div>
+    <p class="syncNote">One row per employee on the roll in ${monthName}, with the figures Payroll uses: Present / Half Day / LOP / NOPH come from Attendance (days entered in Time Entry count there unless a different status is marked on the Attendance screen), Paid Days = Present + Half Day × 0.5 + NOPH, and OT / Late are the month's Time Entry totals unless a figure was typed on the Attendance screen. The first ${lateGraceMinutes(teSummaryMonth)} Late minutes in a month are free.</p>
   </div>`;
 }
 

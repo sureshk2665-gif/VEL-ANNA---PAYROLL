@@ -440,20 +440,21 @@ function renderTEDateGrid(){
       <div style="font-size:12px;color:var(--muted);">${unlocked?'Unlocked for editing · click a name to open that employee\'s month':'Locked — click '+ico('pencil')+' Edit to enter time'}</div>
     </div>
     <div class="teStatRow" id="teDwStats">${teDwStatsHtml(t)}</div>
-    ${unlocked?`<div class="teDwQuick">
-      <b>${ico('zap')} Quick Fill</b>
-      ${quick.map(q=>`<button type="button" class="teDwQBtn" onclick="teDwQuickFill('${q.p.key}')" title="Fill ${teEsc(q.p.label)} (${tePresetTimes(q.p)}) for the ${q.n} employee(s) planned on it who have no time yet">${teEsc(q.p.label)} <span>${q.n}</span></button>`).join('') || '<span class="teEwMuted">No shifts planned today — set them in Shift Groups.</span>'}
-      <span class="teDwQNote">Fills In / Out with each employee's shift. Leave / Loss of Pay rows are skipped.</span>
+    ${unlocked?`<div class="teDwActions">
+      <div class="teDwActRow">
+        <span class="teDwActLbl">${ico('zap')} Quick fill</span>
+        ${quick.map(q=>`<button type="button" class="teDwQBtn" onclick="teDwQuickFill('${q.p.key}')" title="Fill ${teEsc(q.p.label)} (${tePresetTimes(q.p)}) for the ${q.n} employee(s) planned on it who have no time yet. Leave / Loss of Pay rows are skipped.">${teEsc(q.p.label)} <span>${q.n}</span></button>`).join('') || '<span class="teEwMuted">No shifts planned today — set them in Shift Groups.</span>'}
+      </div>
+      <div class="teDwActRow">
+        <span class="teDwActLbl">${ico('check')} <span id="teDwSelCount" class="teDwSelCount">${teDwSel.size} selected</span></span>
+        <span class="teDwBulkGrp"><label for="teDwOTBulk">OT hours</label><input id="teDwOTBulk" type="number" min="0" max="16" step="0.5" value="${teEsc(teDwBulkOT)}" placeholder="2"><button class="btn secondary" onclick="teDwApplyBulkOT()">Set OT</button></span>
+        <span class="teDwBulkGrp"><label for="teDwShiftBulk">Shift</label><select id="teDwShiftBulk" onchange="teDwBulkShift=this.value" title="Also used on Save for ticked employees without a group">
+          ${teShiftPresets().map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
+        </select><button class="btn secondary" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply</button></span>
+      </div>
+      <p id="teDwBulkNote" class="teDwBulkNote">Tick all, untick who is absent, then Save: ticked employees get their shift, unticked ones are marked Loss of Pay. Type late In times and Half Day by hand.</p>
     </div>
-    <div class="teDwBulk">
-      <span id="teDwSelCount" class="teDwSelCount">${teDwSel.size} selected</span>
-      <span class="teDwBulkGrp"><label for="teDwOTBulk">OT hours</label><input id="teDwOTBulk" type="number" min="0" max="16" step="0.5" value="${teEsc(teDwBulkOT)}" placeholder="2"><button class="btn secondary" onclick="teDwApplyBulkOT()">Set OT for selected</button></span>
-      <span class="teDwBulkGrp"><label>No group:</label><select onchange="teDwBulkShift=this.value" aria-label="Shift for selected employees">
-        ${teShiftPresets().map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
-      </select><button class="btn secondary" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply to selected</button></span>
-      <span id="teDwBulkNote" class="teDwBulkNote">Tick all, untick who is absent, then Save: ticked employees get their shift, unticked ones are marked Loss of Pay. Type Late In times and Half Day by hand. (Nothing ticked = save as typed.)</span>
-    </div>
-    <div class="teEwKeys">
+    <details class="teKeysBox"><summary>Keyboard shortcuts</summary><div class="teEwKeys">
       <span><kbd>930</kbd> <kbd>9:30</kbd> <kbd>5:30p</kbd> <kbd>17:30</kbd> type a time</span>
       <span><kbd>Enter</kbd> / <kbd>↓</kbd> next employee</span>
       <span><kbd>←</kbd> <kbd>→</kbd> In · Out · OT · Attendance</span>
@@ -461,7 +462,7 @@ function renderTEDateGrid(){
       <span><kbd>F2</kbd> edit inside a cell</span>
       <span><kbd>Esc</kbd> undo cell</span>
       <span><kbd>Alt</kbd>+<kbd>PgUp</kbd>/<kbd>PgDn</kbd> previous / next date</span>
-    </div>`:''}
+    </div></details>`:''}
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid teDwGrid" id="teDwGrid">
       <thead><tr>
         ${unlocked?`<th class="teDwChk"><input type="checkbox" id="teDwAll" title="Select all" onchange="teDwToggleAll(this.checked)"></th>`:''}
