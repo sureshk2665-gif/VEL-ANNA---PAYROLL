@@ -35,7 +35,6 @@ export default function LoginScreen() {
           </div>
           <h2 className="loginHeadline">Payroll,<br />made simple<br />and accurate.</h2>
           <p className="loginLead">Attendance, salaries and statutory reports — for every unit and contractor, in one place.</p>
-          <span className="loginRule"></span>
           <ul className="loginFeatures">
             {FEATURES.map((f) => (
               <li key={f.title}>
@@ -82,16 +81,6 @@ export default function LoginScreen() {
           </div>
         </div>
 
-        <section className="loginArt" aria-hidden="true">
-          <div className="artWords"><span>ATTENDANCE</span><span>PAYROLL</span><span>REPORTS</span></div>
-          <svg className="artShapes" viewBox="0 0 400 520">
-            <path d="M200 20 L380 200 L200 380 L20 200 Z" className="s1" />
-            <path d="M260 160 L380 280 L260 400 L140 280 Z" className="s2" />
-            <circle cx="120" cy="420" r="70" className="s3" />
-            <path d="M300 360 q60 40 60 110 q-70 0 -110 -60 q30 -20 50 -50 Z" className="s4" />
-          </svg>
-          <div className="artFoot"><span className="loginRule"></span>ON TIME<br />EVERY TIME<br />FOR EVERYONE</div>
-        </section>
       </div>
       <footer className="loginFooter">
         © {new Date().getFullYear()} <span className="brandName">{APP_NAME}</span>. All rights reserved.
