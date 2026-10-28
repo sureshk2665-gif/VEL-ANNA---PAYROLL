@@ -12,10 +12,24 @@
 let teDwSel=new Set();        // employee codes ticked for Bulk Shift (current date only)
 let teDwBulkShift='general';  // shift timing key (teShiftPresets) chosen in the Bulk Shift box
 let teDwFocus=null;           // {r,c} to re-focus after a full render (e.g. date change)
+let teDwGrpFilter='';         // '' = all groups, a group key, or '-' = employees with no group
+let teDwBulkOT='';            // hours typed in the bulk OT box
 
 function teDwCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teDwUnlocked(){ return teDwCanEdit() && teGridEditMode; }
-function teDwEmployees(){ return teFilteredEmployees(teGridDate); } // on the roll that day, narrowed by the Unit / Contractor filter
+// On the roll that day, narrowed by the Unit / Contractor and Group filters, in grid order: by the
+// shift each employee is planned to work that day (Shift Groups), then those with no shift.
+function teDwEmployees(){
+  const dt=teGridDate, order=k=>{ const i=teShiftPresets().findIndex(p=>p.key===k); return i<0?99:i; };
+  return teFilteredEmployees(dt)
+    .filter(e=>!teDwGrpFilter || (teDwGrpFilter==='-' ? !teEmpGroup(e.code) : teEmpGroup(e.code)===teDwGrpFilter))
+    .map(e=>({e, k:teEmpShiftKey(e.code, dt)}))
+    .sort((a,b)=>order(a.k)-order(b.k) || a.e.code.localeCompare(b.e.code,undefined,{numeric:true}))
+    .map(x=>x.e);
+}
+function teDwSetGrpFilter(v){ teDwGrpFilter=v||''; teDwSel.clear(); render('timeentry'); }
+// OT box value in hours ('' when there is no time).
+function teDwOTValue(md){ if(!md.hasIn||md.onLeave) return ''; const h=Math.round((md.c.ot||0)/60*100)/100; return String(h); }
 
 /* ---- Day totals ---- */
 function teDwTotals(dt){
@@ -45,24 +59,36 @@ function teDwRefreshStats(){ const el=document.getElementById('teDwStats'); if(e
 function teDwRowHtml(e, i, dt, unlocked){
   const md=teEwRowModel(e.code, dt), cc=teEwComputedCells(md);
   const dis=(!unlocked||md.onLeave)?'disabled':'';
-  const ph=(unlocked&&!md.onLeave)?'hh:mm':'';
+  const plan=teEmpShift(e.code, dt), ov=teOverrideShift(dt, e.code);
+  // An empty row shows its planned shift times in grey until a time is entered.
+  const phIn=md.onLeave?'':plan?teMinLabel(plan.inMin):unlocked?'hh:mm':'';
+  const phOut=md.onLeave?'':plan?teMinLabel(plan.outMin):unlocked?'hh:mm':'';
   const code=teEsc(e.code);
+  const grp=teEmpGroup(e.code);
+  const shiftCell=unlocked
+    ? `<select class="teDwShiftSel ${ov?'changed':''}" tabindex="-1" ${md.onLeave?'disabled':''} onchange="teDwSetRowShift(this)" aria-label="Shift for ${teEsc(e.name)}" title="${ov?'Changed for this day only':'Shift from the group\'s weekly rotation'}">
+        <option value="">${plan&&!ov?teEsc(plan.label):'— No shift —'}</option>${teShiftPresets().map(p=>`<option value="${p.key}" ${ov===p.key?'selected':''}>${teEsc(p.label)}</option>`).join('')}</select>`
+    : `<span class="teDwShiftTxt">${plan?teEsc(plan.label):'—'}</span>`;
   return `<tr class="teEwRow teDwRow ${md.onLeave?'onLeave':''}" data-r="${i}" data-code="${code}">
     ${unlocked?`<td class="teDwChk"><input type="checkbox" tabindex="-1" ${md.onLeave?'disabled':''} ${teDwSel.has(e.code)?'checked':''} onchange="teDwToggleSel('${code}',this.checked)" aria-label="Select ${teEsc(e.name)}"></td>`:''}
     <td style="color:var(--muted);">${i+1}</td>
     <td>${code}</td>
     <td style="text-align:left;"><button type="button" tabindex="-1" class="teEmpLink" title="Open ${teEsc(e.name)}'s month in Employee-wise view" onclick="teOpenEmpWise('${code}','${dt}')">${teEsc(e.name)}</button></td>
-    <td class="teEwInCell"><input class="teEwTime in" data-r="${i}" data-c="0" value="${md.inTxt}" ${dis} placeholder="${ph}" autocomplete="off" spellcheck="false"
+    <td class="teDwGrpCell">${grp?teGroupBadge(grp):'<span class="teEwMuted">No group</span>'} ${shiftCell}</td>
+    <td class="teEwInCell"><input class="teEwTime in ${plan?'sched':''}" data-r="${i}" data-c="0" value="${md.inTxt}" ${dis} placeholder="${phIn}" autocomplete="off" spellcheck="false"
       onmousedown="teEwMouse(this)" onfocus="teEwFocusCell(this)" onkeydown="teDwKey(event,this)" onblur="teDwCommitTime(this)" aria-label="In time ${teEsc(e.name)}"></td>
-    <td class="teEwOutCell"><input class="teEwTime out" data-r="${i}" data-c="1" value="${md.outTxt}" ${dis} placeholder="${ph}" autocomplete="off" spellcheck="false"
+    <td class="teEwOutCell"><input class="teEwTime out ${plan?'sched':''}" data-r="${i}" data-c="1" value="${md.outTxt}" ${dis} placeholder="${phOut}" autocomplete="off" spellcheck="false"
       onmousedown="teEwMouse(this)" onfocus="teEwFocusCell(this)" onkeydown="teDwKey(event,this)" onblur="teDwCommitTime(this)" aria-label="Out time ${teEsc(e.name)}"></td>
     <td data-k="shift">${cc.shift}</td>
     <td data-k="working">${cc.working}</td>
     <td data-k="late" class="${cc.lateCls}">${cc.late}</td>
-    <td data-k="ot" class="${cc.otCls}">${cc.ot}</td>
+    ${unlocked
+      ? `<td class="teDwOTCell"><input class="teDwOT" type="number" min="0" max="16" step="0.5" data-r="${i}" data-c="2" data-kind="ot" value="${teDwOTValue(md)}" ${md.onLeave?'disabled':''} placeholder="0"
+          onkeydown="teDwKey(event,this)" onchange="teDwSetOT(this)" aria-label="OT hours ${teEsc(e.name)}" title="OT hours — sets the Out time"></td>`
+      : `<td data-k="ot" class="${cc.otCls}">${cc.ot}</td>`}
     <td data-k="total" class="teEwTotal">${cc.total}</td>
     <td data-k="status">${md.status}</td>
-    <td><select class="teEwAtt" data-r="${i}" data-c="2" ${unlocked?'':'disabled'} onkeydown="teDwKey(event,this)" onchange="teDwSetAttendance(this)" aria-label="Attendance ${teEsc(e.name)}">
+    <td><select class="teEwAtt" data-r="${i}" data-c="3" ${unlocked?'':'disabled'} onkeydown="teDwKey(event,this)" onchange="teDwSetAttendance(this)" aria-label="Attendance ${teEsc(e.name)}">
       <option value="" ${!md.leave?'selected':''}>Auto (from time)</option>
       ${TE_LEAVE_TYPES.map(tp=>`<option value="${tp}" ${md.leave&&md.leave.type===tp?'selected':''}>${tp}</option>`).join('')}
     </select></td>
@@ -76,14 +102,79 @@ function teDwUpdateRow(code){
   const md=teEwRowModel(code, teGridDate), cc=teEwComputedCells(md);
   const unlocked=teDwUnlocked();
   tr.classList.toggle('onLeave', md.onLeave);
-  const inI=tr.querySelector('input[data-c="0"]'), outI=tr.querySelector('input[data-c="1"]'), sel=tr.querySelector('select[data-c="2"]'), chk=tr.querySelector('.teDwChk input');
-  const ph=(unlocked&&!md.onLeave)?'hh:mm':'';
-  if(inI){ inI.value=md.inTxt; inI.disabled=!unlocked||md.onLeave; inI.placeholder=ph; inI.classList.remove('bad'); }
-  if(outI){ outI.value=md.outTxt; outI.disabled=!unlocked||md.onLeave; outI.placeholder=ph; outI.classList.remove('bad'); }
+  const inI=tr.querySelector('input[data-c="0"]'), outI=tr.querySelector('input[data-c="1"]'), sel=tr.querySelector('select[data-c="3"]'), chk=tr.querySelector('.teDwChk input');
+  const otI=tr.querySelector('input.teDwOT'), shSel=tr.querySelector('select.teDwShiftSel');
+  const plan=teEmpShift(code, teGridDate);
+  const phIn=md.onLeave?'':plan?teMinLabel(plan.inMin):unlocked?'hh:mm':'', phOut=md.onLeave?'':plan?teMinLabel(plan.outMin):unlocked?'hh:mm':'';
+  if(inI){ inI.value=md.inTxt; inI.disabled=!unlocked||md.onLeave; inI.placeholder=phIn; inI.classList.toggle('sched',!!plan); inI.classList.remove('bad'); }
+  if(outI){ outI.value=md.outTxt; outI.disabled=!unlocked||md.onLeave; outI.placeholder=phOut; outI.classList.toggle('sched',!!plan); outI.classList.remove('bad'); }
+  if(otI){ otI.value=teDwOTValue(md); otI.disabled=md.onLeave; }
+  if(shSel) shSel.disabled=md.onLeave;
   if(sel) sel.value=md.leave?md.leave.type:'';
   if(chk){ chk.disabled=md.onLeave; if(md.onLeave){ chk.checked=false; teDwSel.delete(code); teDwRefreshSel(); } }
   const set=(k,v,cls)=>{ const el=tr.querySelector(`[data-k="${k}"]`); if(el){ el.innerHTML=v; if(cls!==undefined) el.className=cls; } };
   set('shift',cc.shift); set('working',cc.working); set('late',cc.late,cc.lateCls); set('ot',cc.ot,cc.otCls); set('total',cc.total); set('status',md.status);
+}
+
+/* ---- Shift and OT on one row ---- */
+// Fills a row's In / Out with a shift's times (not on leave). Returns true when written.
+function teDwFillShift(dt, code, p){
+  if(!p || teEwRowModel(code, dt).onLeave) return false;
+  teWriteTimeFor(dt, code, 'in', teMinToHMAP(p.inMin)); teWriteTimeFor(dt, code, 'out', teMinToHMAP(p.outMin));
+  return true;
+}
+// Row dropdown: this person works another shift on this day only (blank = back to the group's).
+function teDwSetRowShift(sel){
+  if(!teDwUnlocked()) return;
+  const code=sel.closest('tr.teDwRow').dataset.code, dt=teGridDate;
+  teSetOverride(dt, code, sel.value);
+  sel.classList.toggle('changed', !!sel.value);
+  const p=teEmpShift(code, dt);
+  if(p) teDwFillShift(dt, code, p);
+  teDwUpdateRow(code); teDwRefreshStats(); teEwQueueSave();
+}
+// OT hours for a row: sets the Out time so that OT comes to exactly these hours (8 working
+// hours + 30-minute break after the In time's half-hour; on a Sunday / holiday every hour is OT).
+// A row with no In time takes its planned shift's In time first.
+function teDwSetOTFor(dt, code, hours){
+  const md=teEwRowModel(code, dt); if(md.onLeave) return false;
+  if(!md.hasIn){ const p=teEmpShift(code, dt); if(!p) return false; teWriteTimeFor(dt, code, 'in', teMinToHMAP(p.inMin)); }
+  const e=db.timeEntries[dt][code];
+  const inMin=teTimeToMinutes(e.inH,e.inM,e.inAP);
+  const mins=Math.round(Math.max(0, +hours||0)*60);
+  const out = teIsHolidayDate(dt) ? inMin+mins : Math.floor(inMin/30)*30 + 8*60 + 30 + mins;
+  teWriteTimeFor(dt, code, 'out', teMinToHMAP(out));
+  return true;
+}
+function teDwSetOT(inp){
+  if(!teDwUnlocked()) return;
+  const code=inp.closest('tr.teDwRow').dataset.code, raw=String(inp.value).trim();
+  if(raw!=='' && (isNaN(+raw) || +raw<0 || +raw>16)){ inp.classList.add('bad'); return; }
+  inp.classList.remove('bad');
+  if(!teDwSetOTFor(teGridDate, code, raw===''?0:+raw)){ inp.value=''; inp.title='Enter the In time first (or give this employee a group and shift).'; inp.classList.add('bad'); return; }
+  teDwUpdateRow(code); teDwRefreshStats(); teEwQueueSave();
+}
+// Bulk OT: the same OT hours for every ticked employee.
+function teDwApplyBulkOT(){
+  if(!teDwUnlocked()) return;
+  const raw=String((document.getElementById('teDwOTBulk')||{}).value||'').trim();
+  if(raw==='' || isNaN(+raw) || +raw<0 || +raw>16){ alert('Enter the OT hours (for example 2 or 1.5).'); return; }
+  teDwBulkOT=raw;
+  const codes=[...teDwSel];
+  if(!codes.length){ alert('Tick the employees who did OT first.'); return; }
+  let n=0, skip=0;
+  codes.forEach(code=>{ if(teDwSetOTFor(teGridDate, code, +raw)){ n++; teDwUpdateRow(code); } else skip++; });
+  teDwRefreshStats(); teEwQueueSave();
+  const note=document.getElementById('teDwBulkNote'); if(note){ note.textContent=`OT of ${raw} h set for ${n} employee(s)${skip?`; ${skip} skipped (on leave or no time / shift)`:''}.`; note.classList.add('ok'); }
+}
+// Quick Fill: every employee planned for this shift today who has no time yet (leave skipped).
+function teDwQuickFill(key){
+  if(!teDwUnlocked()) return;
+  const p=teShiftByKey(key); if(!p) return;
+  let n=0;
+  teDwEmployees().forEach(e=>{ if(teEmpShiftKey(e.code, teGridDate)!==key) return; const md=teEwRowModel(e.code, teGridDate); if(md.hasIn||md.onLeave) return; if(teDwFillShift(teGridDate, e.code, p)){ n++; teDwUpdateRow(e.code); } });
+  teDwRefreshStats(); if(n) teEwQueueSave();
+  const note=document.getElementById('teDwBulkNote'); if(note){ note.textContent=n?`${p.label}: ${n} employee(s) filled with ${tePresetTimes(p)}.`:`Everyone on ${p.label} already has a time.`; note.classList.add('ok'); }
 }
 
 /* ---- Typing a time ---- */
@@ -148,12 +239,12 @@ function teDwCell(r,c){ return document.querySelector(`#teDwGrid [data-r="${r}"]
 function teDwRowCount(){ return document.querySelectorAll('#teDwGrid tr.teDwRow').length; }
 function teDwMove(r,c,dr,dc){
   const n=teDwRowCount();
-  if(dc){ let cc=c+dc; while(cc>=0&&cc<=2){ const el=teDwCell(r,cc); if(el&&!el.disabled){ el.focus(); return; } cc+=dc; } return; }
+  if(dc){ let cc=c+dc; while(cc>=0&&cc<=3){ const el=teDwCell(r,cc); if(el&&!el.disabled){ el.focus(); return; } cc+=dc; } return; }
   let rr=r+dr;
   while(rr>=0&&rr<n){ const el=teDwCell(rr,c); if(el&&!el.disabled){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); return; } rr+=dr; }
 }
 function teDwKey(ev, el){
-  const r=+el.dataset.r, c=+el.dataset.c, isSel=el.tagName==='SELECT';
+  const r=+el.dataset.r, c=+el.dataset.c, isSel=el.tagName==='SELECT' || el.dataset.kind==='ot';
   // Alt+PageUp / Alt+PageDown = previous / next date (same row and column)
   if(ev.altKey && (ev.key==='PageUp'||ev.key==='PageDown')){
     ev.preventDefault();
@@ -166,14 +257,15 @@ function teDwKey(ev, el){
   if(!isSel && ev.key==='Escape'){ const md=teEwRowModel(el.closest('tr').dataset.code, teGridDate); el.value=c===0?md.inTxt:md.outTxt; el.classList.remove('bad'); el.select(); return; }
   let dr=0, dc=0;
   if(ev.key==='Enter') dr=ev.shiftKey?-1:1;
-  else if(ev.key==='ArrowDown') dr=1;
-  else if(ev.key==='ArrowUp') dr=-1;
+  else if(ev.key==='ArrowDown' && el.dataset.kind!=='ot') dr=1;
+  else if(ev.key==='ArrowUp' && el.dataset.kind!=='ot') dr=-1;
   else if(ev.key==='F2' && !isSel){ ev.preventDefault(); el.dataset.edit='1'; const n=el.value.length; el.setSelectionRange(n,n); return; }
   else if(ev.key==='ArrowRight' && (isSel || el.dataset.edit!=='1' || el.selectionEnd===el.value.length)) dc=1;
   else if(ev.key==='ArrowLeft' && (isSel || el.dataset.edit!=='1' || el.selectionStart===0)) dc=-1;
   else return;
   ev.preventDefault();
   if(!isSel && !teDwCommitTime(el)) return;
+  if(el.dataset.kind==='ot') teDwSetOT(el);
   teDwMove(r,c,dr,dc);
 }
 function teDwRestoreFocus(){
@@ -197,8 +289,8 @@ function teDwUnlock(){
   if(!teDwCanEdit()){ alert('You do not have permission to edit time entries.'); return; }
   teGridEditMode=true; teDwFocus={r:teDwFirstEmptyRow(),c:0}; render('timeentry');
 }
-// Save. When employees are ticked: each ticked employee without an In time gets the Bulk Shift,
-// and every unticked employee (not already on leave) is marked Loss of Pay — their time is
+// Save. When employees are ticked: each ticked employee without an In time gets the shift they are
+// planned to work today (Shift Groups), or the Bulk Shift if they have none, and every unticked employee (not already on leave) is marked Loss of Pay — their time is
 // cleared. Sundays / holidays are never marked Loss of Pay. Nothing ticked = save as typed.
 // Then a summary of the day opens (present count, absent names with unit).
 function teDwLock(){
@@ -206,13 +298,13 @@ function teDwLock(){
   const dt=teGridDate;
   let changed=false;
   if(teDwUnlocked() && teDwSel.size){
-    const s=teShiftByKey(teDwBulkShift);
+    const bulk=teShiftByKey(teDwBulkShift);
     const nonWorking=teIsHolidayDate(dt);
     teDwEmployees().forEach(e=>{
       const md=teEwRowModel(e.code, dt);
       if(md.onLeave) return;
       if(teDwSel.has(e.code)){
-        if(!md.hasIn && s){ teWriteTimeFor(dt, e.code, 'in', teMinToHMAP(s.inMin)); teWriteTimeFor(dt, e.code, 'out', teMinToHMAP(s.outMin)); changed=true; }
+        if(!md.hasIn && teDwFillShift(dt, e.code, teEmpShift(e.code, dt)||bulk)) changed=true;
       } else if(!nonWorking){
         if(md.hasIn||md.hasOut){ teWriteTimeFor(dt, e.code, 'in', null); teWriteTimeFor(dt, e.code, 'out', null); }
         if(teSetLeaveFor(dt, e.code, 'Loss of Pay')) changed=true;
@@ -296,6 +388,18 @@ function teDwApplyShift(){
 }
 
 /* ---- The tab ---- */
+// Grid rows with a heading row before each shift ("General Shift · 4 employees · 9:00 AM – 5:30 PM").
+function teDwBodyHtml(emps, dt, unlocked){
+  let last=null;
+  return emps.map((e,i)=>{
+    const k=teEmpShiftKey(e.code, dt), p=teShiftByKey(k);
+    let head='';
+    if(k!==last){ const n=emps.filter(x=>teEmpShiftKey(x.code,dt)===k).length;
+      head=`<tr class="teGrpHead teDwShiftHead"><td colspan="${unlocked?16:15}"><span class="teShiftBadge">${p?teEsc(p.label):'No shift planned'}</span> <span>${n} employee${n===1?'':'s'}</span>${p?` <span>${tePresetTimes(p)}</span>`:''}</td></tr>`; }
+    last=k;
+    return head+teDwRowHtml(e,i,dt,unlocked);
+  }).join('');
+}
 function renderTEDateGrid(){
   const dt=teGridDate;
   const canEdit=teDwCanEdit(), unlocked=teDwUnlocked();
@@ -308,6 +412,8 @@ function renderTEDateGrid(){
     : getHolidayType(dt)==='NOPH' ? `<span class="tag NOPH" style="margin-left:8px;">Paid holiday (NOPH) · time worked is OT</span>`
     : hol ? `<span class="tag NOPH" style="margin-left:8px;">${teEsc(hol.remarks||'Holiday')} · full-day OT</span>` : '';
   const t=teDwTotals(dt);
+  // Quick Fill buttons: each shift planned today, with how many still have no time.
+  const quick=teShiftPresets().map(p=>({p, n:emps.filter(e=>{ if(teEmpShiftKey(e.code,dt)!==p.key) return false; const md=teEwRowModel(e.code,dt); return !md.hasIn&&!md.onLeave; }).length, all:emps.filter(e=>teEmpShiftKey(e.code,dt)===p.key).length})).filter(q=>q.all);
   if(teDwFocus) setTimeout(teDwRestoreFocus,0);
   return `<div class="panel teDwPanel">
     <div class="teDwTop">
@@ -316,6 +422,8 @@ function renderTEDateGrid(){
         <button class="btn secondary teDwNav" title="Previous date (Alt+PgUp)" onclick="teDwStepDate(-1)">‹</button>
         <button class="btn secondary teDwNav" title="Next date (Alt+PgDn)" onclick="teDwStepDate(1)">›</button>
         ${dt!==todayStr()?`<button class="btn secondary" onclick="teDwGoDate('${todayStr()}')">Today</button>`:`<button class="btn secondary" disabled>Today</button>`}
+        <select onchange="teDwSetGrpFilter(this.value)" aria-label="Group" title="Show one group">
+          <option value="">All Groups</option>${teGroups().map(g=>`<option value="${g.key}" ${teDwGrpFilter===g.key?'selected':''}>${teEsc(g.label)}</option>`).join('')}<option value="-" ${teDwGrpFilter==='-'?'selected':''}>No group</option></select>
         <span class="teDwFindWrap">${ico('search')}<input id="teDwFind" placeholder="Search employee, Enter to jump" autocomplete="off"
           onkeydown="if(event.key==='Enter'){event.preventDefault();teDwJump(this.value);}" oninput="this.classList.remove('bad')"></span>
       </div>
@@ -332,19 +440,23 @@ function renderTEDateGrid(){
       <div style="font-size:12px;color:var(--muted);">${unlocked?'Unlocked for editing · click a name to open that employee\'s month':'Locked — click '+ico('pencil')+' Edit to enter time'}</div>
     </div>
     <div class="teStatRow" id="teDwStats">${teDwStatsHtml(t)}</div>
-    ${unlocked?`<div class="teDwBulk">
-      <b>${ico('zap')} Bulk Shift</b>
-      <select onchange="teDwBulkShift=this.value" aria-label="Shift to apply">
-        ${teShiftPresets().map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
-      </select>
-      <button class="btn" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply to selected</button>
+    ${unlocked?`<div class="teDwQuick">
+      <b>${ico('zap')} Quick Fill</b>
+      ${quick.map(q=>`<button type="button" class="teDwQBtn" onclick="teDwQuickFill('${q.p.key}')" title="Fill ${teEsc(q.p.label)} (${tePresetTimes(q.p)}) for the ${q.n} employee(s) planned on it who have no time yet">${teEsc(q.p.label)} <span>${q.n}</span></button>`).join('') || '<span class="teEwMuted">No shifts planned today — set them in Shift Groups.</span>'}
+      <span class="teDwQNote">Fills In / Out with each employee's shift. Leave / Loss of Pay rows are skipped.</span>
+    </div>
+    <div class="teDwBulk">
       <span id="teDwSelCount" class="teDwSelCount">${teDwSel.size} selected</span>
-      <span id="teDwBulkNote" class="teDwBulkNote">Tick the employees who came, pick their shift, then Save — ticked employees get the shift and unticked ones are marked Loss of Pay. (Nothing ticked = save as typed.)</span>
+      <span class="teDwBulkGrp"><label for="teDwOTBulk">OT hours</label><input id="teDwOTBulk" type="number" min="0" max="16" step="0.5" value="${teEsc(teDwBulkOT)}" placeholder="2"><button class="btn secondary" onclick="teDwApplyBulkOT()">Set OT for selected</button></span>
+      <span class="teDwBulkGrp"><label>No group:</label><select onchange="teDwBulkShift=this.value" aria-label="Shift for selected employees">
+        ${teShiftPresets().map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
+      </select><button class="btn secondary" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply to selected</button></span>
+      <span id="teDwBulkNote" class="teDwBulkNote">Tick all, untick who is absent, then Save: ticked employees get their shift, unticked ones are marked Loss of Pay. Type Late In times and Half Day by hand. (Nothing ticked = save as typed.)</span>
     </div>
     <div class="teEwKeys">
       <span><kbd>930</kbd> <kbd>9:30</kbd> <kbd>5:30p</kbd> <kbd>17:30</kbd> type a time</span>
       <span><kbd>Enter</kbd> / <kbd>↓</kbd> next employee</span>
-      <span><kbd>←</kbd> <kbd>→</kbd> In · Out · Attendance</span>
+      <span><kbd>←</kbd> <kbd>→</kbd> In · Out · OT · Attendance</span>
       <span><kbd>Ctrl</kbd>+<kbd>D</kbd> or <kbd>=</kbd> copy from row above</span>
       <span><kbd>F2</kbd> edit inside a cell</span>
       <span><kbd>Esc</kbd> undo cell</span>
@@ -353,13 +465,13 @@ function renderTEDateGrid(){
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid teDwGrid" id="teDwGrid">
       <thead><tr>
         ${unlocked?`<th class="teDwChk"><input type="checkbox" id="teDwAll" title="Select all" onchange="teDwToggleAll(this.checked)"></th>`:''}
-        <th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th>
+        <th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Group · Shift</th>
         <th class="teEwInHead">${ico('log-in')} In Time</th><th class="teEwOutHead">${ico('log-out')} Out Time</th>
-        <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>OT</th><th title="Working + OT">Total</th>
+        <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>${unlocked?'OT hrs':'OT'}</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>
       </tr></thead>
-      <tbody>${emps.map((e,i)=>teDwRowHtml(e,i,dt,unlocked)).join('') || `<tr><td colspan="14"><div class="empty">${teFilterText()?'No active employees in '+teEsc(teFilterText())+'.':'No active employees.'}</div></td></tr>`}</tbody>
+      <tbody>${teDwBodyHtml(emps, dt, unlocked) || `<tr><td colspan="${unlocked?16:15}"><div class="empty">${teFilterText()?'No active employees in '+teEsc(teFilterText())+'.':'No active employees.'}</div></td></tr>`}</tbody>
     </table></div>
-    <p class="syncNote">Shifts: <b>First</b> 7:00 AM – 3:30 PM · <b>General</b> 9:00 AM – 5:30 PM · <b>Second</b> 3:30 PM – 12:00 AM (8 working hours + 30-minute break; time beyond that is OT). Sundays and booked holidays count as full-day OT. Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave; set it back to <b>Auto</b> to remove it. This is the same data as the Employee-wise view.</p>
+    <p class="syncNote">Rows are grouped by the shift each employee works today (Shift Groups → Weekly Rotation); grey times are the planned shift. Change one person's shift for today in the Group · Shift column. OT hours set the Out time (8 working hours + 30-minute break; time beyond that is OT). Sundays and booked holidays count as full-day OT. Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave; set it back to <b>Auto</b> to remove it. This is the same data as the Employee-wise view.</p>
   </div>`;
 }
