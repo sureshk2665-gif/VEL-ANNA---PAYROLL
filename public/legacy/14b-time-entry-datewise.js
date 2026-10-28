@@ -366,11 +366,25 @@ function teDwRefreshSel(){
   const cnt=document.getElementById('teDwSelCount'); if(cnt) cnt.textContent=n+' selected';
   const btn=document.getElementById('teDwApply'); if(btn) btn.disabled=!n;
   const all=document.getElementById('teDwAll');
-  if(all){ const boxes=[...document.querySelectorAll('#teDwGrid tbody .teDwChk input:not(:disabled)')]; all.checked=!!boxes.length && boxes.every(b=>b.checked); all.indeterminate=n>0 && !all.checked; }
+  if(all){ const boxes=[...document.querySelectorAll('#teDwGrid tbody tr.teDwRow .teDwChk input:not(:disabled)')]; all.checked=!!boxes.length && boxes.every(b=>b.checked); all.indeterminate=n>0 && !all.checked; }
+  document.querySelectorAll('#teDwGrid .teDwShiftAll').forEach(h=>{
+    const boxes=[...document.querySelectorAll('#teDwGrid tbody tr.teDwRow .teDwChk input:not(:disabled)')].filter(b=>(teEmpShiftKey(b.closest('tr').dataset.code, teGridDate)||'')===h.dataset.shift);
+    const on=boxes.filter(b=>b.checked).length;
+    h.checked=!!boxes.length && on===boxes.length; h.indeterminate=on>0 && on<boxes.length; h.disabled=!boxes.length;
+  });
+}
+// The box on each shift heading ticks / unticks only the employees on that shift today.
+function teDwToggleShift(k, on){
+  document.querySelectorAll('#teDwGrid tbody tr.teDwRow .teDwChk input:not(:disabled)').forEach(b=>{
+    const code=b.closest('tr').dataset.code;
+    if((teEmpShiftKey(code, teGridDate)||'')!==k) return;
+    b.checked=on; if(on) teDwSel.add(code); else teDwSel.delete(code);
+  });
+  teDwRefreshSel();
 }
 function teDwToggleSel(code, on){ if(on) teDwSel.add(code); else teDwSel.delete(code); teDwRefreshSel(); }
 function teDwToggleAll(on){
-  document.querySelectorAll('#teDwGrid tbody .teDwChk input:not(:disabled)').forEach(b=>{ b.checked=on; const code=b.closest('tr').dataset.code; if(on) teDwSel.add(code); else teDwSel.delete(code); });
+  document.querySelectorAll('#teDwGrid tbody tr.teDwRow .teDwChk input:not(:disabled)').forEach(b=>{ b.checked=on; const code=b.closest('tr').dataset.code; if(on) teDwSel.add(code); else teDwSel.delete(code); });
   teDwRefreshSel();
 }
 function teDwApplyShift(){
@@ -395,7 +409,8 @@ function teDwBodyHtml(emps, dt, unlocked){
     const k=teEmpShiftKey(e.code, dt), p=teShiftByKey(k);
     let head='';
     if(k!==last){ const n=emps.filter(x=>teEmpShiftKey(x.code,dt)===k).length;
-      head=`<tr class="teGrpHead teDwShiftHead"><td colspan="${unlocked?16:15}"><span class="teShiftBadge">${p?teEsc(p.label):'No shift planned'}</span> <span>${n} employee${n===1?'':'s'}</span>${p?` <span>${tePresetTimes(p)}</span>`:''}</td></tr>`; }
+      const lbl=p?teEsc(p.label):'No shift planned';
+      head=`<tr class="teGrpHead teDwShiftHead">${unlocked?`<td class="teDwChk"><input type="checkbox" class="teDwShiftAll" data-shift="${teEsc(k||'')}" title="Select everyone on ${lbl}" aria-label="Select everyone on ${lbl}" onchange="teDwToggleShift(this.dataset.shift,this.checked)"></td>`:''}<td colspan="15"><span class="teShiftBadge">${p?teEsc(p.label):'No shift planned'}</span> <span>${n} employee${n===1?'':'s'}</span>${p?` <span>${tePresetTimes(p)}</span>`:''}</td></tr>`; }
     last=k;
     return head+teDwRowHtml(e,i,dt,unlocked);
   }).join('');
@@ -415,6 +430,7 @@ function renderTEDateGrid(){
   // Quick Fill buttons: each shift planned today, with how many still have no time.
   const quick=teShiftPresets().map(p=>({p, n:emps.filter(e=>{ if(teEmpShiftKey(e.code,dt)!==p.key) return false; const md=teEwRowModel(e.code,dt); return !md.hasIn&&!md.onLeave; }).length, all:emps.filter(e=>teEmpShiftKey(e.code,dt)===p.key).length})).filter(q=>q.all);
   if(teDwFocus) setTimeout(teDwRestoreFocus,0);
+  if(unlocked) setTimeout(teDwRefreshSel,0); // tick boxes (page and shift headings) match the kept selection
   return `<div class="panel teDwPanel">
     <div class="teDwTop">
       <div class="teDwGroup">
