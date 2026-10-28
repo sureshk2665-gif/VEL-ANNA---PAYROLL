@@ -8,8 +8,8 @@
      db.groupMap       {empCode: groupKey}         which group each employee is in
      db.groupWeekShift {monday: {groupKey: presetKey}}  the shift a group works that week (Mon–Sun)
      db.shiftOverrides {date: {empCode: presetKey}}     one person's shift changed for one day
-   A week without its own choice is suggested from the week before, with First and Second
-   swapped (the usual rotation); the planner shows it dashed until someone confirms it.
+   A week without its own choice follows from the week before, with First and Second swapped
+   (the usual rotation); the planner shows it like any other choice and it can be changed.
    Late, Working and OT are still measured by teCompute() from the times entered; a shift here
    only decides which times are filled in.
    ================================================================================ */
@@ -128,13 +128,12 @@ function renderTEShiftGroupsTab(){
   }).join('');
   return `<div class="panel">
     <div class="teCalHead"><div><h3 style="margin:0;">${ico('calendar-range')} Weekly Rotation Planner</h3>
-      <p class="teSmSub">Set this week once — the next weeks are suggested as the swap (First ↔ Second) until you confirm them. Employee Time Entry fills these shifts.</p></div>
-      <span class="teSmKey"><span class="teSmKeyBox"></span> Confirmed <span class="teSmKeyBox dashed"></span> Suggested</span></div>
+      <p class="teSmSub">Set this week once — the next weeks follow with First and Second swapped. Change any week if needed. Employee Time Entry fills these shifts.</p></div></div>
     <div class="tableScrollWrap teSmWrap"><table class="teSmTable">
       <thead><tr><th style="text-align:left;">Week (Mon – Sun)</th>${groups.map(g=>`<th>${teGroupBadge(g.key)}</th>`).join('')}</tr></thead>
       <tbody>${weeks.map(ws=>`<tr class="${ws===thisWk?'teSmThisWk':''}"><td style="text-align:left;"><b>${wkLabel(ws)}</b> <span class="teSmYear">${ws.slice(0,4)}</span>${ws===thisWk?' <span class="teSmNow">This week</span>':''}</td>
-        ${groups.map(g=>{ const r=teGroupWeekShift(ws,g.key); return `<td><select class="${r.suggested?'suggested':''}" ${can?'':'disabled'} onchange="teRotSet('${ws}','${g.key}',this.value)" aria-label="${teEsc(g.label)}, week of ${ws}" title="${r.suggested?'Suggested — choose to confirm':''}">
-          <option value="">—</option>${shifts.map(p=>`<option value="${p.key}" ${r.key===p.key?'selected':''}>${teEsc(p.label)}${r.suggested&&r.key===p.key?' (suggested)':''}</option>`).join('')}</select></td>`; }).join('')}</tr>`).join('')}</tbody>
+        ${groups.map(g=>{ const r=teGroupWeekShift(ws,g.key); return `<td><select ${can?'':'disabled'} onchange="teRotSet('${ws}','${g.key}',this.value)" aria-label="${teEsc(g.label)}, week of ${ws}">
+          <option value="">—</option>${shifts.map(p=>`<option value="${p.key}" ${r.key===p.key?'selected':''}>${teEsc(p.label)}</option>`).join('')}</select></td>`; }).join('')}</tr>`).join('')}</tbody>
     </table></div>
   </div>
   <div class="panel">
