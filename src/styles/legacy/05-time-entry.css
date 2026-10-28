@@ -172,13 +172,9 @@ table.teTokTable .teTokSrc{color:var(--muted);font-size:12.5px;}
 
 /* Shift Groups */
 .teSmSub{margin:4px 0 0;font-size:13px;color:var(--muted);}
-.teSmKey{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-left:auto;}
-.teSmKeyBox{display:inline-block;width:18px;height:12px;border:1px solid var(--control,var(--line));border-radius:3px;margin-left:8px;}
-.teSmKeyBox.dashed{border-style:dashed;}
 .teSmWrap table.teSmTable,.teSmEmpWrap table.teSmTable{min-width:640px;}
 table.teSmTable td,table.teSmTable th{text-align:center;}
 table.teSmTable select,table.teSmTable input:not([type=checkbox]){height:32px;padding:0 8px;min-width:0;width:100%;max-width:240px;}
-table.teSmTable select.suggested{border-style:dashed;color:var(--muted);font-style:italic;}
 tr.teSmThisWk td{background:var(--raised,var(--paper));}
 .teSmNow{font-size:11px;font-weight:600;padding:1px 6px;border-radius:4px;background:var(--ink);color:var(--card);margin-left:4px;}
 .teSmYear{color:var(--muted);font-size:12px;}
