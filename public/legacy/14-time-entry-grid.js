@@ -470,15 +470,16 @@ function renderTEEmpWiseTab(){
 
 function renderTimeEntry(){
   return `<div class="teTabs">
-    <div class="teTab ${teTab==='entry'?'active':''}" onclick="teSetTab('entry')">${ico('calendar')} Date-wise Time Entry</div>
-    <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">${ico('user')} Employee-wise Time Entry</div>
-    <div class="teTab ${teTab==='leave'?'active':''}" onclick="teSetTab('leave')">${ico('palm')} Employee Leave</div>
-    <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">${ico('chart')} Attendance &amp; OT Summary</div>
-    <div class="teTab ${teTab==='tokens'?'active':''}" onclick="teSetTab('tokens')">${ico('clipboard')} Monthly Token Entry</div>
-    <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holiday Calendar</div>
+    <div class="teTab ${teTab==='entry'?'active':''}" onclick="teSetTab('entry')">${ico('calendar')} Date-wise</div>
+    <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">${ico('user')} Employee-wise</div>
+    <div class="teTab ${teTab==='leave'?'active':''}" onclick="teSetTab('leave')">${ico('palm')} Leave Entry</div>
+    <div class="teTab ${teTab==='summary'?'active':''}" onclick="teSetTab('summary')">${ico('chart')} Attendance &amp; OT</div>
+    <div class="teTab ${teTab==='tokens'?'active':''}" onclick="teSetTab('tokens')">${ico('clipboard')} Token Entry</div>
+    <div class="teTab ${teTab==='shiftmap'?'active':''}" onclick="teSetTab('shiftmap')">${ico('users')} Shift Groups</div>
+    <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holidays</div>
   </div>
   ${teTab!=='holiday' ? renderTEFilterBar() : ''}
-  ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : teTab==='tokens' ? renderTETokensTab() : renderTESummaryTab()}`;
+  ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : teTab==='tokens' ? renderTETokensTab() : teTab==='shiftmap' ? renderTEShiftGroupsTab() : renderTESummaryTab()}`;
 }
 
 function renderTEEntryTab(){

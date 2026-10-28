@@ -10,7 +10,7 @@
    totals, and previous / next date without leaving the keyboard.
    ================================================================================ */
 let teDwSel=new Set();        // employee codes ticked for Bulk Shift (current date only)
-let teDwBulkShift='general';  // TE_SHIFTS key chosen in the Bulk Shift box
+let teDwBulkShift='general';  // shift timing key (teShiftPresets) chosen in the Bulk Shift box
 let teDwFocus=null;           // {r,c} to re-focus after a full render (e.g. date change)
 
 function teDwCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
@@ -206,7 +206,7 @@ function teDwLock(){
   const dt=teGridDate;
   let changed=false;
   if(teDwUnlocked() && teDwSel.size){
-    const s=TE_SHIFTS.find(x=>x.key===teDwBulkShift);
+    const s=teShiftByKey(teDwBulkShift);
     const nonWorking=teIsHolidayDate(dt);
     teDwEmployees().forEach(e=>{
       const md=teEwRowModel(e.code, dt);
@@ -283,7 +283,7 @@ function teDwToggleAll(on){
 }
 function teDwApplyShift(){
   if(!teDwUnlocked()) return;
-  const s=TE_SHIFTS.find(x=>x.key===teDwBulkShift); if(!s){ alert('Choose a shift first.'); return; }
+  const s=teShiftByKey(teDwBulkShift); if(!s){ alert('Choose a shift first.'); return; }
   const codes=[...teDwSel].filter(code=>code && (db.employees||[]).some(e=>e.code===code) && !teEwRowModel(code, teGridDate).onLeave);
   if(!codes.length) return;
   const filled=codes.filter(code=>{ const md=teEwRowModel(code, teGridDate); return md.hasIn||md.hasOut; }).length;
@@ -335,7 +335,7 @@ function renderTEDateGrid(){
     ${unlocked?`<div class="teDwBulk">
       <b>${ico('zap')} Bulk Shift</b>
       <select onchange="teDwBulkShift=this.value" aria-label="Shift to apply">
-        ${TE_SHIFTS.map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
+        ${teShiftPresets().map(s=>`<option value="${s.key}" ${teDwBulkShift===s.key?'selected':''}>${teShiftLabel(s)}</option>`).join('')}
       </select>
       <button class="btn" id="teDwApply" ${teDwSel.size?'':'disabled'} onclick="teDwApplyShift()">Apply to selected</button>
       <span id="teDwSelCount" class="teDwSelCount">${teDwSel.size} selected</span>

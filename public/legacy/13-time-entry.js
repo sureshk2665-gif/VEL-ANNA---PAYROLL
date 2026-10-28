@@ -9,7 +9,7 @@
        (teMonthLateMinutes / teMonthOTMinutes).
    db.timeHolidays (holiday OT here) is separate from the Payroll Holiday Calendar.
    ================================================================================ */
-let teTab='entry';                 // 'entry' (Date-wise) | 'empwise' (Employee-wise) | 'leave' | 'summary' | 'tokens' | 'holiday'
+let teTab='entry';                 // 'entry' (Date-wise) | 'empwise' (Employee-wise) | 'leave' | 'summary' | 'tokens' | 'shiftmap' | 'holiday'
 let teTokMonth=monthKey(todayStr()); // Monthly Token Entry month
 let teGridDate=todayStr();         // date currently selected in the Time Entries grid (defaults to today)
 let teGridEditMode=false;          // false = grid rows are locked/view-only until "Edit" is pressed
