@@ -32,13 +32,13 @@ function renderUserRightsPanel(){
           <td>${u.username}</td>
           <td>${u.name||''}</td>
           <td>${u.role||''}</td>
-          <td>${u.active===false ? '<span style="color:#c33;">Inactive</span>' : '<span style="color:#0a7;">Active</span>'}</td>
-          <td style="white-space:nowrap;">
+          <td>${u.active===false ? '<span class="tag LossOfPay">Inactive</span>' : '<span class="tag Present">Active</span>'}</td>
+          <td><div class="userActs">
             <button class="btn secondary" style="padding:5px 10px;font-size:12px;" onclick="editUser(${i})">Edit</button>
             ${u.username!=='admin' && u.role!=='Admin' && u.role!=='Software Admin' ? `<button class="btn secondary" style="padding:5px 10px;font-size:12px;" onclick="openPermissionsModal(${i})">${ico('key')} Permissions</button>` : ''}
             ${u.username!=='admin' ? `<button class="btn secondary" style="padding:5px 10px;font-size:12px;" onclick="toggleUserActive(${i})">${u.active===false?'Activate':'Deactivate'}</button>` : ''}
             ${u.username!=='admin' ? `<button class="btn danger" style="padding:5px 10px;font-size:12px;" onclick="deleteUser(${i})">Delete</button>` : ''}
-          </td>
+          </div></td>
         </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted);">No users to show here yet.</td></tr>`}
       </tbody>
     </table>
@@ -130,6 +130,7 @@ function openPermissionsModal(i){
   const u=db.users[i];
   if(!u || !canManageTargetUser(u)){ alert('You do not have permission to change this user\'s permissions.'); return; }
   permMatrixUserIdx=i;
+  if(typeof settingsTab!=='undefined') settingsTab='users';
   render(userAdminRedirectPage());
   document.getElementById('pageBody').scrollIntoView({behavior:'smooth'});
 }

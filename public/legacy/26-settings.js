@@ -1,25 +1,40 @@
 /* ================= SETTINGS ================= */
+// Admin is split into tabs so one section shows at a time; the tab is remembered while the app is open.
+let settingsTab='';
+function setSettingsTab(t){ settingsTab=t; render('settings'); }
 function renderSettings(){
   const canEditSettings = hasPerm('settings','edit');
-  return `
-  ${(isAdmin()||isSoftwareAdmin()) ? renderPayrollRatesPanel() : ''}
-  ${renderDesignationsPanel()}
-  <div class="panel"><h3>Change Password</h3>
-    <div class="formGrid">
-      <div><label>Current Password</label><input type="password" id="s_curPass"></div>
-      <div><label>New Password</label><input type="password" id="s_newPass"></div>
+  const tabs=[
+    (isAdmin()||isSoftwareAdmin()) && {key:'rates', icon:'percent', label:'Payroll Rates'},
+    {key:'designations', icon:'tag', label:'Designations'},
+    isAdmin() && {key:'users', icon:'users', label:'Users & Permissions'},
+    {key:'account', icon:'lock', label:isAdmin()?'Password & Backup':'Password'},
+  ].filter(Boolean);
+  if(!tabs.some(t=>t.key===settingsTab)) settingsTab=tabs[0].key;
+  const body = settingsTab==='rates' ? renderPayrollRatesPanel()
+    : settingsTab==='designations' ? renderDesignationsPanel()
+    : settingsTab==='users' ? renderUserRightsPanel()
+    : `<div class="setTwo">
+    <div class="panel"><h3>${ico('lock')} Change Password</h3>
+      <div class="formGrid setNarrow">
+        <div><label>Current Password</label><input type="password" id="s_curPass" autocomplete="current-password"></div>
+        <div><label>New Password</label><input type="password" id="s_newPass" autocomplete="new-password"></div>
+      </div>
+      <div class="modalActions" style="justify-content:flex-start;"><button class="btn" onclick="changePassword()">Update Password</button></div>
     </div>
-    <div class="modalActions"><button class="btn" onclick="changePassword()">Update Password</button></div>
+    ${isAdmin() ? `
+    <div class="panel"><h3>${ico('download')} Backup</h3>
+      <p style="font-size:13px;color:var(--muted);">Download a full backup of the ERP database. Keep the downloaded file somewhere safe.</p>
+      <div class="modalActions" style="justify-content:flex-start;">
+        <button class="btn" onclick="backupData()">${ico('download')} Backup Data (Download)</button>
+      </div>
+      <p id="backupInfo" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
+    </div>` : ''}
+  </div>`;
+  return `<div class="teTabs setTabs" role="tablist">
+    ${tabs.map(t=>`<div class="teTab ${settingsTab===t.key?'active':''}" role="tab" tabindex="0" aria-selected="${settingsTab===t.key}" onclick="setSettingsTab('${t.key}')" onkeydown="if(event.key==='Enter')setSettingsTab('${t.key}')">${ico(t.icon)} ${t.label}</div>`).join('')}
   </div>
-  ${isAdmin() ? `
-  <div class="panel"><h3>${ico('download')} Backup</h3>
-    <p style="font-size:13px;color:var(--muted);">Download a full backup of the ERP database. Keep the downloaded file somewhere safe.</p>
-    <div class="modalActions" style="justify-content:flex-start;">
-      <button class="btn" onclick="backupData()">${ico('download')} Backup Data (Download)</button>
-    </div>
-    <p id="backupInfo" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
-  </div>` : ''}
-  ${isAdmin() ? renderUserRightsPanel() : ''}`;
+  ${body}`;
 }
 
 /* ---- Designations (managed list, like Departments) ----
@@ -88,7 +103,7 @@ function renderPayrollRatesPanel(){
   const s=getSettings();
   return `<div class="panel"><h3>${ico('percent')} Payroll Rates</h3>
     <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Used by every payroll run. A change applies to months generated from now on; regenerate a month on the Payroll page to apply it there. There is no paid leave: an absent day is Loss Of Pay.</p>
-    <div class="formGrid">
+    <div class="formGrid setRates">
       <div><label>PF rate — employee (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfRate" value="${s.pfRate}"></div>
       <div><label>PF rate — employer (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
       <div><label>ESI rate — employee (0.0075 = 0.75%)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
