@@ -18,6 +18,10 @@ let teEwEmp='';                        // employee code currently loaded in the 
 let teEwMonth=monthKey(todayStr());    // month shown (YYYY-MM)
 let teEwEditMode=false;                // same lock/unlock behaviour as the Date-wise grid
 let teEwFocus=null;                    // {r,c} to re-focus after a full render (employee/month switch)
+let teEwGrpFilter='';                  // '' = all groups, a group key, or '-' = no group (Shift Groups)
+let teEwFillMode='rot';                // 'rot' = the group's weekly rotation, or a shift timing key
+let teEwFillFrom='', teEwFillTo='';    // fill range ('' = month start / today or month end)
+let teEwFillOver=false;                // also replace days that already have a time
 let teEwSaveBusy=false, teEwSavePending=false, teEwSaveState='idle';
 
 function teEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
@@ -154,7 +158,7 @@ function teEwStatsHtml(t){
     <div class="teStatBox"><b>${teFmtHM(t.total)}</b><span>Total hours</span></div>`;
 }
 function teEwFootHtml(t){
-  return `<td colspan="5" style="text-align:right;">Month total</td>
+  return `<td colspan="6" style="text-align:right;">Month total</td>
     <td>${teFmtHM(t.working)}</td><td class="${t.late?'teEwWarn':''}">${teFmtHM(t.late)}</td><td class="${t.ot?'teEwDanger':''}">${teFmtHM(t.ot)}</td><td>${teFmtHM(t.total)}</td>
     <td colspan="3" style="text-align:left;">${t.present} present · ${t.leave} leave</td>`;
 }
@@ -172,9 +176,9 @@ function teEwUpdateRow(r){
   const unlocked=teEwCanEdit()&&teEwEditMode;
   tr.className=teEwRowClass(md, dt);
   const inI=tr.querySelector('input[data-c="0"]'), outI=tr.querySelector('input[data-c="1"]'), sel=tr.querySelector('select[data-c="2"]');
-  const ph=(unlocked&&!md.onLeave)?'hh:mm':'';
-  if(inI){ inI.value=md.inTxt; inI.disabled=!unlocked||md.onLeave; inI.placeholder=ph; inI.classList.remove('bad'); }
-  if(outI){ outI.value=md.outTxt; outI.disabled=!unlocked||md.onLeave; outI.placeholder=ph; outI.classList.remove('bad'); }
+  const sched=!teIsHolidayDate(dt) && !!teEmpShift(teEwEmp, dt);
+  if(inI){ inI.value=md.inTxt; inI.disabled=!unlocked||md.onLeave; inI.placeholder=teEwPlaceholder(teEwEmp, dt, 'in', md, unlocked); inI.classList.toggle('sched',sched); inI.classList.remove('bad'); }
+  if(outI){ outI.value=md.outTxt; outI.disabled=!unlocked||md.onLeave; outI.placeholder=teEwPlaceholder(teEwEmp, dt, 'out', md, unlocked); outI.classList.toggle('sched',sched); outI.classList.remove('bad'); }
   if(sel){ sel.value=md.leave?md.leave.type:''; }
   const set=(k,v,cls)=>{ const el=tr.querySelector(`[data-k="${k}"]`); if(el){ el.innerHTML=v; if(cls!==undefined) el.className=cls; } };
   set('shift',cc.shift); set('working',cc.working); set('late',cc.late,cc.lateCls); set('ot',cc.ot,cc.otCls); set('total',cc.total); set('status',md.status);
@@ -307,6 +311,55 @@ function teEwRestoreFocus(){
   if(!el||el.disabled){ const n=teEwRowCount(); for(let k=0;k<n;k++){ const x=teEwCell(k,f.c); if(x&&!x.disabled){ el=x; break; } } }
   if(el&&!el.disabled){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
 }
+// Employees in the picker: on the roll that month, narrowed by Unit / Contractor and Group.
+function teEwEmployees(){
+  return teFilteredEmployees(teEwMonth).filter(e=>!teEwGrpFilter || (teEwGrpFilter==='-' ? !teEmpGroup(e.code) : teEmpGroup(e.code)===teEwGrpFilter));
+}
+function teEwSetGrpFilter(v){ teEwGrpFilter=v||''; render('timeentry'); }
+// Placeholder for an empty time box: the planned shift's time (grey), else hh:mm while editing.
+function teEwPlaceholder(code, dt, kind, md, unlocked){
+  if(md.onLeave) return '';
+  const p=teIsHolidayDate(dt)?null:teEmpShift(code, dt); if(p) return teMinLabel(kind==='in'?p.inMin:p.outMin);
+  return unlocked?'hh:mm':'';
+}
+// Fill range for the open month: default from the 1st to today (this month) or the month end.
+function teEwFillRange(){
+  const dates=teEwMonthDates(teEwMonth), first=dates[0], last=dates[dates.length-1];
+  const today=todayStr();
+  let from=teEwFillFrom && teEwFillFrom.startsWith(teEwMonth) ? teEwFillFrom : first;
+  let to=teEwFillTo && teEwFillTo.startsWith(teEwMonth) ? teEwFillTo : (today>=first && today<=last ? today : last);
+  if(to<from) to=from;
+  return {from, to};
+}
+// Fills this employee's working days in the range with the group's rotation shift (each week's
+// own) or one chosen shift. Sundays, holidays and leave days are skipped; days that already have a
+// time are kept unless "Replace" is ticked.
+function teEwFillDays(){
+  if(!(teEwCanEdit()&&teEwEditMode)){ alert('Click Edit first.'); return; }
+  const code=teEwEmp; if(!code) return;
+  const rot=teEwFillMode==='rot';
+  if(rot && !teEmpGroup(code)){ alert('This employee has no group. Give them one in Shift Groups, or choose a shift to fill.'); return; }
+  const fixed=rot?null:teShiftByKey(teEwFillMode); if(!rot && !fixed){ alert('Choose a shift.'); return; }
+  const {from,to}=teEwFillRange();
+  let n=0, kept=0, leave=0, noPlan=0;
+  teEwMonthDates(teEwMonth).filter(d=>d>=from && d<=to).forEach(dt=>{
+    if(teIsHolidayDate(dt)) return;
+    const md=teEwRowModel(code, dt);
+    if(md.onLeave){ leave++; return; }
+    if((md.hasIn||md.hasOut) && !teEwFillOver){ kept++; return; }
+    const p=rot ? teEmpShift(code, dt) : fixed;
+    if(!p){ noPlan++; return; }
+    teWriteTimeFor(dt, code, 'in', teMinToHMAP(p.inMin)); teWriteTimeFor(dt, code, 'out', teMinToHMAP(p.outMin)); n++;
+  });
+  if(n) teEwQueueSave();
+  render('timeentry');
+  const parts=[`${n} day(s) filled`];
+  if(kept) parts.push(`${kept} already entered kept`);
+  if(leave) parts.push(`${leave} on leave skipped`);
+  if(noPlan) parts.push(`${noPlan} skipped — no rotation set for that week (Shift Groups → Weekly Rotation Planner)`);
+  setTimeout(()=>{ const el=document.getElementById('teEwFillNote'); if(el){ el.textContent=parts.join(' · ')+'.'; el.classList.add('ok'); } },0);
+}
+
 // On loading an employee: jump straight to the first working day up to today with no In Time.
 function teEwFirstEmptyRow(){
   const dates=teEwMonthDates(teEwMonth); const today=todayStr();
@@ -325,7 +378,7 @@ function teEwSelectEmp(code){
 }
 function teEwPickFromText(v){
   v=String(v||'').trim().toLowerCase(); if(!v) return;
-  const emps=teFilteredEmployees(teEwMonth);
+  const emps=teEwEmployees();
   const code=v.split('—')[0].trim();
   const hit=emps.find(e=>e.code.toLowerCase()===code) || emps.find(e=>`${e.code} — ${e.name}`.toLowerCase()===v)
     || emps.find(e=>e.name.toLowerCase().startsWith(v)) || emps.find(e=>(`${e.code} ${e.name}`).toLowerCase().includes(v));
@@ -333,7 +386,7 @@ function teEwPickFromText(v){
   else { const el=document.getElementById('teEwFind'); if(el){ el.classList.add('bad'); el.title='No active employee matches that.'; } }
 }
 function teEwStepEmp(dir){
-  const emps=teFilteredEmployees(teEwMonth); if(!emps.length) return;
+  const emps=teEwEmployees(); if(!emps.length) return;
   let i=emps.findIndex(e=>e.code===teEwEmp);
   i = i<0 ? 0 : (i+dir+emps.length)%emps.length;
   teEwSelectEmp(emps[i].code);
@@ -373,7 +426,7 @@ function printTEEmployee(){
 }
 
 function renderTEEmpWiseTab(){
-  const emps=teFilteredEmployees(teEwMonth);
+  const emps=teEwEmployees();
   if(teEwEmp && !emps.some(e=>e.code===teEwEmp)) teEwEmp='';
   const emp=emps.find(e=>e.code===teEwEmp);
   const canEdit=teEwCanEdit();
@@ -383,6 +436,8 @@ function renderTEEmpWiseTab(){
   const inputStyle='padding:6px 10px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:13px;';
   const picker=`<div class="panelHead" style="margin-bottom:10px;">
       <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <select onchange="teEwSetGrpFilter(this.value)" aria-label="Group" title="Show one group's employees" style="${inputStyle}">
+          <option value="">All Groups</option>${teGroups().map(g=>`<option value="${g.key}" ${teEwGrpFilter===g.key?'selected':''}>${teEsc(g.label)}</option>`).join('')}<option value="-" ${teEwGrpFilter==='-'?'selected':''}>No group</option></select>
         <label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;">${ico('user')} Employee
           <input id="teEwFind" class="teEwFind" list="teEwEmpList" placeholder="Type code or name, press Enter" value="${emp?teEsc(emp.code+' — '+emp.name):''}"
             onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault();teEwPickFromText(this.value);}" onchange="teEwPickFromText(this.value)" style="${inputStyle}width:260px;">
@@ -407,7 +462,7 @@ function renderTEEmpWiseTab(){
     </div>`;
   if(!emp){
     return `<div class="panel">${picker}
-      <div class="empty" style="padding:36px 10px;">Choose an employee above to see and enter their time for ${monthName}.<br><span style="font-size:12px;color:var(--muted);">Type a code or name and press Enter — or use ‹ › to step through the roster.</span></div>
+      <div class="empty" style="padding:36px 10px;">${emps.length?'':'No employees in this group'+(teFilterText()?' for '+teEsc(teFilterText()):'')+'. '}Choose an employee above to see and enter their time for ${monthName}.<br><span style="font-size:12px;color:var(--muted);">Type a code or name and press Enter — or use ‹ › to step through the roster.</span></div>
     </div>`;
   }
   const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -416,13 +471,15 @@ function renderTEEmpWiseTab(){
   const rowsHtml=dates.map((dt,i)=>{
     const md=teEwRowModel(teEwEmp, dt), cc=teEwComputedCells(md);
     const dis=(!unlocked||md.onLeave)?'disabled':'';
+    const plan=teIsHolidayDate(dt)?null:teEmpShift(teEwEmp, dt), ov=teOverrideShift(dt, teEwEmp);
     const dayTag = md.dow===0 ? `<span class="teEwDayTag">Auto OT</span>` : md.hol ? `<span class="teEwDayTag hol" title="${teEsc(md.hol.remarks||'Booked holiday')}">${teEsc(md.hol.remarks||'Holiday')}</span>` : '';
     return `<tr class="${teEwRowClass(md, dt)}" data-r="${i}" data-dt="${dt}">
       <td class="teEwDate"><button type="button" tabindex="-1" class="teEwDateLink" title="Open ${fmtDate(dt)} in Date-wise view" onclick="teOpenDateWise('${dt}')">${fmtDate(dt)}</button></td>
       <td class="teEwDow">${dayNames[md.dow]}${dayTag}</td>
-      <td class="teEwInCell"><input class="teEwTime in" data-r="${i}" data-c="0" value="${md.inTxt}" ${dis} placeholder="${unlocked&&!md.onLeave?'hh:mm':''}" autocomplete="off" spellcheck="false"
+      <td class="teEwPlan">${plan?`<span title="${ov?'Changed for this day (Date-wise)':'From the weekly rotation'}">${teEsc(plan.label)}${ov?' *':''}</span>`:'<span class="teEwMuted">—</span>'}</td>
+      <td class="teEwInCell"><input class="teEwTime in ${plan?'sched':''}" data-r="${i}" data-c="0" value="${md.inTxt}" ${dis} placeholder="${teEwPlaceholder(teEwEmp, dt, 'in', md, unlocked)}" autocomplete="off" spellcheck="false"
         onmousedown="teEwMouse(this)" onfocus="teEwFocusCell(this)" onkeydown="teEwKey(event,this)" onblur="teEwCommitTime(this)" aria-label="In time ${fmtDate(dt)}"></td>
-      <td class="teEwOutCell"><input class="teEwTime out" data-r="${i}" data-c="1" value="${md.outTxt}" ${dis} placeholder="${unlocked&&!md.onLeave?'hh:mm':''}" autocomplete="off" spellcheck="false"
+      <td class="teEwOutCell"><input class="teEwTime out ${plan?'sched':''}" data-r="${i}" data-c="1" value="${md.outTxt}" ${dis} placeholder="${teEwPlaceholder(teEwEmp, dt, 'out', md, unlocked)}" autocomplete="off" spellcheck="false"
         onmousedown="teEwMouse(this)" onfocus="teEwFocusCell(this)" onkeydown="teEwKey(event,this)" onblur="teEwCommitTime(this)" aria-label="Out time ${fmtDate(dt)}"></td>
       <td data-k="shift">${cc.shift}</td>
       <td data-k="working">${cc.working}</td>
@@ -441,10 +498,22 @@ function renderTEEmpWiseTab(){
   return `<div class="panel">
     ${picker}
     <div class="teEwEmpCard">
-      <div><b>${teEsc(emp.name)}</b> <span style="color:var(--muted);">${teEsc(emp.code)}${emp.department?' · '+teEsc(emp.department):''}${emp.designation?' · '+teEsc(emp.designation):''}</span></div>
+      <div><b>${teEsc(emp.name)}</b> <span style="color:var(--muted);">${teEsc(emp.code)}${emp.department?' · '+teEsc(emp.department):''}${emp.designation?' · '+teEsc(emp.designation):''}</span> ${teEmpGroup(emp.code)?teGroupBadge(teEmpGroup(emp.code)):'<span class="teEwMuted">No group</span>'}</div>
       <div style="font-size:12px;color:var(--muted);">${monthName}${unlocked?' · unlocked for editing':' · locked — click '+ico('pencil')+' Edit to enter time'}</div>
     </div>
     <div class="teStatRow" id="teEwStats">${teEwStatsHtml(t)}</div>
+    ${unlocked?(()=>{ const r=teEwFillRange(), g=teEmpGroup(emp.code); return `<div class="teDwQuick teEwFill">
+      <b>${ico('zap')} Fill days</b>
+      <select onchange="teEwFillMode=this.value" aria-label="Fill with">
+        <option value="rot" ${teEwFillMode==='rot'?'selected':''}>As per group rotation${g?' ('+teEsc(teGroupLabel(g))+')':' (no group)'}</option>
+        ${teShiftPresets().map(p=>`<option value="${p.key}" ${teEwFillMode===p.key?'selected':''}>${teEsc(p.label)} (${tePresetTimes(p)})</option>`).join('')}
+      </select>
+      <label>From <input type="date" value="${r.from}" min="${teEwMonthDates(teEwMonth)[0]}" max="${teEwMonthDates(teEwMonth).slice(-1)[0]}" onchange="teEwFillFrom=this.value"></label>
+      <label>To <input type="date" value="${r.to}" min="${teEwMonthDates(teEwMonth)[0]}" max="${teEwMonthDates(teEwMonth).slice(-1)[0]}" onchange="teEwFillTo=this.value"></label>
+      <label class="teEwFillOver"><input type="checkbox" ${teEwFillOver?'checked':''} onchange="teEwFillOver=this.checked"> Replace days already entered</label>
+      <button class="btn" onclick="teEwFillDays()">Fill</button>
+      <span id="teEwFillNote" class="teDwQNote">Sundays, holidays and leave days are skipped. Type late In times and set Half Day by hand afterwards.</span>
+    </div>`; })():''}
     ${unlocked?`<div class="teEwKeys">
       <span><kbd>930</kbd> <kbd>9:30</kbd> <kbd>5:30p</kbd> <kbd>17:30</kbd> type a time</span>
       <span><kbd>Enter</kbd> / <kbd>↓</kbd> next date</span>
@@ -456,7 +525,7 @@ function renderTEEmpWiseTab(){
     </div>`:''}
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid" id="teEwGrid" data-emp="${teEsc(teEwEmp)}">
       <thead><tr>
-        <th>Date</th><th>Day</th>
+        <th>Date</th><th>Day</th><th title="Shift from the group's weekly rotation (* = changed for that day)">Planned shift</th>
         <th class="teEwInHead">${ico('log-in')} In Time</th><th class="teEwOutHead">${ico('log-out')} Out Time</th>
         <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>OT</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>

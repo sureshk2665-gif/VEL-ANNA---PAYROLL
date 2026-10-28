@@ -228,3 +228,10 @@ td.teDwOTCell input.teDwOT.bad{border-color:var(--danger);}
 tr.teDwShiftHead td{padding:6px 12px;}
 tr.teDwShiftHead td span:not(.teShiftBadge){color:var(--muted);margin-left:8px;}
 .teShiftBadge{display:inline-block;font-size:12px;font-weight:600;padding:2px 8px;border-radius:4px;background:var(--card);border:1px solid var(--line);color:var(--ink);}
+
+/* Employee-wise: planned shift and Fill days */
+td.teEwPlan{font-size:12.5px;color:var(--muted);white-space:nowrap;text-align:left;}
+.teEwFill label{display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);}
+.teEwFill select,.teEwFill input[type=date]{height:32px;padding:0 8px;border:1px solid var(--control,var(--line));border-radius:6px;background:var(--card);color:var(--ink);font:inherit;font-size:13px;}
+.teEwFill .btn{height:32px;}
+.teEwFill .teDwQNote.ok{color:var(--st-present-text);font-weight:600;}
