@@ -143,7 +143,7 @@ function attTabsInline(){
   const tab=(mode,icon,label,title)=>`<button class="attTab ${attViewMode===mode?'active':''}" ${attEditMode?'disabled':''} title="${title}" onclick="setAttView('${mode}')">${ico(icon)} ${label}</button>`;
   return `<div class="attTabsInline">
     ${tab('overview','calendar-days','Month Overview','Every employee — how many are Present, Absent and on Half Day each day')}
-    ${tab('day','users','Day View','Every employee on one day — mark or change their attendance')}
+    ${tab('day','users','Day View','Every employee on one day — who was present, absent or on half day')}
     ${tab('employee','user','Employee-wise','One employee\'s whole month')}
   </div><span class="attTabDivider"></span>`;
 }
@@ -205,12 +205,12 @@ function renderAttendanceOverview(){
       <button class="navBtn" onclick="shiftAttMonth(1)" title="Next month">›</button>
       <span class="attDayLabel">${monthLabel(attMonth)}</span>
     </div>
-    <div class="attOvTotals">
-      <span class="chip">${emps} Employees</span>
-      <span class="chip ok">${tot.Present} Present</span>
-      <span class="chip danger">${tot.LossOfPay} Absent</span>
-      <span class="chip warn">${tot.HalfDay} Half Day</span>
-    </div>
+  </div>
+  <div class="teStatRow attStrip">
+    <div class="teStatBox"><b>${emps}</b><span>Employees</span></div>
+    <div class="teStatBox ok"><b>${tot.Present}</b><span>Present (employee-days)</span></div>
+    <div class="teStatBox ${tot.LossOfPay?'danger':''}"><b>${tot.LossOfPay}</b><span>Absent (employee-days)</span></div>
+    <div class="teStatBox ${tot.HalfDay?'warn':''}"><b>${tot.HalfDay}</b><span>Half day (employee-days)</span></div>
   </div>
   <div class="attOvPanel">
     <div class="attOvGrid attOvDows">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="attCalDow">${d}</div>`).join('')}</div>
@@ -272,7 +272,7 @@ function renderAttCompletionCard(){
   return `
   <div class="attCompletionCard">
     <div class="accHead">
-      <h4>${ico('clipboard')} Attendance Completion — ${monthLabel(attMonth)} <span class="accSub">through ${fmtDate(dateStr(attMonth,st.lastDay))}</span></h4>
+      <h4>${ico('clipboard')} Completion <span class="accSub">${monthLabel(attMonth)} · up to ${fmtDate(dateStr(attMonth,st.lastDay))}</span></h4>
       <span class="accPct ${pctClass}">${st.pct}% Complete</span>
     </div>
     <div class="accBarTrack"><div class="accBarFill ${pctClass}" style="width:${st.pct}%;"></div></div>
@@ -306,6 +306,8 @@ function dayCounts(date){
 // Clicking a count chip lists only those employees (Absent / Half Day with their leave remarks).
 // Attendance is entered and changed only in Employee Time Entry.
 function attEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+// Search keeps the cursor in the box while the list redraws.
+function attSetSearch(el){ const pos=el.selectionStart; attSearch=el.value; render('attendance'); const i=document.querySelector('.attSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
 function setAttDayFilter(s){ attDayFilter = attDayFilter===s ? '' : s; render('attendance'); }
 function renderAttendanceDay(){
   const dObj=new Date(attDate+'T00:00:00');
@@ -331,23 +333,27 @@ function renderAttendanceDay(){
     </tbody></table></div>`;
   const chip=(s,cls,label)=>`<button type="button" class="chip ${cls}${attDayFilter===s?' on':''}" onclick="setAttDayFilter('${s}')" title="${attDayFilter===s?'Show everyone':'Show only these employees'}">${c[s]} ${label}</button>`;
   return `${attUnitTabsHTML()}
-  <div class="attDateBar">
+  <div class="attStageTop">
     ${attTabsInline()}
     <div class="grp">${attUnitOptionsHTML()}</div>
-    <button class="navBtn" onclick="shiftAttDate(-1)" title="Previous day">‹</button>
-    <input type="date" value="${attDate}" onchange="setAttDate(this.value)">
-    <button class="navBtn" onclick="shiftAttDate(1)" title="Next day">›</button>
-    <button class="attTodayBtn" onclick="goAttToday()">Today</button>
-    <span class="attDayLabel">${dayName}, ${dateLabel}</span>
-    <input type="search" placeholder="Search employee..." value="${attSearch}" oninput="attSearch=this.value;render('attendance')" style="margin-left:auto;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--paper);color:var(--ink);">
+    <div class="sep"></div>
+    <div class="grp">
+      <button class="navBtn" onclick="shiftAttDate(-1)" title="Previous day">‹</button>
+      <input type="date" value="${attDate}" onchange="setAttDate(this.value)">
+      <button class="navBtn" onclick="shiftAttDate(1)" title="Next day">›</button>
+      <button class="btn secondary" ${attDate===todayStr()?'disabled':''} onclick="goAttToday()">Today</button>
+      <span class="attDayLabel">${dayName}</span>
+    </div>
   </div>
-  ${!hol && (c.Present+c.LossOfPay+c.HalfDay) ? `<div class="attDaySumBar">
-    ${chip('Present','ok','Present')}${chip('LossOfPay','danger','Absent')}${chip('HalfDay','warn','Half Day')}
-    ${attDayFilter?`<button type="button" class="chip" onclick="setAttDayFilter('')">Show all ${c.Present+c.LossOfPay+c.HalfDay}</button>`:''}
-  </div>` : ''}
-  <div class="attBulkBar">
-    <button class="btn secondary" onclick="teOpenDateWise('${attDate}')">${ico('clock')} Enter / change in Employee Time Entry</button>
-    <button class="attTab" style="margin-left:auto;" onclick="setAttView('overview')">← Month Overview</button>
+  <div class="attDayRow">
+    <div class="attDaySumBar">${!hol && (c.Present+c.LossOfPay+c.HalfDay) ? `
+      ${chip('Present','ok','Present')}${chip('LossOfPay','danger','Absent')}${chip('HalfDay','warn','Half Day')}
+      ${attDayFilter?`<button type="button" class="chip" onclick="setAttDayFilter('')">Show all ${c.Present+c.LossOfPay+c.HalfDay}</button>`:''}` : ''}
+    </div>
+    <div class="attDayRight">
+      <input type="search" class="attSearch" placeholder="Search employee" aria-label="Search employee" value="${attEsc(attSearch)}" oninput="attSetSearch(this)">
+      <button class="btn secondary" onclick="teOpenDateWise('${attDate}')">${ico('clock')} Enter / change in Employee Time Entry</button>
+    </div>
   </div>
   <div class="panel attDayPanel">${body}
     <p class="syncNote">View only — attendance is entered in <b>Employee Time Entry</b> and worked out from the In / Out times and leave recorded there.</p>
@@ -561,7 +567,6 @@ function renderAttendanceEmployee(){
     <div class="grp">
       ${attUnitOptionsHTML()}
       <select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttEmpCode(this.value)" title="Select employee">${empOpts}</select>
-      ${emp && emp.department ? `<span class="attDayLabel" style="font-weight:400;color:var(--muted);">${emp.department}</span>`:''}
     </div>
     <div class="sep"></div>
     <div class="grp">

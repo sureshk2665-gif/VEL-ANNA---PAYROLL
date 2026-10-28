@@ -1,0 +1,47 @@
+/* =====================================================================================
+   ATTENDANCE — screen layout on top of the ledger system (loaded after time-entry.css).
+   The same toolbar in all three views, figures in the slim strip used by Employee Time Entry,
+   left-aligned Day View table, and plain monthly-figure boxes in Employee-wise.
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Toolbar: one control height in every view ---------- */
+.attStageTop{gap:8px 10px;padding:8px 10px;border-color:var(--border);border-radius:var(--radius-card);background:var(--surface);}
+.attStageTop .grp{gap:6px;}
+.attStageTop .sep{background:var(--border);margin:4px 2px;}
+.attStageTop select,.attStageTop input[type=month],.attStageTop input[type=date],.attStageTop input[type=search]{
+  box-sizing:border-box;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);
+  background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;}
+.attStageTop select:focus,.attStageTop input:focus{outline:none;box-shadow:var(--focus);}
+.attStageTop .navBtn{width:var(--control-height);height:var(--control-height);border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font-size:15px;}
+.attStageTop .navBtn:hover{background:var(--raised);}
+.attStageTop .btn,.attStageTop .btn.tiny,.attStageTop button.btn.secondary{height:var(--control-height);padding:0 12px;font-size:13px;}
+.attStageTop .attDayLabel{font-size:13px;font-weight:600;color:var(--muted);}
+.attDayRight{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.attSearch{box-sizing:border-box;width:220px;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.attSearch:focus{outline:none;box-shadow:var(--focus);}
+
+/* ---------- Figures strip (shares .teStatRow with Employee Time Entry) ---------- */
+.attStrip{margin:8px 0;flex-shrink:0;}
+.teStatBox.ok b{color:var(--st-present-text);}
+
+/* ---------- Day View ---------- */
+.attDayRow{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin:10px 0;}
+.attDayRow .attDaySumBar{margin:0;}
+.attDaySumBar .chip{height:30px;padding:0 12px;border-radius:var(--radius-control);display:inline-flex;align-items:center;}
+table.attDayTable{font-variant-numeric:tabular-nums;}
+table.attDayTable th{text-align:left;text-transform:none;font-size:12px;font-weight:500;letter-spacing:0;padding:9px 10px;}
+table.attDayTable td{text-align:left;padding:8px 10px;}
+table.attDayTable th:first-child,table.attDayTable td:first-child{text-align:right;width:48px;color:var(--muted);}
+
+/* ---------- Employee-wise ---------- */
+.attAutoCol .accHead h4{font-size:12.5px;}
+.attAutoCol .accSub{font-size:11px;color:var(--muted);font-weight:400;}
+.attEntryRow{gap:10px;padding:8px 12px;border-color:var(--border);border-radius:var(--radius-card);background:var(--surface);}
+.attEntryField{gap:4px;}
+.attEntryField label{font-size:12px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;}
+.attEntryField input{height:32px;padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;}
+.attEntryField input:disabled{opacity:1;background:var(--raised);color:var(--text);border-color:var(--border);}
+.attEntryField input:focus{outline:none;box-shadow:var(--focus);}
+
+}
