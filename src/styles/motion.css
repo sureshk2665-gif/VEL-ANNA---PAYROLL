@@ -1,0 +1,58 @@
+/* =====================================================================================
+   HOVER + ENTRANCE — one behaviour across the whole site (loaded last, screen only).
+   Hover on anything clickable: a red outline at 70% (the company colour, --hl from
+   highlight.css), never a grey fill. Rows tint very lightly. When a page opens, its blocks rise
+   in one after another, slowly and softly; skipped for people who ask for reduced motion.
+   ===================================================================================== */
+@media screen {
+
+body{--hl-stroke:color-mix(in srgb, var(--hl) 70%, transparent);}
+
+/* ---------- Hover: red outline ---------- */
+.reportCard:hover,
+.btn.secondary:not(:disabled):hover,.btn.btnEditAtt:not(:disabled):hover,
+.iconBtn:hover,.themeSelect:hover,.logoutBtn:hover,body.dark .logoutBtn:hover,
+.navBtn:not(:disabled):hover,.teDwQBtn:hover,.chip[onclick]:hover,button.chip:hover,
+.accMissingPill:hover,.attOvCell:not(.blank):hover,.teCalCell:hover{
+  background:var(--surface) !important;border-color:var(--hl-stroke) !important;box-shadow:inset 0 0 0 1px var(--hl-stroke) !important;}
+.teTab:not(.active):hover,.attUnitTab:not(.active):not(:disabled):hover,.attTab:not(.active):not(:disabled):hover{
+  box-shadow:inset 0 0 0 1.5px var(--hl-stroke) !important;}
+.nav-item:not(.active):hover{box-shadow:inset 0 0 0 1px var(--hl-stroke) !important;}
+.reportCard:hover .reportCardArrow{color:var(--hl);}
+.btn.danger:not(:disabled):hover{box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--negative) 70%, transparent);}
+
+/* Fields: the border turns red on hover (focus keeps its ring) */
+select:not(:disabled):not(:focus):hover,
+input:not([type=checkbox]):not([type=radio]):not(:disabled):not(:focus):hover,
+textarea:not(:disabled):not(:focus):hover{border-color:var(--hl-stroke) !important;}
+
+/* Rows: a very light tint of the company colour instead of grey */
+tbody tr:not(.payTotalRow):not(.teGrpHead):not(.teDwShiftHead):hover td{background:color-mix(in srgb, var(--hl) 5%, var(--surface)) !important;}
+
+.reportCard,.btn,.iconBtn,.navBtn,.teDwQBtn,.chip,.attOvCell,.teCalCell,select,input,textarea{
+  transition:border-color .18s ease,box-shadow .18s ease,background-color .18s ease,color .18s ease;}
+
+/* ---------- Entrance: blocks rise in one after another when a page opens ---------- */
+@keyframes blockIn{from{opacity:0;transform:translateY(12px);}to{opacity:1;transform:none;}}
+#pageBody.pageEnter{animation:none !important;}
+#pageBody.pageEnter > *,
+#pageBody.pageEnter .reportGrid > *,
+#pageBody.pageEnter .teStatRow > *{animation:blockIn .65s cubic-bezier(.22,.61,.36,1) both;}
+#pageBody.pageEnter > :nth-child(1){animation-delay:0s;}
+#pageBody.pageEnter > :nth-child(2){animation-delay:.09s;}
+#pageBody.pageEnter > :nth-child(3){animation-delay:.18s;}
+#pageBody.pageEnter > :nth-child(4){animation-delay:.27s;}
+#pageBody.pageEnter > :nth-child(5){animation-delay:.36s;}
+#pageBody.pageEnter > :nth-child(n+6){animation-delay:.45s;}
+#pageBody.pageEnter .reportGrid > :nth-child(2),#pageBody.pageEnter .teStatRow > :nth-child(2){animation-delay:.12s;}
+#pageBody.pageEnter .reportGrid > :nth-child(3),#pageBody.pageEnter .teStatRow > :nth-child(3){animation-delay:.18s;}
+#pageBody.pageEnter .reportGrid > :nth-child(4),#pageBody.pageEnter .teStatRow > :nth-child(4){animation-delay:.24s;}
+#pageBody.pageEnter .reportGrid > :nth-child(5),#pageBody.pageEnter .teStatRow > :nth-child(5){animation-delay:.30s;}
+#pageBody.pageEnter .reportGrid > :nth-child(n+6),#pageBody.pageEnter .teStatRow > :nth-child(n+6){animation-delay:.36s;}
+
+@media (prefers-reduced-motion:reduce){
+  #pageBody.pageEnter > *,#pageBody.pageEnter .reportGrid > *,#pageBody.pageEnter .teStatRow > *{animation:none !important;}
+  .reportCard,.btn,.iconBtn,.navBtn,.teDwQBtn,.chip,.attOvCell,.teCalCell,select,input,textarea{transition:none;}
+}
+
+}

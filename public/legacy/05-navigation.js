@@ -53,7 +53,8 @@ function animatePageEnter(body){
   body.classList.remove('pageEnter');
   void body.offsetWidth; // restart the CSS animation
   body.classList.add('pageEnter');
-  body.addEventListener('animationend', function done(ev){ if(ev.target===body){ body.classList.remove('pageEnter'); body.removeEventListener('animationend', done); } });
+  // The blocks animate in once per page visit; the class goes after the last one so later redraws of the same page don't replay it.
+  clearTimeout(body._pageEnterT); body._pageEnterT=setTimeout(()=>body.classList.remove('pageEnter'), 1400);
   body.querySelectorAll('[data-count]').forEach(el=>{
     const target=+el.dataset.count||0, money=el.dataset.format==='money';
     if(!target) return;
