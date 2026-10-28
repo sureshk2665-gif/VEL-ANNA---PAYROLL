@@ -53,7 +53,7 @@ function renderReportsList(){
       <h3>${ico(cat.icon)} ${cat.label}</h3>
       <div class="reportGrid">
         ${list.map(r=>`
-          <div class="reportCard" onclick="openReport('${r.key}')">
+          <div class="reportCard" role="button" tabindex="0" title="${r.desc.replace(/"/g,'&quot;')}" onclick="openReport('${r.key}')" onkeydown="if(event.key==='Enter')openReport('${r.key}')">
             <div class="reportCardIcon">${ico(r.icon)}</div>
             <div class="reportCardBody">
               <div class="reportCardTitle">${r.title}</div>
@@ -146,7 +146,7 @@ function renderReportDetail(key){
       <button class="btn secondary" onclick="closeReport()">← Back to Reports</button>
       <h3 style="margin:0;">${ico(meta.icon)} ${meta.title}</h3>
     </div>
-    <div class="toolbar">
+    <div class="toolbar repBar"><div class="repFilters">
       ${meta.needsMonth ? `<input type="month" value="${payMonth}" onchange="payMonth=this.value;render('reports')">` : ''}
       ${meta.needsUnitFilter ? `
         <label style="font-size:12px;color:var(--muted);">Working Unit
@@ -219,10 +219,12 @@ function renderReportDetail(key){
             ${fyOptionsList().map(fy=>`<option value="${fy}" ${fy===yearlyFY?'selected':''}>${fy}</option>`).join('')}
           </select>
         </label>` : ''}
+      </div><div class="repActions">
       ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('download')} Download PDF</button>` : ''}
       ${canPrint ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('printer')} Print</button>` : ''}
       ${canExport ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportExcel('${key}')">${ico('file-spreadsheet')} Download Excel</button>` : ''}
-    </div>
+    </div></div>
+    <div class="reportPreview">${previewHtml}</div>
     ${meta.needsDateRange ? `<p class="syncNote">Bonus Eligible Basic Wages = actual sum of each month's Earnings → Basic Salary within the selected period (only months with generated payroll are included). For Bonus Amount, each month's Basic Salary is first capped at ${fmt(BONUS_CEILING)} (if Basic ≤ ${fmt(BONUS_CEILING)}, actual is used) and then summed and multiplied by ${(meta.bonusRate*100).toFixed(2).replace(/\.00$/,'')}%.</p>` : ''}
     ${meta.needsExpFilters ? `<p class="syncNote">Age and Company Experience are calculated as on ${fmtDate(fyEndDate(expFY))} (last day of Financial Year ${expFY}). Employees who joined after this date are excluded. Experience is shown in completed Years and Months.</p>` : ''}
     ${key==='acquittanceContractor' ? `<p class="syncNote">Same A4 Landscape register as the unit-wise one, with one section per contractor (each starting on a fresh page, at most ${ACQ_ROWS_PER_PAGE} employees per page, page totals and a contractor grand total). Pick a Working Unit to print only that contractor's employees in that unit.</p>` : ''}
@@ -232,7 +234,6 @@ function renderReportDetail(key){
     ${key==='esiYearly' ? `<p class="syncNote">Yearly consolidated view for Financial Year ${yearlyFY} (Apr ${yearlyFY.split('-')[0]} – Mar ${yearlyFY.split('-')[1]}) — one row per employee, with Total ESI for each processed month plus yearly Employee / Employer / Total ESI, built from the actual ESI figures processed in each month's payroll run. Only employees with an ESI contribution greater than ₹0 in at least one month of the year are listed.</p>` : ''}
     ${key==='pfMonthly' ? `<p class="syncNote">Figures are the actual PF Employee and PF Employer contributions processed in the ${monthLabel(payMonth)} payroll run. Every on-roll employee for the month is listed, including employees for whom PF is currently Exempted/Nil — they show ₹0 and will automatically show real contributions the moment PF is enabled for them.</p>` : ''}
     ${key==='pf' ? `<p class="syncNote">Yearly consolidated view for Financial Year ${yearlyFY} (Apr ${yearlyFY.split('-')[0]} – Mar ${yearlyFY.split('-')[1]}) — one row per employee, with Total PF for each processed month plus yearly Employee / Employer / Total PF, built from the actual PF figures processed in each month's payroll run. Every on-roll employee is listed, including employees for whom PF is currently Exempted/Nil — they show ₹0 and will automatically show real contributions the moment PF is enabled for them.</p>` : ''}
-    <div class="reportPreview">${previewHtml}</div>
   </div>`;
 }
 function downloadReportPDF(key){

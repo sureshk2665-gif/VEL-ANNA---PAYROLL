@@ -1,0 +1,36 @@
+/* =====================================================================================
+   REPORTS — screen layout on top of the ledger system (loaded after payroll.css).
+   Compact report list; in a report, filters left and Download / Print right, and the preview
+   table scrolls inside its own box with the heading row in view. Printing is untouched.
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Report list ---------- */
+.reportGrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
+.reportCard{min-height:0;padding:12px 14px;gap:12px;align-items:flex-start;cursor:pointer;}
+.reportCard:focus-visible{outline:none;box-shadow:var(--focus);}
+.reportCardIcon,.panel:nth-of-type(2) .reportCardIcon,.panel:nth-of-type(3) .reportCardIcon{width:34px;height:34px;border-radius:var(--radius-control);flex-shrink:0;}
+.reportCardIcon svg{width:17px;height:17px;}
+.reportCardTitle{font-size:14px;font-weight:600;line-height:1.3;}
+.reportCardDesc{margin-top:3px;font-size:12.5px;line-height:1.4;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.reportCardArrow{align-self:center;}
+
+/* ---------- Inside a report ---------- */
+.reportDetailHead{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.repBar{display:flex;align-items:flex-end;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;padding:0;margin-bottom:12px;background:none;border:0;}
+.repFilters,.repActions{display:flex;align-items:flex-end;gap:8px;flex-wrap:wrap;}
+.repActions{margin-left:auto;}
+.repFilters label{display:flex;flex-direction:column;gap:4px;font-size:12px !important;font-weight:500;color:var(--muted) !important;}
+.repBar select,.repBar input[type=month],.repBar input[type=date]{box-sizing:border-box;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;}
+.repBar select:focus,.repBar input:focus{outline:none;box-shadow:var(--focus);}
+.repBar .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
+
+.reportPreview{max-height:calc(100vh - 280px);min-height:220px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--surface);}
+.reportPreview > .syncNote{margin:10px;}
+.reportPreview table{width:100%;min-width:0;border:0;border-collapse:separate;border-spacing:0;font-size:13px;font-variant-numeric:tabular-nums;}
+.reportPreview th,.reportPreview td{padding:8px 10px;border:0;border-bottom:1px solid var(--rule);white-space:nowrap;text-align:left;}
+.reportPreview th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom-color:var(--border);font-size:12px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;}
+.reportPreview tr.payTotalRow td{position:sticky;bottom:0;z-index:1;background:var(--raised);border-top:1px solid var(--border);}
+.reportPreview + .syncNote{margin-top:12px;}
+
+}
