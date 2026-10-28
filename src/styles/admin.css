@@ -1,0 +1,19 @@
+/* =====================================================================================
+   ADMIN — screen layout on top of the ledger system (loaded after reports.css).
+   One section at a time under tabs; small number fields sized to their content.
+   ===================================================================================== */
+@media screen {
+
+.setTabs{display:inline-flex;margin-bottom:14px;}
+.setTabs .teTab svg{width:15px;height:15px;}
+.setTabs .teTab:focus-visible{outline:none;box-shadow:var(--focus);}
+
+.setRates{grid-template-columns:repeat(auto-fill,minmax(240px,1fr));max-width:820px;}
+.setNarrow{grid-template-columns:1fr;max-width:360px;}
+.setTwo{display:grid;grid-template-columns:repeat(auto-fit,minmax(360px,1fr));gap:var(--gap);align-items:start;}
+.setTwo > .panel{margin:0;}
+
+.userActs{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+.userActs .btn{height:30px;padding:0 10px !important;font-size:12.5px !important;display:inline-flex;align-items:center;gap:5px;}
+.userActs .btn svg{width:14px;height:14px;}
+}
