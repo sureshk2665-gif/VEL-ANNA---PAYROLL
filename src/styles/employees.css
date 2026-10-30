@@ -1,0 +1,42 @@
+/* =====================================================================================
+   EMPLOYEES — screen layout on top of the ledger system (loaded before highlight/motion).
+   Unit tabs like Time Entry / Attendance, filters on one line with Add Employee on the right,
+   the slim figures strip, a compact list that scrolls inside its panel with the heading in view,
+   and the employee form split into section tabs. Screen only.
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Unit tabs + toolbar ---------- */
+.empUnitTabs{margin-bottom:12px;}
+.empBar{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:8px 10px;}
+.empBarGrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0;}
+.empBar .searchWrap{width:230px;}
+.empBar .searchWrap input,.empBar select{box-sizing:border-box;height:var(--control-height);border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.empBar select{padding:0 10px;font-weight:500;max-width:200px;}
+.empBar .btn{height:var(--control-height);padding-top:0;padding-bottom:0;margin-left:auto;}
+.empStrip{margin:12px 0;}
+
+/* ---------- The list: compact rows, scrolls inside the panel ---------- */
+.empPanel{padding:0;overflow:hidden;}
+.empScroll{max-height:calc(100vh - 330px);min-height:260px;overflow:auto;border:0;border-radius:0;}
+table.empTable{width:100%;min-width:0;border:0;border-collapse:separate;border-spacing:0;font-size:13px;}
+table.empTable th,table.empTable td{padding:8px 12px;border:0;border-bottom:1px solid var(--rule);white-space:nowrap;text-align:left;}
+table.empTable th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom-color:var(--border);font-size:12px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;}
+table.empTable th.num,table.empTable td.num{text-align:right;font-variant-numeric:tabular-nums;}
+table.empTable td.empCode{color:var(--muted);font-variant-numeric:tabular-nums;}
+table.empTable td.empNameCell b{font-weight:500;}
+table.empTable .rowActions{text-align:right;width:1%;}
+table.empTable .rowActions button{height:28px;padding:0 8px;}
+.empActive{color:var(--muted);font-size:12.5px;}
+.empSince{display:block;font-size:11px;color:var(--muted);margin-top:2px;}
+.empPanel > .empty{padding:36px 16px;}
+
+/* ---------- Employee form: one section at a time ---------- */
+.empFormWho{font-size:13px;font-weight:400;color:var(--muted);margin-left:6px;}
+.empFormTabs{display:inline-flex;margin:4px 0 12px;}
+.empFormTabs .teTab:focus-visible{outline:none;box-shadow:var(--focus);}
+#empForm fieldset[hidden]{display:none !important;}
+#empForm fieldset{margin-top:0;}
+.empFormActions{position:sticky;bottom:-26px;z-index:3;margin:16px -28px -26px;padding:12px 28px;background:var(--surface);border-top:1px solid var(--border);}
+
+}
