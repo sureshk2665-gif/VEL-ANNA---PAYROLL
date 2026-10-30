@@ -39,12 +39,12 @@ function renderEmployees(){
   </div>
   <div class="panel">
     ${list.length? `<table><thead><tr>
-      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th>Mobile</th><th>Daily Wage</th><th>Status</th><th>Actions</th>
+      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th title="Shift group (Employee Time Entry → Shift Groups)">Group</th><th>Daily Wage</th><th>Status</th><th>Actions</th>
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
         <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
         <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
-        <td>${e.mobile||'-'}</td><td><b>${fmt(e.dailyWage||0)}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
+        <td>${empGroupCell(e)}</td><td><b>${fmt(e.dailyWage||0)}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
         </td>
@@ -258,4 +258,8 @@ function saveEmployee(existingCode){
   closeModal();
   render(data.status==='Resigned' ? 'resigned' : 'employees');
 }
-
+// Shift group shown on the Employees list (set in Employee Time Entry → Shift Groups).
+function empGroupCell(e){
+  const g=typeof teEmpGroup==='function' ? teEmpGroup(e.code) : '';
+  return g ? teGroupBadge(g) : '<span style="color:var(--muted);">No group</span>';
+}
