@@ -173,7 +173,7 @@ function employeeFormHtml(e){
       const wrapAttrs=(f.full?' class="full"':'')+(f.wrap?f.wrap(e):'');
       return `<div${wrapAttrs}><label>${f.label}</label>${control}</div>`;
     }).join('\n      ');
-    return `<fieldset><legend>${sec.title}</legend>
+    return `<fieldset data-sec="${sec.key}"><legend>${sec.title}</legend>
     <div class="formGrid">
       ${items}
     </div></fieldset>`;

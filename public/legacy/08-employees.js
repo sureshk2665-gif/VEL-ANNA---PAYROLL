@@ -1,5 +1,14 @@
 /* ================= EMPLOYEES ================= */
-let empFilter={search:'',dept:'',status:'',unit:'',contractor:''};
+let empFilter={search:'',dept:'',status:'',unit:'',contractor:'',group:''};
+// Search keeps the cursor in the box while the list redraws.
+function empSetSearch(el){ const pos=el.selectionStart; empFilter.search=el.value; render('employees'); const i=document.getElementById('empSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
+function empGroupOf(e){ return typeof teEmpGroup==='function' ? (teEmpGroup(e.code)||'') : ''; }
+// An employee with at least one empty form field (same rule as Software Admin → Download All
+// Employee Details).
+function empHasMissing(e){
+  if(typeof employeeDetailIsMissing!=='function') return false;
+  return employeeFields().some(f=>employeeDetailIsMissing(f, e, employeeDetailValue(f, e)));
+}
 function renderEmployees(){
   const depts=db.departments;
   // Employee List (Active + Inactive): resigned employees are never shown here — they live
@@ -7,49 +16,67 @@ function renderEmployees(){
   // deleted (their history is kept); mark them Inactive or Resigned instead.
   const activeEmps=db.employees.filter(e=>e.status!=='Resigned');
   const activeCount=activeEmps.filter(e=>e.status!=='Inactive').length;
+  const groups=typeof teGroups==='function' ? teGroups() : [];
   let list=activeEmps.filter(e=>{
     if(empFilter.status && (e.status||'Active')!==empFilter.status) return false;
     if(empFilter.search && !(`${e.name} ${e.code}`.toLowerCase().includes(empFilter.search.toLowerCase()))) return false;
     if(empFilter.dept && e.department!==empFilter.dept) return false;
     if(empFilter.unit && unitCodeOf(e.unit)!==empFilter.unit) return false;
     if(empFilter.contractor && (e.contractor||'')!==(empFilter.contractor==='-'?'':empFilter.contractor)) return false;
+    if(empFilter.group && (empGroupOf(e)||'-')!==empFilter.group) return false;
     return true;
   });
+  const noGroup=list.filter(e=>!empGroupOf(e)).length;
+  const missing=list.filter(empHasMissing).length;
+  const unitTab=(code,label)=>`<button type="button" role="tab" class="attUnitTab ${empFilter.unit===code?'active':''}" aria-selected="${empFilter.unit===code}" onclick="empFilter.unit='${code}';render('employees')">${label}</button>`;
   return `
-  <div class="toolbar">
-    <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input placeholder="Search name or code..." oninput="empFilter.search=this.value;render('employees')" value="${empFilter.search}"></div>
-    <select onchange="empFilter.dept=this.value;render('employees')">
-      <option value="">All Departments</option>
-      ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
-    </select>
-    <select onchange="empFilter.unit=this.value;render('employees')">
-      <option value="">All Units</option>
-      ${getUnits().map(u=>`<option value="${u.code}" ${empFilter.unit===u.code?'selected':''}>${unitDisplayName(u)}</option>`).join('')}
-    </select>
-    <select onchange="empFilter.contractor=this.value;render('employees')">
-      <option value="">All Contractors</option>
-      ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-    </select>
-    <select onchange="empFilter.status=this.value;render('employees')">
-      <option value="">Active &amp; Inactive</option>
-      ${['Active','Inactive'].map(s=>`<option ${empFilter.status===s?'selected':''}>${s}</option>`).join('')}
-    </select>
-    <span style="font-size:12.5px;color:var(--muted);">${list.length} shown · ${activeCount} active, ${activeEmps.length-activeCount} inactive</span>
-    ${hasPerm('employees','add') ? `<button class="btn" style="margin-left:auto;" onclick="openEmployeeModal()">${ico('plus')} Add Employee</button>` : ''}
+  <div class="attUnitTabs empUnitTabs" role="tablist" aria-label="Working unit">
+    ${unitTab('','All Units')}${getUnits().map(u=>unitTab(u.code, unitTabLabel(u))).join('')}
   </div>
-  <div class="panel">
-    ${list.length? `<table><thead><tr>
-      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th title="Shift group (Employee Time Entry → Shift Groups)">Group</th><th>Daily Wage</th><th>Status</th><th>Actions</th>
+  <div class="toolbar empBar">
+    <div class="empBarGrp">
+      <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input id="empSearch" placeholder="Search name or code..." aria-label="Search name or code" oninput="empSetSearch(this)" value="${empFilter.search}"></div>
+      <select onchange="empFilter.dept=this.value;render('employees')" aria-label="Department">
+        <option value="">All Departments</option>
+        ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
+      </select>
+      <select onchange="empFilter.contractor=this.value;render('employees')" aria-label="Contractor">
+        <option value="">All Contractors</option>
+        ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
+      </select>
+      <select onchange="empFilter.group=this.value;render('employees')" aria-label="Shift group">
+        <option value="">All Groups</option>
+        ${groups.map(g=>`<option value="${g.key}" ${empFilter.group===g.key?'selected':''}>${g.label}</option>`).join('')}
+        <option value="-" ${empFilter.group==='-'?'selected':''}>No group</option>
+      </select>
+      <select onchange="empFilter.status=this.value;render('employees')" aria-label="Status">
+        <option value="">Active &amp; Inactive</option>
+        ${['Active','Inactive'].map(s=>`<option ${empFilter.status===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+    </div>
+    ${hasPerm('employees','add') ? `<button class="btn" onclick="openEmployeeModal()">${ico('plus')} Add Employee</button>` : ''}
+  </div>
+  <div class="teStatRow empStrip">
+    <div class="teStatBox"><b>${list.length}</b><span>Shown${list.length!==activeEmps.length?' of '+activeEmps.length:''}</span></div>
+    <div class="teStatBox ok"><b>${activeCount}</b><span>Active</span></div>
+    <div class="teStatBox"><b>${activeEmps.length-activeCount}</b><span>Inactive</span></div>
+    <div class="teStatBox ${noGroup?'warn':''}" title="Set groups in Employee Time Entry → Shift Groups"><b>${noGroup}</b><span>No shift group</span></div>
+    <div class="teStatBox ${missing?'warn':''}" title="Employees with at least one empty field in the employee form"><b>${missing}</b><span>Details missing</span></div>
+  </div>
+  <div class="panel empPanel">
+    ${list.length? `<div class="tableScrollWrap empScroll"><table class="empTable"><thead><tr>
+      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th title="Shift group (Employee Time Entry → Shift Groups)">Group</th><th class="num">Daily Wage</th><th>Status</th><th></th>
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
-        <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
+        <td class="empCode">${e.code}</td><td class="empNameCell"><b>${e.name}</b></td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
         <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
-        <td>${empGroupCell(e)}</td><td><b>${fmt(e.dailyWage||0)}</b></td><td><span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<div style="font-size:11px;color:var(--muted);">from ${fmtDate(e.inactiveFrom)}</div>`:''}</td>
+        <td>${empGroupCell(e)}</td><td class="num"><b>${fmt(e.dailyWage||0)}</b></td>
+        <td>${(e.status||'Active')==='Active' ? '<span class="empActive">Active</span>' : `<span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<span class="empSince">from ${fmtDate(e.inactiveFrom)}</span>`:''}`}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
         </td>
       </tr>`).join('')}
-    </tbody></table>` : '<div class="empty">'+ico('search-x')+' No employees found. Try adjusting your search or filters.</div>'}
+    </tbody></table></div>` : '<div class="empty">'+ico('search-x')+' No employees found. Try adjusting your search or filters.</div>'}
   </div>`;
 }
 
@@ -192,13 +219,16 @@ function openEmployeeModal(code){
   const editing = code ? db.employees.find(e=>e.code===code) : null;
   const e = editing || {code:'', status:'Active'};
   document.getElementById('modalContent').innerHTML = `
-    <h3>${editing?'Edit Employee':'Add Employee'}</h3>
-    <form id="empForm">
+    <h3>${editing?'Edit Employee':'Add Employee'}${editing?` <span class="empFormWho">${editing.code} · ${editing.name}</span>`:''}</h3>
+    <div class="teTabs empFormTabs" role="tablist">
+      ${employeeFieldSections().map((sec,i)=>`<div class="teTab ${i?'':'active'}" role="tab" tabindex="0" data-sec="${sec.key}" onclick="empFormTab('${sec.key}')" onkeydown="if(event.key==='Enter')empFormTab('${sec.key}')">${sec.title}</div>`).join('')}
+    </div>
+    <form id="empForm" class="empFormTabbed">
     ${employeeFormHtml(e)}
 
-    <div class="modalActions">
+    <div class="modalActions empFormActions">
       <button type="button" class="btn secondary" onclick="closeModal()">Cancel</button>
-      <button type="submit" class="btn">${editing?'Save Changes':'Add Employee'}</button>
+      <button type="submit" class="btn" onclick="empFormReveal()">${editing?'Save Changes':'Add Employee'}</button>
     </div>
     </form>`;
   // Fields come from employeeFields() (public/legacy/07b-employee-fields.js) — selects are pre-selected there.
@@ -206,7 +236,21 @@ function openEmployeeModal(code){
     ev.preventDefault();
     saveEmployee(editing?editing.code:null);
   });
+  empFormTab(employeeFieldSections()[0].key);
   showModal();
+}
+// The form shows one section at a time (Basic / Bank & Statutory / Salary); every field stays in
+// the form, so saving reads them all as before.
+function empFormTab(key){
+  document.querySelectorAll('#empForm fieldset[data-sec]').forEach(f=>{ f.hidden=f.dataset.sec!==key; });
+  document.querySelectorAll('.empFormTabs .teTab').forEach(t=>{ const on=t.dataset.sec===key; t.classList.toggle('active', on); t.setAttribute('aria-selected', String(on)); });
+}
+// Before the browser checks the form: open the tab holding the first field that needs fixing,
+// so its message can be shown.
+function empFormReveal(){
+  const bad=document.querySelector('#empForm :invalid');
+  const fs=bad && bad.closest('fieldset[data-sec]');
+  if(fs) empFormTab(fs.dataset.sec);
 }
 function toggleResignationField(status){
   const wrap=document.getElementById('f_resignationWrap');
