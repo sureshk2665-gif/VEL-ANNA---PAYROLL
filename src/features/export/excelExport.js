@@ -10,8 +10,11 @@
 //       columns: [{ header: 'Code', key: 'code', width: 10, type: 'text' | 'number' | 'money' }],
 //       rows: [{ code: 'EMP001', ... }],
 //       totals: true,                          // TOTAL row summing the number / money columns
+//       freezeCols: 3,                         // optional: keep the first columns in view on scroll
 //     }],
 //   })
+// A row may carry _empty: ['key', …] to colour those cells yellow; a column with keepBlank: true
+// leaves an empty number empty instead of writing 0.
 //
 // ExcelJS is large, so it is loaded only when a download is asked for.
 const loadExcelJS = () => import('exceljs').then((m) => m.default || m);
@@ -20,6 +23,7 @@ const HEAD_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0F6B5
 const TOTAL_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE4F2EE' } };
 const THIN = { style: 'thin', color: { argb: 'FFD8D6CD' } };
 const BORDER = { top: THIN, left: THIN, bottom: THIN, right: THIN };
+const EMPTY_FILL = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF1B8' } }; // a row's _empty cells
 
 const columnLetter = (n) => {
   let s = '';
@@ -29,7 +33,7 @@ const columnLetter = (n) => {
 const isNumeric = (c) => c.type === 'money' || c.type === 'number';
 const numberFormat = (c) => (c.type === 'money' ? '#,##0.00' : c.type === 'number' ? '#,##0.##' : undefined);
 const cellValue = (c, v) => {
-  if (v === undefined || v === null || v === '') return isNumeric(c) ? 0 : '';
+  if (v === undefined || v === null || v === '') return isNumeric(c) && !c.keepBlank ? 0 : '';
   if (isNumeric(c)) { const n = Number(v); return Number.isFinite(n) ? n : 0; }
   return String(v);
 };
@@ -67,7 +71,7 @@ function addSheet(wb, sheet, used) {
     ws.getColumn(i + 1).width = c.width || Math.max(10, Math.min(40, String(c.header).length + 4));
   });
   ws.getRow(headRow).height = 30;
-  ws.views = [{ state: 'frozen', ySplit: headRow }];
+  ws.views = [{ state: 'frozen', ySplit: headRow, xSplit: sheet.freezeCols || 0 }];
 
   const rows = sheet.rows || [];
   rows.forEach((row, ri) => {
@@ -77,6 +81,7 @@ function addSheet(wb, sheet, used) {
       cell.value = cellValue(c, row[c.key]);
       cell.border = BORDER;
       if (numberFormat(c)) { cell.numFmt = numberFormat(c); cell.alignment = { horizontal: 'right' }; }
+      if (row._empty && row._empty.includes(c.key)) cell.fill = EMPTY_FILL;
     });
   });
 

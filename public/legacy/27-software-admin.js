@@ -79,8 +79,16 @@ function renderSoftwareAdmin(){
     </div>
     <p id="backupInfo" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
     <hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">
-    <p style="font-size:13px;color:var(--muted);">Danger zone.</p>
-    <button class="btn danger" onclick="resetAllData()">Reset All Data</button>
+    <p style="font-size:13px;color:var(--muted);">Employee details: one Excel sheet with every employee and every field of the employee form. Empty cells are coloured yellow, and the last columns list what still needs to be filled for each employee.</p>
+    <div class="modalActions" style="justify-content:flex-start;">
+      <button class="btn secondary" onclick="downloadAllEmployeeDetails()">${ico('file-spreadsheet')} Download All Employee Details (Excel)</button>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">
+    <p style="font-size:13px;color:var(--muted);">Danger zone. <b>Delete All Attendance Data</b> is for clearing test entries before go-live: it removes attendance, In / Out times, leave entries and OT / late figures, and keeps employees, holidays, shift groups and settings. A backup file is downloaded first.</p>
+    <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
+      <button class="btn danger" onclick="deleteAllAttendanceData()">${ico('trash')} Delete All Attendance Data</button>
+      <button class="btn danger" onclick="resetAllData()">Reset All Data</button>
+    </div>
   </div>
   <div class="panel"><h3>${ico('timer')} Automatic Backup Scheduler</h3>
     <p style="font-size:13px;color:var(--muted);">Schedule backups to run on their own, saved as a download in the same location as manual backups above. This works while the app is open in a browser tab — keep a tab open (or open it once a day) so the schedule can trigger. If the app wasn't open at the scheduled time, the overdue backup runs automatically the next time it's opened.</p>
@@ -154,4 +162,100 @@ function renderLoginLogsPanel(){
     </table>
     </div>
   </div>`;
+}
+
+/* ---- Download All Employee Details (Excel) — Software Admin ----
+   Every employee, every field of the employee form (same labels and dropdown wording), one row
+   each. Empty cells are coloured yellow and the last two columns say how many fields are empty and
+   which ones, so the sheet shows what still has to be collected. A Summary sheet counts the empty
+   cells per field. Calculated fields (Employee Code, Basic, HRA, OT rate) are filled in but never
+   counted as missing; Inactive From / Resignation Date only count for Inactive / Resigned staff. */
+function employeeDetailValue(f, e){
+  if(f.key==='code') return e.code||'';
+  if(f.key==='basic'||f.key==='hra'||f.key==='otRate') return +e.dailyWage>0 ? dailyWageSplit(e.dailyWage, otFactorOf(e))[f.key] : '';
+  if(f.input==='select'){
+    const v=employeeFieldFormValue(f, e);
+    if(v===''||v===null||v===undefined) return '';
+    const o=employeeFieldOptions(f, e).find(x=>String(x.value)===String(v));
+    return o ? String(o.label) : String(v);
+  }
+  if(f.input==='date') return e[f.key] ? fmtDate(e[f.key]) : '';
+  if(f.input==='number'){ const v=e[f.key]; return (v===undefined||v===null||v==='') ? '' : +v; }
+  const v=e[f.key]; return v===undefined||v===null ? '' : String(v).trim();
+}
+function employeeDetailIsMissing(f, e, v){
+  if(f.auto || f.key==='resignReason') return false;
+  if(f.key==='inactiveFrom') return e.status==='Inactive' && v==='';
+  if(f.key==='resignationDate') return e.status==='Resigned' && v==='';
+  if(f.key==='dailyWage') return !(+v>0);
+  return v==='';
+}
+function downloadAllEmployeeDetails(){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can download all employee details.'); return; }
+  if(typeof window.downloadExcel!=='function'){ alert('Excel export is not available right now. Please reload the page and try again.'); return; }
+  const emps=(db.employees||[]).slice().sort((a,b)=>String(a.code).localeCompare(String(b.code),undefined,{numeric:true}));
+  if(!emps.length){ alert('There are no employees yet.'); return; }
+  const fields=employeeFields();
+  const label=f=>String(f.label).replace(/\s*\*\s*$/,'');
+  const columns=[{header:'S.No', key:'_sno', width:6, type:'number'}]
+    .concat(fields.map(f=>({header:label(f), key:f.key, width:f.width||16, type:f.input==='number'?'number':'text', keepBlank:true})))
+    .concat([{header:'Empty fields', key:'_emptyCount', width:9, type:'number'}, {header:'Still to fill', key:'_emptyList', width:70, type:'text'}]);
+  const missingBy={};
+  const rows=emps.map((e,i)=>{
+    const row={_sno:i+1}, empty=[];
+    fields.forEach(f=>{
+      const v=employeeDetailValue(f, e);
+      row[f.key]=v;
+      if(employeeDetailIsMissing(f, e, v)){ empty.push(f.key); missingBy[f.key]=(missingBy[f.key]||0)+1; }
+    });
+    row._empty=empty;
+    row._emptyCount=empty.length;
+    row._emptyList=empty.map(k=>label(fields.find(f=>f.key===k))).join(', ');
+    return row;
+  });
+  const complete=rows.filter(r=>!r._emptyCount).length;
+  const summary=fields.filter(f=>!f.auto && f.key!=='resignReason').map(f=>({field:label(f), empty:missingBy[f.key]||0, filled:emps.length-(missingBy[f.key]||0)}));
+  const name=db.companyName||DEFAULT_BRAND_NAME;
+  window.downloadExcel({
+    fileName:`${companyFilePrefix()}-All-Employee-Details-${todayStr()}.xlsx`,
+    creator:name,
+    sheets:[
+      {name:'Employees', title:`${name} — All Employee Details`, freezeCols:4,
+        subtitle:`${emps.length} employees as on ${fmtDate(todayStr())} · ${complete} complete, ${emps.length-complete} with empty fields · yellow cells are empty and need to be filled`,
+        columns, rows},
+      {name:'Summary', title:'Empty fields per column', subtitle:'Inactive From / Resignation Date count only for Inactive / Resigned employees. Calculated fields are not counted.',
+        columns:[{header:'Field', key:'field', width:34, type:'text'}, {header:'Empty', key:'empty', width:10, type:'number'}, {header:'Filled', key:'filled', width:10, type:'number'}],
+        rows:summary.sort((a,b)=>b.empty-a.empty)}
+    ]
+  });
+}
+
+/* ---- Delete All Attendance Data — Software Admin ----
+   For clearing test entries before the software is handed over. Removes: attendance marked on the
+   Attendance screen, Employee Time Entry In / Out times, leave entries (Loss of Pay / Half Day),
+   per-day shift changes, and the OT hours / late minutes / LOP typed on the Attendance screen.
+   Keeps: employees, holidays, shift groups and the weekly rotation, canteen tokens, allowances,
+   deductions, salary advances, payroll rates and users. A backup file is downloaded first; if
+   that fails nothing is deleted. */
+async function deleteAllAttendanceData(){
+  if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete attendance data.'); return; }
+  const days=new Set([...Object.keys(db.attendance||{}), ...Object.keys(db.timeEntries||{}), ...(db.timeLeaves||[]).map(l=>l.date)]);
+  if(!days.size){ alert('There is no attendance data to delete.'); return; }
+  const typed=prompt(`Delete ALL attendance data (${days.size} day(s))?\n\n`
+    +`Removes: attendance, In / Out times, leave entries, day shift changes, and OT / late / LOP figures typed on the Attendance screen.\n`
+    +`Keeps: employees, holidays, shift groups, tokens, allowances, deductions, advances, rates and users.\n\n`
+    +`A backup file is downloaded first. This cannot be undone except by restoring that backup.\n\nType DELETE to continue.`);
+  if(typed===null) return;
+  if(typed.trim()!=='DELETE'){ alert('Nothing was deleted. Type DELETE in capital letters to confirm.'); return; }
+  if(!backupData()){ alert('The backup could not be downloaded, so nothing was deleted.'); return; }
+  db.attendance={};
+  db.timeEntries={};
+  db.timeLeaves=[];
+  db.shiftOverrides={};
+  Object.values(db.payrollAdjustments||{}).forEach(month=>Object.values(month||{}).forEach(a=>{
+    a.otTyped=false; a.otHours=0; a.lopOverride=null; delete a.lateMinutes;
+  }));
+  await saveDB(db);
+  render('softwareadmin');
+  alert(`All attendance data (${days.size} day(s)) was deleted. A backup file was downloaded first.`);
 }

@@ -159,8 +159,10 @@ function backupData(){
     URL.revokeObjectURL(url);
     const info=document.getElementById('backupInfo');
     if(info) info.textContent='Backup downloaded at '+new Date().toLocaleString();
+    return true;
   }catch(err){
     alert('Backup failed: '+err.message);
+    return false;
   }
 }
 function restoreData(file){
