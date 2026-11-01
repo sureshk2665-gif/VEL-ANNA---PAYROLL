@@ -77,7 +77,20 @@ function otHoursFor(e, ym){
   if(otTypedFor(adj)) return +adj.otHours||0;
   return typeof teMonthOTMinutes==='function' ? Math.round(teMonthOTMinutes(e.code, ym)/60*100)/100 : 0;
 }
-function lateGraceMinutes(ym){ return Math.max(0, payrollRates(ym).lateGraceMinutes); }
+/* ---- Late waiver (Admin → Late Waiver) ----
+   The first N Late minutes of each month are not deducted. Each waiver applies from a month
+   onwards (db.settings.lateWaivers = [{from:'YYYY-MM', minutes}]); Payroll uses it straight away —
+   no Regenerate — for that month and every month after it, until a later waiver takes over. Months
+   before the first waiver keep the grace they were generated with (payrollRates). */
+function lateWaivers(){ const w=getSettings().lateWaivers; return Array.isArray(w) ? w : []; }
+function lateWaiverFor(ym){
+  const list=lateWaivers().filter(w=>w && w.from && (!ym || w.from<=ym)).sort((a,b)=>a.from<b.from?-1:1);
+  return list.length ? list[list.length-1] : null;
+}
+function lateGraceMinutes(ym){
+  const w=lateWaiverFor(ym || monthKey(todayStr()));
+  return w ? Math.max(0, Math.round(+w.minutes||0)) : Math.max(0, payrollRates(ym).lateGraceMinutes);
+}
 // Late Deduction: one minute's salary = Daily Wage (Basic + HRA per day) ÷ 8 ÷ 60. The first
 // lateGraceMinutes(ym) of Late in the month (2 hours) are free; every minute beyond is deducted.
 function lateDeductionFor(e, ym, dailyWage){
