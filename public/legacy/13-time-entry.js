@@ -164,7 +164,79 @@ function teMonthLateMinutes(code, ym){ return teMonthTotal(code, ym, 'late'); }
 function teMonthOTMinutes(code, ym){ return teMonthTotal(code, ym, 'ot'); }
 // OT minutes per day (for a month whose wage changed part-way: each day is paid at its own rate).
 function teMonthOTByDay(code, ym){ return teMonthDays(code, ym).filter(x=>x.c.ot>0).map(x=>({date:x.date, min:x.c.ot})); }
-function teSetTab(t){ teTab=t; render('timeentry'); }
+function teSetTab(t){ if(t!==teTab && !teEditConfirmLeave()) return; teTab=t; render('timeentry'); }
+
+/* ---- Edit / Save --------------------------------------------------------------
+   Nothing changed in Employee Time Entry (Date-wise, Employee-wise, Token Entry, Shift Groups) or
+   in Attendance → Edit Monthly Figures reaches the database — or Payroll — until Save.
+   Edit opens a session and keeps a copy of the stores below; changes show on screen straight away;
+   Save writes them; Cancel puts the copy back. Leaving the screen (another page, another Time Entry
+   tab) with unsaved changes asks to Save or Discard. While a session is open, anything else that
+   saves the database writes these stores as they were before Edit (teDraftSafe), so a half-done
+   edit never leaks out. */
+const TE_EDIT_KEYS=['timeEntries','timeLeaves','shiftOverrides','payrollAdjustments','attendance','groupWeekShift','groupMap','shiftPresets','shiftGroups','holidays','timeHolidays'];
+let teEdit=null; // {area:'grid'|'tokens'|'groups'|'leave'|'holidays'|'attendance', snap:JSON, dirty:boolean}
+function teEditActive(area){ return !!teEdit && (!area || teEdit.area===area); }
+function teEditBegin(area){
+  if(teEdit) return teEdit.area===area;
+  teEdit={area, snap:JSON.stringify(Object.fromEntries(TE_EDIT_KEYS.map(k=>[k, db[k]===undefined?null:db[k]]))), dirty:false};
+  return true;
+}
+// A change made inside a session: shown on screen, saved only with Save.
+function teEditTouch(){ if(teEdit){ teEdit.dirty=true; if(typeof teEwSetSaveState==='function') teEwSetSaveState('unsaved'); } }
+// Every screen's Edit flag, closed together when a session ends.
+function teEditEndModes(){
+  teGridEditMode=false;
+  if(typeof teEwEditMode!=='undefined') teEwEditMode=false;
+  if(typeof teDwSel!=='undefined') teDwSel.clear();
+  if(typeof attEditMode!=='undefined'){ attEditMode=false; attEditSnapshot=null; }
+}
+async function teEditSave(){
+  if(!teEdit) return true;
+  teEdit=null; teEditEndModes();
+  return teEwQueueSave();
+}
+function teEditDiscard(){
+  if(!teEdit) return;
+  const snap=JSON.parse(teEdit.snap);
+  TE_EDIT_KEYS.forEach(k=>{ if(snap[k]===null) delete db[k]; else db[k]=snap[k]; });
+  teEdit=null; teEditEndModes();
+  if(typeof teEwSetSaveState==='function') teEwSetSaveState('idle');
+}
+// Cancel button: back to the saved figures.
+function teEditCancel(page){
+  if(teEdit && teEdit.dirty && !confirm('Discard the changes you made since Edit?')) return;
+  teEditDiscard(); render(page||'timeentry');
+}
+// Before leaving a screen that has an open session. true = go on, false = stay.
+function teEditConfirmLeave(){
+  if(!teEdit) return true;
+  if(!teEdit.dirty){ teEditDiscard(); return true; } // opened but nothing changed: just close it
+  if(confirm('You have changes that are not saved yet.\n\nOK = Save them now\nCancel = choose to discard them or keep editing')){ teEditSave(); return true; }
+  if(confirm('Discard the changes?\n\nOK = Discard them\nCancel = stay here and keep editing')){ teEditDiscard(); return true; }
+  return false;
+}
+// What saveDB writes while a session is open: the edited stores as they were before Edit.
+function teDraftSafe(d){
+  if(!teEdit) return d;
+  const snap=JSON.parse(teEdit.snap), out={...d};
+  TE_EDIT_KEYS.forEach(k=>{ if(snap[k]===null) delete out[k]; else out[k]=snap[k]; });
+  return out;
+}
+window.addEventListener('beforeunload',e=>{ if(teEdit && teEdit.dirty){ e.preventDefault(); e.returnValue=''; } });
+// Edit / Save / Cancel bar for a Time Entry tab whose whole content is one edit area.
+function teAreaEdit(area){ if(!teEditBegin(area)){ alert('Save or cancel the other edit first.'); return; } render('timeentry'); }
+function teAreaSave(){ teEditSave(); render('timeentry'); }
+function teEditBarHtml(area, allowed, offNote, onNote){
+  const on=allowed && teEditActive(area);
+  return `<div class="teSmEditBar">
+    <span class="teSmEditNote">${on?onNote:allowed?offNote:'View only.'}</span>
+    <span id="teEwSaveState" class="teEwSave ${typeof teEwSaveState!=='undefined'?teEwSaveState:''}"></span>
+    ${!allowed ? '' : on
+      ? `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teAreaSave()">${ico('save')} Save</button>`
+      : `<button class="btn btnEditAtt" onclick="teAreaEdit('${area}')">${ico('pencil')} Edit</button>`}
+  </div>`;
+}
 // Changing the date switches the whole Date-wise grid to that date, auto-creating blank rows for
 // every active employee on it. The grid stays unlocked if it was, so entry can continue
 // date after date (‹ › buttons or Alt+PgUp / Alt+PgDn).
@@ -249,8 +321,11 @@ function teSetLeaveField(field,val){
   else if(field==='remarks') teLeaveRemarks=val;
   render('timeentry');
 }
+// Leave Entry works after Edit: "Add to list" / remove change the list on screen; Save puts them in
+// Attendance and Payroll.
 function teSaveLeave(){
   if(!hasPerm('timeentry','add') && !hasPerm('timeentry','edit')){ alert('You do not have permission to record employee leave.'); return; }
+  if(!teEditActive('leave')){ alert('Click Edit first.'); return; }
   if(!teLeaveEmp){ alert('Please select an employee.'); return; }
   if(!teLeaveDate){ alert('Please choose a date.'); return; }
   if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
@@ -258,15 +333,16 @@ function teSaveLeave(){
   db.timeLeaves.push({date:teLeaveDate, empCode:teLeaveEmp, type:teLeaveType, remarks:teLeaveRemarks||''});
   if(!db.timeEntries[teLeaveDate]) db.timeEntries[teLeaveDate]={};
   if(!db.timeEntries[teLeaveDate][teLeaveEmp]) db.timeEntries[teLeaveDate][teLeaveEmp]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
-  saveDB(db);
+  teEditTouch();
   teLeaveEmp=''; teLeaveRemarks=''; teLeaveType=TE_LEAVE_TYPES[0];
   render('timeentry');
 }
 function teDeleteLeave(dt, code){
   if(!hasPerm('timeentry','delete')){ alert('You do not have permission to remove a leave record.'); return; }
-  if(!confirm('Remove this leave record?')) return;
+  if(!teEditActive('leave')){ alert('Click Edit first.'); return; }
+  if(!confirm('Remove this leave record? (It is removed when you Save.)')) return;
   db.timeLeaves=(db.timeLeaves||[]).filter(l=>!(l.date===dt && l.empCode===code));
-  saveDB(db); render('timeentry');
+  teEditTouch(); render('timeentry');
 }
 function printTELeaveDay(dt){
   const list=(db.timeLeaves||[]).filter(l=>l.date===dt && teCodeInFilter(l.empCode));
@@ -279,15 +355,16 @@ function printTELeaveDay(dt){
 }
 function renderTELeaveTab(){
   const emps=teFilteredEmployees(teLeaveDate);
-  const canEdit=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
-  const canDel=hasPerm('timeentry','delete');
+  const allowed=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
+  const canEdit=allowed && teEditActive('leave');
+  const canDel=canEdit && hasPerm('timeentry','delete');
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   if(teLeaveEmp && !emps.some(e=>e.code===teLeaveEmp)) teLeaveEmp='';
   const leaves=(db.timeLeaves||[]).filter(l=>teCodeInFilter(l.empCode));
   const dates=[...new Set(leaves.map(l=>l.date))].sort().reverse().slice(0,20);
-  return `<div class="panel">
+  return `${teEditBarHtml('leave', allowed, 'Click Edit to add or remove leave.', 'Editing — add or remove leave below, then Save. Attendance and Payroll use it only after Save.')}
+  <div class="panel">
     <h3>${ico('palm')} Record Employee Leave</h3>
-    ${!canEdit?`<p class="syncNote" style="color:var(--warn);">You have view-only access to this module.</p>`:''}
     <p class="syncNote">Select the employee and enter their leave details for the chosen date. A Loss of Pay or Half Day recorded here counts in Attendance and Payroll for that day, unless a different status is marked on the Attendance screen.</p>
     <div class="formGrid">
       <div><label>Date</label><input type="date" value="${teLeaveDate}" ${canEdit?'':'disabled'} onchange="teSetLeaveField('date',this.value)"></div>
@@ -303,7 +380,7 @@ function renderTELeaveTab(){
         </select>
       </div>
       <div><label>Leave Details / Remarks</label><input type="text" placeholder="Reason / details" value="${teLeaveRemarks}" ${canEdit?'':'disabled'} oninput="teSetLeaveField('remarks',this.value)"></div>
-      <div class="full"><button class="btn" ${canEdit?'':'disabled'} onclick="teSaveLeave()">${ico('save')} Save Leave Record</button></div>
+      <div class="full"><button class="btn" ${canEdit?'':'disabled'} onclick="teSaveLeave()">${ico('plus')} Add to list</button></div>
     </div>
   </div>
   ${!dates.length?`<div class="panel"><div class="empty">No leave records yet.</div></div>`:dates.map(dt=>{

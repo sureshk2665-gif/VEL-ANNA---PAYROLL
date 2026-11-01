@@ -14,6 +14,7 @@
 let cbTab='commission';               // 'commission' | 'company'
 let cbMonth=monthKey(todayStr());
 let cbOpen={};                        // contractor code -> true when its employee list is expanded
+let cbEditing=false;                  // rate boxes open (Edit) — closed again by Save or Cancel
 const CB_DEFAULT_RATE=30;
 
 // The rate stored for one contractor in month ym, or undefined when the month has none for it.
@@ -48,9 +49,13 @@ function cbSaveRates(){
   // Keep any contractor rates not on screen; old single-number months become per-contractor.
   db.contractorRates[cbMonth]={...(old && typeof old==='object' ? old : {}), ...next};
   saveDB(db);
+  cbEditing=false;
   render('contractorbill');
 }
-function cbShiftMonth(d){ cbMonth=nextMonthKey(cbMonth, d); render('contractorbill'); }
+function cbShiftMonth(d){ if(cbEditing) return; cbMonth=nextMonthKey(cbMonth, d); render('contractorbill'); }
+// Rates are changed only after Edit; Save stores them, Cancel shows the stored rates again.
+function cbEditRates(){ if(!cbCanEditRate()){ alert('Only an Admin can change the service charge.'); return; } cbEditing=true; render('contractorbill'); setTimeout(()=>{ const i=document.querySelector('.cbRateIn input'); if(i){ i.focus(); i.select(); } },0); }
+function cbCancelRates(){ const b=document.getElementById('cbSaveBar'); if(b && b.classList.contains('dirty') && !confirm('Discard the rates you changed?')) return; cbEditing=false; render('contractorbill'); }
 // A changed rate box lights up the Save button until the rates are saved.
 function cbRateTyped(){ const b=document.getElementById('cbSaveBar'); if(b) b.classList.add('dirty'); }
 function cbSet(field, val){
@@ -80,7 +85,7 @@ function cbContractorRows(ym){
 function renderContractorBill(){
   const rows=cbContractorRows(cbMonth);
   const generated=payrollGenerated(cbMonth);
-  const editable=cbCanEditRate();
+  const allowed=cbCanEditRate(), editable=allowed && cbEditing;
   const sum=k=>Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
   const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
   const company=cbTab==='company';
@@ -110,17 +115,19 @@ function renderContractorBill(){
   const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);
   // Under the table: the one Save for every contractor's rate box (Admin), or who can change them.
   const saveBar=`<div class="cbSaveBar" id="cbSaveBar">
-    <span>${ico('tag')} Rates per present day for <b>${monthLabel(cbMonth)}</b>, from the 1st.${editable?' Change a contractor\'s rate in the table, then save.':' Only an Admin can change the rates.'}</span>
-    ${editable?`<button class="btn" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button>`:''}
+    <span>${ico('tag')} Rates per present day for <b>${monthLabel(cbMonth)}</b>, from the 1st.${editable?' Change a contractor\'s rate in the table, then Save.':allowed?' Click Edit to change the rates.':' Only an Admin can change the rates.'}</span>
+    ${!allowed?'':editable
+      ?`<span style="display:flex;gap:8px;"><button class="btn secondary" onclick="cbCancelRates()">${ico('x')} Cancel</button><button class="btn" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button></span>`
+      :`<button class="btn btnEditAtt" onclick="cbEditRates()">${ico('pencil')} Edit rates</button>`}
   </div>`;
   return `
   <div class="toolbar cbBar">
     <div class="cbBarGrp">
       <div class="attTabsInline">${tab('commission','users','Contractor Service Charge')}${tab('company','wallet','Company Payable')}</div>
       <span class="cbSep"></span>
-      <button class="btn secondary cbNav" onclick="cbShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
-      <input type="month" value="${cbMonth}" onchange="cbSet('month',this.value)" aria-label="Month">
-      <button class="btn secondary cbNav" onclick="cbShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
+      <button class="btn secondary cbNav" ${editable?'disabled':''} onclick="cbShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
+      <input type="month" value="${cbMonth}" ${editable?'disabled title="Save or cancel the rates first"':''} onchange="cbSet('month',this.value)" aria-label="Month">
+      <button class="btn secondary cbNav" ${editable?'disabled':''} onclick="cbShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
     </div>
     <div class="cbBarGrp">
       ${rows.length?`<button class="btn secondary" onclick="cbToggleAll(${allOpen?0:1})">${ico('users')} ${allOpen?'Hide':'Show'} all employees</button>`:''}
@@ -143,7 +150,7 @@ function renderContractorBill(){
     <p class="syncNote">${company
       ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge.`
       : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
-      ${editable?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''} Click a contractor to see its employees.</p>
+      ${allowed?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''} Click a contractor to see its employees.</p>
   </div>`;
 }
 

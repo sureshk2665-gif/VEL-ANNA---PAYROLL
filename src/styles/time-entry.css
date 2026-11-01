@@ -19,7 +19,7 @@
 .teDwFindWrap input{height:var(--control-height);width:230px;padding:0 10px 0 30px;border-color:var(--control);}
 .teDwFindWrap input:focus,.teDwTop select:focus,.teCalHead input:focus,.teSmBar input:focus{outline:none;box-shadow:var(--focus);}
 .teEwTop{margin-bottom:12px;}
-.teEwTop .teDwFindWrap input{width:200px;}
+.teEwTop .teDwFindWrap input{width:180px;}
 .teEwTop select{max-width:130px;}
 .teEwTop input[type=month]{width:150px;}
 .teEwTop .teEwSave{font-size:12px;white-space:nowrap;}
@@ -81,3 +81,11 @@
 .teSmHead .teSmTitle{flex:1 1 auto;min-width:0;}
 .teSmHead .teSmMonthBar{flex:0 0 auto;}
 }
+@media screen {
+/* Edit / Save: the "not saved yet" note, and the Shift Groups edit bar. */
+.teEwSave.unsaved{color:var(--hl-ink,var(--accent));font-weight:500;}
+.teSmEditBar{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin:0 0 12px;padding:8px 10px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--surface);}
+.teSmEditBar .teSmEditNote{margin-right:auto;font-size:13px;color:var(--muted);}
+.teSmEditBar .btn{height:var(--control-height);}
+}
+@media screen { .teEwSave{min-width:0;white-space:nowrap;} .teEwSave svg{width:13px;height:13px;vertical-align:-2px;} }

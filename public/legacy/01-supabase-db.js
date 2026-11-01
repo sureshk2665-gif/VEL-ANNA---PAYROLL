@@ -113,6 +113,9 @@ async function saveDB(dbToSave){
   // (e.g. restoreData()) can tell the user the truth instead of showing a false
   // "success" message when the write was actually rejected by Supabase (e.g. by
   // a missing/incorrect RLS policy).
+  // While an Edit session is open (Employee Time Entry / Attendance), the edited stores are written
+  // as they were before Edit — only Save puts the changes in the database (teDraftSafe).
+  if(typeof teDraftSafe==='function') dbToSave=teDraftSafe(dbToSave);
   try{
     const {error} = await sb.from('erp_data').upsert({ id: DB_KEY, data: dbToSave, updated_at: new Date().toISOString() });
     if(error){

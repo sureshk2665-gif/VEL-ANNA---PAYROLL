@@ -76,49 +76,64 @@ function teEmpShift(code, dt){ return teShiftByKey(teEmpShiftKey(code, dt)); }
 /* ---- Edits ---- */
 function teSmCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teSmDeny(){ alert('You do not have permission to change shift groups.'); }
-function teRotSet(ws, g, k){ if(!teSmCanEdit()) return teSmDeny(); const w=teWeekMap(); w[ws]=w[ws]||{}; if(k) w[ws][g]=k; else delete w[ws][g]; if(!Object.keys(w[ws]).length) delete w[ws]; saveDB(db); render('timeentry'); }
-function teSmSetMonth(v){ if(!v) return; teSmMonth=v; render('timeentry'); }
-function teSmMap(code, key){ if(!teSmCanEdit()) return teSmDeny(); if(key) teGroupMap()[code]=key; else delete teGroupMap()[code]; saveDB(db); render('timeentry'); }
-function teSmBulkMap(){
+// Shift Groups changes are made after Edit and reach the database (and Time Entry / Payroll) on Save.
+function teSmEditing(){ return teEditActive('groups'); }
+function teSmCanChange(){
+  if(!teSmCanEdit()){ teSmDeny(); return false; }
+  if(!teSmEditing()){ alert('Click Edit first.'); return false; }
+  return true;
+}
+function teSmEdit(){
   if(!teSmCanEdit()) return teSmDeny();
+  if(!teEditBegin('groups')){ alert('Save or cancel the other edit first.'); return; }
+  render('timeentry');
+}
+function teSmSave(){ teEditSave(); render('timeentry'); }
+function teRotSet(ws, g, k){ if(!teSmCanChange()) return; const w=teWeekMap(); w[ws]=w[ws]||{}; if(k) w[ws][g]=k; else delete w[ws][g]; if(!Object.keys(w[ws]).length) delete w[ws]; teEditTouch(); render('timeentry'); }
+function teSmSetMonth(v){ if(!v) return; teSmMonth=v; render('timeentry'); }
+function teSmMap(code, key){ if(!teSmCanChange()) return; if(key) teGroupMap()[code]=key; else delete teGroupMap()[code]; teEditTouch(); render('timeentry'); }
+function teSmBulkMap(){
+  if(!teSmCanChange()) return;
   const key=document.getElementById('teSmBulkKey').value;
   const codes=[...document.querySelectorAll('.teSmCb:checked')].map(c=>c.value);
   if(!codes.length){ alert('Tick the employees to assign first.'); return; }
   codes.forEach(c=>{ if(key) teGroupMap()[c]=key; else delete teGroupMap()[c]; });
-  saveDB(db); render('timeentry');
+  teEditTouch(); render('timeentry');
 }
 function teSmFilter(v){ teSmSearch=v; const q=v.trim().toLowerCase(); document.querySelectorAll('#teSmEmp tbody tr[data-s]').forEach(tr=>{ tr.hidden=!!q && !tr.dataset.s.includes(q); }); }
 function teSmToggleAll(on){ document.querySelectorAll('#teSmEmp tbody tr:not([hidden]) .teSmCb').forEach(c=>{ c.checked=on; }); }
-function teSmRenameGroup(i, v){ if(!teSmCanEdit()) return teSmDeny(); v=String(v).trim(); if(!v){ render('timeentry'); return; } teGroups()[i].label=v; saveDB(db); render('timeentry'); }
-function teSmAddGroup(){ if(!teSmCanEdit()) return teSmDeny(); const l=prompt('Name of the new group (e.g. Shift C Group):',''); if(!l||!l.trim()) return; teGroups().push({key:'g'+Date.now(), label:l.trim()}); saveDB(db); render('timeentry'); }
+function teSmRenameGroup(i, v){ if(!teSmCanChange()) return; v=String(v).trim(); if(!v){ render('timeentry'); return; } teGroups()[i].label=v; teEditTouch(); render('timeentry'); }
+function teSmAddGroup(){ if(!teSmCanChange()) return; const l=prompt('Name of the new group (e.g. Shift C Group):',''); if(!l||!l.trim()) return; teGroups().push({key:'g'+Date.now(), label:l.trim()}); teEditTouch(); render('timeentry'); }
 function teSmDelGroup(i){
   if(!hasPerm('timeentry','delete')){ alert('You do not have permission to delete a group.'); return; }
+  if(!teSmEditing()){ alert('Click Edit first.'); return; }
   const g=teGroups()[i]; if(!g) return;
   const n=Object.values(teGroupMap()).filter(k=>k===g.key).length;
   if(!confirm(`Delete ${g.label}?${n?` Its ${n} employee(s) will have no group.`:''}`)) return;
   teGroups().splice(i,1);
   const m=teGroupMap(); Object.keys(m).forEach(c=>{ if(m[c]===g.key) delete m[c]; });
   Object.values(teWeekMap()).forEach(w=>{ delete w[g.key]; });
-  saveDB(db); render('timeentry');
+  teEditTouch(); render('timeentry');
 }
 function teSmTo24(min){ min=((min%1440)+1440)%1440; return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'); }
 function teSmSetShift(i, field, v){
-  if(!teSmCanEdit()) return teSmDeny();
+  if(!teSmCanChange()) return;
   const p=teShiftPresets()[i]; if(!p) return;
   if(field==='label'){ v=String(v).trim(); if(v) p.label=v; }
   else { const [h,m]=String(v).split(':').map(Number); if(!isNaN(h)&&!isNaN(m)) p[field]=h*60+m; }
-  saveDB(db); render('timeentry');
+  teEditTouch(); render('timeentry');
 }
-function teSmAddShift(){ if(!teSmCanEdit()) return teSmDeny(); const l=prompt('Name of the new shift timing:',''); if(!l||!l.trim()) return; teShiftPresets().push({key:'sh'+Date.now(), label:l.trim(), inMin:9*60, outMin:17*60+30}); saveDB(db); render('timeentry'); }
+function teSmAddShift(){ if(!teSmCanChange()) return; const l=prompt('Name of the new shift timing:',''); if(!l||!l.trim()) return; teShiftPresets().push({key:'sh'+Date.now(), label:l.trim(), inMin:9*60, outMin:17*60+30}); teEditTouch(); render('timeentry'); }
 function teSmDelShift(i){
   if(!hasPerm('timeentry','delete')){ alert('You do not have permission to delete a shift timing.'); return; }
+  if(!teSmEditing()){ alert('Click Edit first.'); return; }
   const p=teShiftPresets()[i]; if(!p || !confirm(`Delete ${p.label}? Weeks and days set to it will have no shift.`)) return;
-  teShiftPresets().splice(i,1); saveDB(db); render('timeentry');
+  teShiftPresets().splice(i,1); teEditTouch(); render('timeentry');
 }
 
 /* ---- The tab ---- */
 function renderTEShiftGroupsTab(){
-  const can=teSmCanEdit(), canDel=hasPerm('timeentry','delete');
+  const allowed=teSmCanEdit(), can=allowed && teSmEditing(), canDel=can && hasPerm('timeentry','delete');
   const groups=teGroups(), shifts=teShiftPresets(), emps=activeEmployeesForTE().filter(teEmpMatchesFilter);
   const q=teSmSearch.trim().toLowerCase();
   // Every Monday–Sunday week that touches the month shown, so the rows cover day 1 to the month's last day.
@@ -142,7 +157,14 @@ function renderTEShiftGroupsTab(){
       <td>${teEsc(e.code)}</td><td style="text-align:left;">${teEsc(e.name)}</td><td>${teEsc(e.department||'-')}</td><td>${teEsc(unitLabel(e.unit))}</td>
       <td><select ${can?'':'disabled'} onchange="teSmMap('${teEsc(e.code)}',this.value)" aria-label="Group for ${teEsc(e.name)}">${gOpts(k)}</select></td></tr>`;
   }).join('');
-  return `<div class="panel">
+  return `<div class="teSmEditBar">
+    <span class="teSmEditNote">${can?'Editing — change the rotation, groups or shift timings below, then Save. Nothing is used in Time Entry or Payroll until Save.':allowed?'Click Edit to change the rotation, employee groups or shift timings.':'View only.'}</span>
+    <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
+    ${!allowed ? '' : can
+      ? `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teSmSave()">${ico('save')} Save</button>`
+      : `<button class="btn btnEditAtt" onclick="teSmEdit()">${ico('pencil')} Edit</button>`}
+  </div>
+  <div class="panel">
     <div class="teCalHead teSmHead"><div class="teSmTitle"><h3 style="margin:0;">${ico('calendar-range')} Weekly Rotation Planner — ${monthLabel(teSmMonth)}</h3>
       <p class="teSmSub">Set this week once — the next weeks follow with First and Second swapped. Change any week if needed. Employee Time Entry fills these shifts.</p></div>
       <div class="teSmMonthBar">

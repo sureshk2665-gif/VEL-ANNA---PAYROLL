@@ -18,31 +18,22 @@ function getMonthAttendanceSnapshot(code, ym){
 }
 function toggleAttEdit(){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
+  // An Edit session (13-time-entry.js): the figures typed below reach the database — and Payroll —
+  // only with Save; Cancel puts the saved figures back.
+  if(!teEditBegin('attendance')){ alert('Save or cancel the edit open in Employee Time Entry first.'); return; }
   attEditSnapshot = { dates: getMonthAttendanceSnapshot(attEmpCode, attMonth), adj: JSON.parse(JSON.stringify(getAdj(attMonth, attEmpCode))) };
   attEditMode = true;
   render('attendance');
 }
 function saveAttendance(){
+  const a=document.activeElement; if(a && a.closest && a.closest('.attEntryRow') && a.tagName==='INPUT') a.dispatchEvent(new Event('change'));
+  teEditSave();
   attEditMode = false;
   attEditSnapshot = null;
-  saveDB(db);
   render('attendance');
 }
 function cancelAttendanceEdit(){
-  if(attEditSnapshot){
-    Object.keys(attEditSnapshot.dates).forEach(dt=>{
-      const val=attEditSnapshot.dates[dt];
-      if(!db.attendance[dt]) db.attendance[dt]={};
-      if(val) db.attendance[dt][attEmpCode]=val; else delete db.attendance[dt][attEmpCode];
-    });
-    const a=getAdj(attMonth, attEmpCode);
-    Object.keys(a).forEach(k=>{ if(!(k in attEditSnapshot.adj)) delete a[k]; }); // e.g. a Late figure typed during this edit
-    Object.assign(a, attEditSnapshot.adj);
-    saveDB(db);
-  }
-  attEditMode = false;
-  attEditSnapshot = null;
-  render('attendance');
+  teEditCancel('attendance'); // puts the saved figures back and closes Edit
 }
 function setAttView(mode){ attViewMode=mode; render('attendance'); }
 function shiftAttDate(delta){
@@ -464,11 +455,13 @@ function clearEmployeeMonth(code){
   saveDB(db);
   render('attendance');
 }
+// Monthly figures typed after Edit Monthly Figures are saved with Save (an Edit session); otherwise at once.
+function attStoreFigure(){ if(typeof teEditActive==='function' && teEditActive('attendance')) teEditTouch(); else saveDB(db); }
 function setAdvanceAmount(code, val){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   const a=getAdj(attMonth, code);
   a.advance = +val||0;
-  saveDB(db);
+  attStoreFigure();
 }
 // Late for the Attendance screen's employee/month (see lateDeductionFor in Payroll).
 function attLateInfo(emp){
@@ -485,7 +478,7 @@ function setMonthlyLate(code, inp){
   const a=getAdj(attMonth, code);
   if(String(inp.value).trim()==='') delete a.lateMinutes;
   else a.lateMinutes=Math.max(0, Math.round(+inp.value||0));
-  saveDB(db);
+  attStoreFigure();
   const emp=db.employees.find(x=>x.code===code); if(!emp) return;
   inp.value=attLateInfo(emp).minutes;
   const row=document.getElementById('attLateRow');
@@ -495,7 +488,7 @@ function setCanteenTokens(code, field, val){
   if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
   const a=getAdj(attMonth, code);
   a[field] = +val||0;
-  saveDB(db);
+  attStoreFigure();
 }
 // Unit- and Contractor-selection dropdowns shown to the left of the Employee dropdown on the
 // Attendance screen. "All" clears a filter; picking a unit and/or contractor narrows the Employee list.
@@ -773,7 +766,7 @@ function setMonthlyOT(code, inp){
   const a=getAdj(attMonth, code);
   if(String(inp.value).trim()===''){ a.otTyped=false; a.otHours=0; }
   else { a.otTyped=true; a.otHours=Math.max(0, +inp.value||0); }
-  saveDB(db);
+  attStoreFigure();
   const emp=db.employees.find(x=>x.code===code);
   if(emp){ inp.value=otHoursFor(emp, attMonth); inp.title=attOTTip(emp); }
 }

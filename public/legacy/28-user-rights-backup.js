@@ -320,6 +320,7 @@ function savePayrollConstants(){
   // The monthly late waiver is set in Admin → Late Waiver (saveLateWaiver).
   saveDB(db);
   alert('Payroll rates saved. They apply to months generated from now on; to apply them to a month already generated, click Regenerate Payroll for that month on the Payroll page.');
+  if(typeof settingsEdit!=='undefined') settingsEdit='';
   render('settings');
 }
 // Adds the next working unit (Unit-5, Unit-6, …). Existing units are never renumbered.

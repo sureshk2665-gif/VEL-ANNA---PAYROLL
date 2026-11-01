@@ -290,6 +290,7 @@ function teDwStepDate(k){ teDwSel.clear(); teSetGridDate(teEwShiftDate(teGridDat
 function teDwGoDate(v){ if(!v) return; teDwSel.clear(); teSetGridDate(v); }
 function teDwUnlock(){
   if(!teDwCanEdit()){ alert('You do not have permission to edit time entries.'); return; }
+  if(!teEditBegin('grid')){ alert('Save or cancel the other edit first.'); return; }
   teGridEditMode=true; teDwFocus={r:teDwFirstEmptyRow(),c:0}; render('timeentry');
 }
 // Save. When employees are ticked: each ticked employee without an In time gets the shift they are
@@ -317,7 +318,8 @@ function teDwLock(){
       }
     });
   }
-  if(changed) teEwQueueSave();
+  if(changed) teEditTouch();
+  teEditSave(); // everything typed since Edit goes to the database now (and so to Payroll)
   teGridEditMode=false; teDwSel.clear(); render('timeentry');
   teDwShowSaveSummary(dt);
 }
@@ -453,7 +455,7 @@ function renderTEDateGrid(){
         <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
         ${!unlocked
           ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teDwUnlock()">${ico('pencil')} Edit</button>`
-          : `<button class="btn" onclick="teDwLock()">${ico('save')} Save</button>`}
+          : `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teDwLock()">${ico('save')} Save</button>`}
         <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button>
       </div>
     </div>

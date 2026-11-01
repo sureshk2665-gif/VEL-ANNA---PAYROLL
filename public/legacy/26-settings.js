@@ -1,7 +1,20 @@
 /* ================= SETTINGS ================= */
 // Admin is split into tabs so one section shows at a time; the tab is remembered while the app is open.
 let settingsTab='';
-function setSettingsTab(t){ settingsTab=t; render('settings'); }
+function setSettingsTab(t){
+  if(settingsEdit && t!==settingsTab && !confirm('Discard the changes you are making?')) return;
+  settingsEdit=''; settingsTab=t; render('settings');
+}
+// Payroll Rates / Canteen Token Prices / Late Waiver: the boxes open only after Edit; Save stores
+// them; Cancel shows the stored values again.
+let settingsEdit=''; // 'rates' | 'canteen' | 'late' while that panel is open for changes
+function setEditOpen(k){ if(!isAdmin() && !isSoftwareAdmin()) return; settingsEdit=k; render('settings'); }
+function setEditCancel(){ settingsEdit=''; render('settings'); }
+function setEditButtons(k, saveFn, saveLabel){
+  return settingsEdit===k
+    ? `<button class="btn secondary" onclick="setEditCancel()">${ico('x')} Cancel</button><button class="btn" onclick="${saveFn}()">${ico('save')} ${saveLabel}</button>`
+    : `<button class="btn btnEditAtt" onclick="setEditOpen('${k}')">${ico('pencil')} Edit</button>`;
+}
 function renderSettings(){
   const canEditSettings = hasPerm('settings','edit');
   const tabs=[
@@ -47,6 +60,7 @@ function renderCanteenPricesPanel(){
   const s=getSettings(), own=unitTokenPrices(), def=+s.canteenTokenPrice||0;
   return `<div class="panel"><h3>${ico('receipt')} Canteen Token Prices</h3>
     <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each working unit can have its own price per canteen token. An employee's tokens (Employee Time Entry → Token Entry) are charged at the price of their unit. A change applies to months generated from now on; to apply it to a month already generated, click Regenerate on the Payroll page for that month.</p>
+    <fieldset class="setEditFs" ${settingsEdit==='canteen'?'':'disabled'}>
     <table class="setPriceTable"><thead><tr><th>Unit</th><th>Unit name</th><th class="num">Employees</th><th class="num">Price per token (₹)</th></tr></thead><tbody>
       ${getUnits().map(u=>{ const n=(db.employees||[]).filter(e=>e.status!=='Resigned' && unitCodeOf(e.unit)===u.code).length; const v=tokenPriceValue(own[u.code]);
         return `<tr><td>${u.code}</td><td>${designationEsc(unitDisplayName(u))}</td><td class="num">${n}</td>
@@ -55,7 +69,8 @@ function renderCanteenPricesPanel(){
     <div class="formGrid setRates" style="margin-top:14px;">
       <div><label>Default price (units with an empty box)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${def}"></div>
     </div>
-    <div class="modalActions"><button class="btn" onclick="saveCanteenPrices()">${ico('save')} Save Token Prices</button></div>
+    </fieldset>
+    <div class="modalActions">${setEditButtons('canteen','saveCanteenPrices','Save Token Prices')}</div>
   </div>`;
 }
 function saveCanteenPrices(){
@@ -67,7 +82,7 @@ function saveCanteenPrices(){
   s.canteenTokenPrice = d===null ? 150 : d;
   saveDB(db);
   alert('Canteen token prices saved. They apply to months generated from now on; to apply them to a month already generated, click Regenerate on the Payroll page for that month.');
-  render('settings');
+  settingsEdit=''; render('settings');
 }
 
 // Late waiver: the first N Late minutes of each month are free (lateGraceMinutes() in 12-payroll-calc.js).
@@ -78,15 +93,17 @@ function renderLateWaiverPanel(){
   return `<div class="panel"><h3>${ico('clock')} Late Waiver</h3>
     <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each month, the first minutes of an employee's Late (coming after the shift start and leaving before the shift end, from Employee Time Entry) are waived; only the minutes beyond the waiver are deducted (one minute = Daily Wage ÷ 8 ÷ 60). Example with a ${now}-minute waiver: an employee with 120 minutes late is charged for ${ex} minutes. A change applies to Payroll <b>straight away</b> — no Regenerate — from the month you choose onwards; earlier months keep their waiver.</p>
     <div class="teStatRow" style="margin:0 0 14px;"><div class="teStatBox"><b>${now} min</b><span>Waiver in ${monthLabel(cur)}${active?'':' (default)'}</span></div></div>
+    <fieldset class="setEditFs" ${settingsEdit==='late'?'':'disabled'}>
     <div class="formGrid setRates">
       <div><label for="lw_minutes">Waiver (minutes per month)</label><input type="number" step="1" min="0" id="lw_minutes" value="${now}" placeholder="60"></div>
       <div><label for="lw_from">Applies from month</label><input type="month" id="lw_from" value="${cur}"></div>
     </div>
-    <div class="modalActions"><button class="btn" onclick="saveLateWaiver()">${ico('save')} Save Late Waiver</button></div>
+    </fieldset>
+    <div class="modalActions">${setEditButtons('late','saveLateWaiver','Save Late Waiver')}</div>
     ${list.length?`<h4 style="margin:18px 0 8px;">Waiver history</h4>
     <table class="setPriceTable"><thead><tr><th>From month</th><th class="num">Waiver</th><th></th></tr></thead><tbody>
       ${list.map(w=>`<tr><td>${monthLabel(w.from)}${active&&active.from===w.from?' <span class="tag Active">In use</span>':''}</td><td class="num">${Math.round(+w.minutes||0)} min</td>
-        <td class="rowActions"><button class="del" onclick="deleteLateWaiver('${w.from}')">${ico('trash')} Remove</button></td></tr>`).join('')}
+        <td class="rowActions">${settingsEdit==='late'?`<button class="del" onclick="deleteLateWaiver('${w.from}')">${ico('trash')} Remove</button>`:''}</td></tr>`).join('')}
     </tbody></table>`:''}
   </div>`;
 }
@@ -99,10 +116,11 @@ function saveLateWaiver(){
   s.lateWaivers=lateWaivers().filter(w=>w.from!==from).concat([{from, minutes:Math.round(+raw), savedAt:new Date().toISOString()}]);
   saveDB(db);
   alert(`Late waiver of ${Math.round(+raw)} minutes saved from ${monthLabel(from)}. Payroll uses it straight away.`);
-  render('settings');
+  settingsEdit=''; render('settings');
 }
 function deleteLateWaiver(from){
   if(!isAdmin() && !isSoftwareAdmin()){ alert('Only an administrator can change the late waiver.'); return; }
+  if(settingsEdit!=='late'){ alert('Click Edit first.'); return; }
   if(!confirm(`Remove the late waiver set from ${monthLabel(from)}? Those months go back to the earlier waiver.`)) return;
   getSettings().lateWaivers=lateWaivers().filter(w=>w.from!==from);
   saveDB(db); render('settings');
@@ -174,6 +192,7 @@ function renderPayrollRatesPanel(){
   const s=getSettings();
   return `<div class="panel"><h3>${ico('percent')} Payroll Rates</h3>
     <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Used by every payroll run. A change applies to months generated from now on; regenerate a month on the Payroll page to apply it there. There is no paid leave: an absent day is Loss Of Pay.</p>
+    <fieldset class="setEditFs" ${settingsEdit==='rates'?'':'disabled'}>
     <div class="formGrid setRates">
       <div><label>PF rate — employee (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfRate" value="${s.pfRate}"></div>
       <div><label>PF rate — employer (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
@@ -181,6 +200,7 @@ function renderPayrollRatesPanel(){
       <div><label>ESI rate — employer (0.0325 = 3.25%)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
     </div>
     <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for each Present day (a Half Day counts ½) and paid holiday. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the waived minutes (Admin → Late Waiver). <b>Canteen:</b> tokens (Employee Time Entry → Token Entry) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
-    <div class="modalActions"><button class="btn" onclick="savePayrollConstants()">${ico('save')} Save Payroll Rates</button></div>
+    </fieldset>
+    <div class="modalActions">${setEditButtons('rates','savePayrollConstants','Save Payroll Rates')}</div>
   </div>`;
 }

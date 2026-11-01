@@ -10,6 +10,8 @@ function setActiveNav(page){
 }
 let lastRenderedPage=null;
 function render(page){
+  // Leaving a screen that has an open Edit session asks to Save or Discard first (13-time-entry.js).
+  if(typeof teEdit!=='undefined' && teEdit && page!==(teEdit.area==='attendance'?'attendance':'timeentry') && !teEditConfirmLeave()) return;
   if(!canOpenModule(page)){
     // No view permission for this module: bounce to the first module the user CAN open.
     const fallback=PERMISSION_MODULES.map(m=>m.key).find(k=>canOpenModule(k));
