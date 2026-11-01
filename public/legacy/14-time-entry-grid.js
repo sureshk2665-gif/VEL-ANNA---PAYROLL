@@ -163,7 +163,7 @@ function teEwStatsHtml(t){
 function teEwFootHtml(t){
   return `<td colspan="6" style="text-align:right;">Month total</td>
     <td>${teFmtHM(t.working)}</td><td class="${t.late?'teEwWarn':''}">${teFmtHM(t.late)}</td><td class="${t.ot?'teEwDanger':''}">${teFmtHM(t.ot)}</td><td>${teFmtHM(t.total)}</td>
-    <td colspan="3"></td>`;
+    <td colspan="3" style="text-align:left;">${t.present} present · ${t.leave} leave</td>`;
 }
 function teEwRefreshTotals(){
   if(!teEwEmp) return;
