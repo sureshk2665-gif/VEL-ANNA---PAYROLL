@@ -1,0 +1,31 @@
+/* =====================================================================================
+   DEPARTMENTS — screen layout on top of the ledger system (loaded before highlight/motion).
+   Figures strip, add box in the panel heading, departments by size with a headcount bar;
+   Delete only where it can work (unused), and a shortcut to each department's employees.
+   ===================================================================================== */
+@media screen {
+
+.deptStrip{margin:0 0 12px;}
+.deptHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.deptHead h3{margin:0;}
+.deptAdd{display:flex;align-items:center;gap:6px;}
+.deptAdd input{box-sizing:border-box;width:240px;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.deptAdd input:focus{outline:none;box-shadow:var(--focus);}
+.deptAdd .btn{height:var(--control-height);}
+.deptScroll table.deptTable{min-width:0;}
+table.deptTable{width:100%;border:0;border-collapse:separate;border-spacing:0;font-size:13px;}
+table.deptTable th,table.deptTable td{padding:10px 12px;border:0;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap;}
+table.deptTable th{font-size:12px;font-weight:500;color:var(--muted);border-bottom-color:var(--border);}
+table.deptTable .num{text-align:right;font-variant-numeric:tabular-nums;}
+table.deptTable td b{font-weight:500;}
+.deptCount{display:flex;align-items:center;gap:10px;min-width:220px;}
+.deptCount span{min-width:28px;font-variant-numeric:tabular-nums;font-weight:600;}
+.deptBar{flex:0 0 160px;height:6px;border-radius:3px;background:var(--active);overflow:hidden;}
+.deptBar i{display:block;height:100%;border-radius:3px;background:var(--hl,var(--accent));opacity:.75;}
+.deptOld{color:var(--muted);}
+tr.deptIdle td b{color:var(--muted);}
+.deptUnused{font-size:12.5px;color:var(--muted);}
+table.deptTable .rowActions{text-align:right;width:1%;}
+table.deptTable .rowActions button{height:28px;padding:0 8px;}
+
+}
