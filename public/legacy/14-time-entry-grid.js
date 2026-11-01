@@ -163,7 +163,7 @@ function teEwStatsHtml(t){
 function teEwFootHtml(t){
   return `<td colspan="6" style="text-align:right;">Month total</td>
     <td>${teFmtHM(t.working)}</td><td class="${t.late?'teEwWarn':''}">${teFmtHM(t.late)}</td><td class="${t.ot?'teEwDanger':''}">${teFmtHM(t.ot)}</td><td>${teFmtHM(t.total)}</td>
-    <td colspan="3" style="text-align:left;">${t.present} present · ${t.leave} leave · ${teFmtHM(t.late)} late</td>`;
+    <td colspan="3"></td>`;
 }
 function teEwRefreshTotals(){
   if(!teEwEmp) return;
@@ -831,7 +831,7 @@ function teMonthSummaryRows(monthStr){
   return teFilteredEmployees(monthStr).map(e=>{
     const p=computePayrollForEmployee(e, monthStr);
     const working=teMonthDays(e.code, monthStr).reduce((s,x)=>s+(x.c.working||0),0);
-    return {emp:e, presentDays:p.presentDays, halfDays:p.halfDayCount, lopDays:p.lopMarked, nophDays:p.holidayDays,
+    return {emp:e, presentDays:payPresentDays(p), halfDays:p.halfDayCount, lopDays:p.lopMarked, nophDays:p.holidayDays,
       unmarked:p.unmarkedDays, paidDays:p.daysWorking, leaveDays:p.lopMarked+p.halfDayCount*0.5, workingMin:working,
       otHours:p.otHours, otMin:Math.round(p.otHours*60), otAmount:p.otAmount, lateMin:p.lateMinutes,
       lateCharged:p.lateChargedMinutes, lateDeduction:p.lateDeduction};
@@ -920,7 +920,7 @@ function renderTESummaryTab(){
       </tr>`:''}
       </tbody>
     </table></div>
-    <p class="syncNote">One row per employee on the roll in ${monthName}, with the figures Payroll uses: Present / Half Day / LOP / NOPH come from Attendance (days entered in Time Entry count there unless a different status is marked on the Attendance screen), Paid Days = Present + Half Day × 0.5 + NOPH, and OT / Late are the month's Time Entry totals unless a figure was typed on the Attendance screen. The first ${lateGraceMinutes(teSummaryMonth)} Late minutes in a month are free.</p>
+    <p class="syncNote">One row per employee on the roll in ${monthName}, with the figures Payroll uses: Present / Half Day / LOP / NOPH come from Attendance (days entered in Time Entry count there unless a different status is marked on the Attendance screen), Present counts a Half Day as ½, LOP is the Loss of Pay days, Paid Days = Present + NOPH, and OT / Late are the month's Time Entry totals unless a figure was typed on the Attendance screen. The first ${lateGraceMinutes(teSummaryMonth)} Late minutes in a month are free.</p>
   </div>`;
 }
 

@@ -180,7 +180,7 @@ function renderPayrollRatesPanel(){
       <div><label>ESI rate — employee (0.0075 = 0.75%)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
       <div><label>ESI rate — employer (0.0325 = 3.25%)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for Present + Half Day × 0.5 + paid holidays. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the waived minutes (Admin → Late Waiver). <b>Canteen:</b> tokens (Employee Time Entry → Token Entry) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for each Present day (a Half Day counts ½) and paid holiday. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the waived minutes (Admin → Late Waiver). <b>Canteen:</b> tokens (Employee Time Entry → Token Entry) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
     <div class="modalActions"><button class="btn" onclick="savePayrollConstants()">${ico('save')} Save Payroll Rates</button></div>
   </div>`;
 }
