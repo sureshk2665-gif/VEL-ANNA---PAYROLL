@@ -661,6 +661,7 @@ function teHolKind(dt){
 }
 function teHolOpen(dt){
   if(!teHolCanEdit()) return;
+  if(!teEditActive('holidays')){ alert('Click Edit first.'); return; }
   const cur=teHolKind(dt);
   const opt=(v,label,sub)=>`<label class="teHolOpt"><input type="radio" name="teHolKind" value="${v}" ${cur.kind===v?'checked':''}><span><b>${label}</b><small>${sub}</small></span></label>`;
   document.getElementById('modalContent').innerHTML=`
@@ -671,11 +672,12 @@ function teHolOpen(dt){
       ${opt('unpaid','Holiday without pay','Not a paid day. Time worked is paid as full-day OT.')}
     </div>
     <div class="formGrid" style="margin-top:14px;"><div class="full"><label>Name (optional)</label><input id="teHolName" value="${teEsc(cur.name)}" placeholder="e.g. Diwali, Ayudha Pooja"></div></div>
-    <div class="modalActions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="teHolSave('${dt}')">${ico('save')} Save</button></div>`;
+    <div class="modalActions"><button class="btn secondary" onclick="closeModal()">Close</button><button class="btn" onclick="teHolSave('${dt}')">${ico('check')} Apply</button></div>`;
   showModal();
 }
 function teHolSave(dt){
   if(!teHolCanEdit()){ alert('You do not have permission to change the Holiday Calendar.'); return; }
+  if(!teEditActive('holidays')){ alert('Click Edit first.'); return; }
   const sel=document.querySelector('input[name="teHolKind"]:checked');
   const kind=sel?sel.value:'';
   const name=String((document.getElementById('teHolName')||{}).value||'').trim();
@@ -686,10 +688,10 @@ function teHolSave(dt){
   if(kind==='paid') db.holidays.push({date:dt, type:'NOPH', name});
   if(kind==='unpaid') db.timeHolidays.push({date:dt, remarks:name});
   db.holidays.sort((a,b)=>a.date.localeCompare(b.date));
-  saveDB(db); closeModal(); render('timeentry');
+  teEditTouch(); closeModal(); render('timeentry'); // used by Attendance / Payroll after Save
 }
 function renderTEHolidayTab(){
-  const canEdit=teHolCanEdit();
+  const allowed=teHolCanEdit(), canEdit=allowed && teEditActive('holidays');
   const ym=teCalMonth, [y,m]=ym.split('-').map(Number);
   const dim=new Date(y,m,0).getDate();
   const lead=(new Date(y,m-1,1).getDay()+6)%7; // Monday first
@@ -707,7 +709,8 @@ function renderTEHolidayTab(){
   }
   const sundays=sundaysInMonth(ym), paid=holidaysInMonth(ym);
   const unpaid=(db.timeHolidays||[]).filter(h=>h.date.startsWith(ym) && new Date(h.date+'T00:00:00').getDay()!==0).length;
-  return `<div class="teStatRow">
+  return `${teEditBarHtml('holidays', allowed, 'Click Edit to set holidays.', 'Editing — click a date to set it, then Save. Attendance and Payroll use the calendar only after Save.')}
+    <div class="teStatRow">
       <div class="teStatBox"><b>${dim}</b><span>Total days</span></div>
       <div class="teStatBox"><b>${sundays}</b><span>Sundays</span></div>
       <div class="teStatBox"><b>${paid}</b><span>Paid holidays (NOPH)</span></div>

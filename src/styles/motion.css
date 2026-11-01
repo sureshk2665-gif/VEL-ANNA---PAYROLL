@@ -56,3 +56,9 @@ tbody tr:not(.payTotalRow):not(.teGrpHead):not(.teDwShiftHead):hover td{backgrou
 }
 
 }
+@media screen {
+/* Locked until Edit: every form box that is disabled looks it (grey, not clickable). */
+.formGrid input:disabled,.formGrid select:disabled,.formGrid textarea:disabled,
+fieldset.setEditFs:disabled input,fieldset.setEditFs:disabled select{
+  background:var(--raised) !important;color:var(--muted) !important;border-color:var(--border) !important;cursor:not-allowed;}
+}
