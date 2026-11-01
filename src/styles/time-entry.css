@@ -69,3 +69,8 @@
 .teSmBar{gap:8px;}
 
 }
+@media screen {
+.teSmMonthBar{display:flex;align-items:center;gap:6px;margin-left:auto;}
+.teSmMonthBar input[type=month]{box-sizing:border-box;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;}
+.teSmMonthBar .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
+}
