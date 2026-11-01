@@ -1,0 +1,52 @@
+/* =====================================================================================
+   CONTRACTORS BILL — screen layout on top of the ledger system (loaded before highlight/motion).
+   View tabs and month on one toolbar with Print / Excel on the right, the figures strip, a
+   contractor table with right-aligned figures that opens to its employees, and one Save bar for
+   the rates under the table. Print is untouched.
+   ===================================================================================== */
+@media screen {
+
+.cbBar{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:8px 10px;}
+.cbBarGrp{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.cbBar .attTabsInline{display:flex;gap:6px;}
+.cbBar .attTab{height:var(--control-height);padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;}
+.cbBar .attTab svg{width:15px;height:15px;}
+.cbSep{width:1px;align-self:stretch;margin:4px 6px;background:var(--border);}
+.cbBar input[type=month]{box-sizing:border-box;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;}
+.cbBar .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
+.cbNav{min-width:var(--control-height);padding:0 8px !important;justify-content:center;}
+.cbStrip{margin:12px 0;}
+.cbStrip .cbKey{background:var(--raised);}
+.cbStrip .cbKey b{font-size:20px;}
+
+/* ---------- Contractor table ---------- */
+.cbPanel{padding-top:12px;}
+.cbScroll{border:1px solid var(--border);border-radius:var(--radius-card);}
+.tableScrollWrap table.cbTable.cbMain{min-width:0;}
+table.cbTable{width:100%;margin:0;border:0;border-collapse:separate;border-spacing:0;font-size:13px;font-variant-numeric:tabular-nums;}
+table.cbTable th,table.cbTable td{padding:10px 12px;border:0;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap;}
+table.cbTable th{font-size:12px;font-weight:500;color:var(--muted);text-transform:none;letter-spacing:0;border-bottom-color:var(--border);background:var(--surface);}
+table.cbTable .num{text-align:right;}
+table.cbTable td b{font-weight:600;}
+table.cbTable tr.cbRow{cursor:pointer;}
+table.cbTable tr.cbRow.open td{background:color-mix(in srgb, var(--hl,var(--accent)) 5%, var(--surface));border-bottom-color:transparent;}
+table.cbTable td.cbCaret{width:28px;padding-right:0;color:var(--muted);}
+table.cbTable td.cbCaret span{display:inline-block;font-size:18px;line-height:1;transition:transform .15s ease;}
+table.cbTable tr.cbRow.open td.cbCaret span{transform:rotate(90deg);color:var(--hl,var(--accent));}
+table.cbTable td.cbRateCell{cursor:default;}
+.cbRateIn{display:inline-flex;align-items:center;gap:4px;color:var(--muted);}
+.cbRateIn input{box-sizing:border-box;width:76px;height:30px;padding:0 8px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-weight:600;text-align:right;}
+.cbRateIn input:focus{outline:none;box-shadow:var(--focus);}
+table.cbTable tr.cbTotal td{font-weight:600;background:var(--raised);border-bottom:0;}
+table.cbTable tr.cbDetail>td{padding:0 12px 14px 40px;background:color-mix(in srgb, var(--hl,var(--accent)) 5%, var(--surface));}
+table.cbTable.cbInner{border:1px solid var(--border);border-radius:var(--radius-control);background:var(--surface);font-size:12.5px;}
+table.cbTable.cbInner th,table.cbTable.cbInner td{padding:7px 10px;background:var(--surface);}
+
+/* ---------- Save bar for the rates ---------- */
+.cbSaveBar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:12px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--raised);font-size:13px;color:var(--muted);}
+.cbSaveBar svg{width:15px;height:15px;vertical-align:-3px;margin-right:4px;}
+.cbSaveBar b{color:var(--text);}
+.cbSaveBar .btn{height:var(--control-height);}
+.cbSaveBar.dirty{border-color:var(--hl-stroke,var(--control));background:var(--hl-soft,var(--raised));color:var(--text);}
+
+}
