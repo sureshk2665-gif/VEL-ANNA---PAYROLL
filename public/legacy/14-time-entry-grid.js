@@ -101,7 +101,7 @@ function teEwRowModel(code, dt){
   const leave=teGetLeave(dt, code);
   const onLeave=!!(leave && leave.type!=='Half Day');
   const half=!!(leave && leave.type==='Half Day');
-  const c=teHalfDayCap(teCompute(entry, dt), half);
+  const c=teHalfDayCap(teCompute(entry, dt, code), half);
   const [y,m,d]=dt.split('-').map(Number);
   const dow=new Date(y,m-1,d).getDay();
   const hol=db.timeHolidays.find(h=>h.date===dt)||null;
@@ -163,7 +163,7 @@ function teEwStatsHtml(t){
 function teEwFootHtml(t){
   return `<td colspan="6" style="text-align:right;">Month total</td>
     <td>${teFmtHM(t.working)}</td><td class="${t.late?'teEwWarn':''}">${teFmtHM(t.late)}</td><td class="${t.ot?'teEwDanger':''}">${teFmtHM(t.ot)}</td><td>${teFmtHM(t.total)}</td>
-    <td colspan="3" style="text-align:left;">${t.present} present · ${t.leave} leave</td>`;
+    <td colspan="3" style="text-align:left;">${t.present} present · ${t.leave} leave · ${teFmtHM(t.late)} late</td>`;
 }
 function teEwRefreshTotals(){
   if(!teEwEmp) return;
@@ -574,7 +574,7 @@ function renderTEDayList(){
       if(leave && leave.type!=='Half Day'){ onLeave.push({code,emp,leave}); return; }
       const entry=rows[code];
       if(!entry || entry.inH==='' || entry.inH===undefined){ if(!leave) return; } // nothing entered yet
-      const c=teHalfDayCap(teCompute(entry, dt), !!leave);
+      const c=teHalfDayCap(teCompute(entry, dt, code), !!leave);
       const shiftName=c.shift?c.shift.name:'General Shift';
       (byShift[shiftName]||byShift['General Shift']).push({code,emp,entry,c,leave});
     });
@@ -627,7 +627,7 @@ function printTEDay(dt){
       return `<tr><td>${idx+1}</td><td>${code}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td>
       <td colspan="6">${ico('palm')} On Leave — ${leave.type}${leave.remarks?' ('+leave.remarks+')':''}</td></tr>`;
     }
-    const entry=rows[code]; const c=teHalfDayCap(teCompute(entry,dt), !!leave);
+    const entry=rows[code]; const c=teHalfDayCap(teCompute(entry,dt,code), !!leave);
     const halfDayNote = leave ? ` <span style="font-size:10px;">${ico('contrast')} Half Day${leave.remarks?' — '+leave.remarks:''}</span>` : '';
     return `<tr><td>${idx+1}</td><td>${code}</td><td style="text-align:left;">${emp.name}${halfDayNote}</td><td>${emp.department||'-'}</td>
       <td>${c.shift?c.shift.name:'-'}</td>
