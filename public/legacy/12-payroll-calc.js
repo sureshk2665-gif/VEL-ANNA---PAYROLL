@@ -42,8 +42,25 @@ function capturePayrollRates(ym){
   if(!db.payrollSettings) db.payrollSettings={};
   const cur=payrollRates(null);
   db.payrollSettings[ym]=Object.fromEntries(PAYROLL_RATE_KEYS.map(k=>[k,cur[k]]));
+  db.payrollSettings[ym].canteenTokenPrices={...unitTokenPrices()};
 }
-function canteenTokenPrice(ym){ return Math.max(0, payrollRates(ym).canteenTokenPrice); }
+/* ---- Canteen token price per working unit ----
+   Admin → Canteen Token Prices sets a price for each unit (db.settings.canteenTokenPrices,
+   {unitCode: ₹}); a unit without its own price uses the single price (canteenTokenPrice). Like the
+   other rates, the prices are copied into the month when it is generated, so a later change
+   reaches a generated month only after Regenerate. An employee's tokens are charged at the price
+   of their working unit. */
+function unitTokenPrices(){
+  const p=getSettings().canteenTokenPrices;
+  return p && typeof p==='object' ? p : {};
+}
+function tokenPriceValue(v){ return v===undefined || v===null || v==='' || isNaN(+v) ? null : Math.max(0, +v); }
+function canteenTokenPrice(ym, unit){
+  const u=unit ? unitCodeOf(unit) : '';
+  const saved=ym && db.payrollSettings ? db.payrollSettings[ym] : null;
+  const own=u ? tokenPriceValue(saved ? (saved.canteenTokenPrices||{})[u] : unitTokenPrices()[u]) : null;
+  return own!==null ? own : Math.max(0, payrollRates(ym).canteenTokenPrice);
+}
 // Late minutes for the month: the figure typed on the Attendance screen for that month if there
 // is one, otherwise the total Late from Employee Time Entry.
 function lateMinutesFor(e, ym){
@@ -159,9 +176,9 @@ function computePayrollForEmployee(e, ym){
   const pfWages = basicE;
   const pf = e.pfApplicable ? Math.round(pfWages*rates.pfRate) : 0;
   const pfEmployer = e.pfApplicable ? Math.round(pfWages*rates.pfEmployerRate) : 0;
-  // Canteen: tokens bought this month × the month's canteen token price (Admin → Payroll Rates).
+  // Canteen: tokens bought this month × the month's token price for the employee's unit (Admin → Canteen Token Prices).
   const canteenTokens = canteenTokensFor(e, ym);
-  const tokenPrice = canteenTokenPrice(ym);
+  const tokenPrice = canteenTokenPrice(ym, e.unit); // the price of the employee's working unit
   const canteen = Math.round(canteenTokens*tokenPrice*100)/100;
   const tax = +adj.tax||0;
   // Advance deduction = whatever the Salary Advance module's auto-generated recovery schedule says

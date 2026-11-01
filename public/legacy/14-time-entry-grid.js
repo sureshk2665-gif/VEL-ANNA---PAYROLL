@@ -754,53 +754,63 @@ function teTokFilter(v){
   document.querySelectorAll('#teTokTable tbody tr[data-s]').forEach(tr=>{ tr.hidden=!!q && !tr.dataset.s.includes(q); });
 }
 // Recomputes each row's count, amount and the totals in place (no re-render, so typing keeps focus).
+// Each employee's tokens are charged at the token price of their working unit.
 function teTokRefresh(){
-  const price=+(getSettings().canteenTokenPrice)||0, ym=teTokMonth;
-  let tokens=0, typed=0;
+  const ym=teTokMonth;
+  let tokens=0, typed=0, amount=0;
   document.querySelectorAll('#teTokTable tbody tr[data-code]').forEach(tr=>{
     const e=(db.employees||[]).find(x=>x.code===tr.dataset.code); if(!e) return;
-    const n=canteenTokensFor(e, ym), t=teTokTyped(ym, e.code);
-    tokens+=n; if(t) typed++;
-    tr.querySelector('.teTokAmt').textContent=fmt(Math.round(n*price*100)/100);
-    tr.querySelector('.teTokSrc').textContent=t?'This month':'Usual';
+    const n=canteenTokensFor(e, ym), amt=Math.round(n*canteenTokenPrice(ym, e.unit)*100)/100;
+    tokens+=n; amount+=amt; if(teTokTyped(ym, e.code)) typed++;
+    tr.querySelector('.teTokAmt').textContent=fmt(amt);
   });
   const set=(id,v)=>{ const el=document.getElementById(id); if(el) el.textContent=v; };
-  set('teTokTotal', tokens); set('teTokAmount', fmt(Math.round(tokens*price*100)/100)); set('teTokTyped', typed);
+  set('teTokTotal', tokens); set('teTokAmount', fmt(Math.round(amount*100)/100)); set('teTokTyped', typed);
+}
+// "₹155" for one price, "₹155 – ₹170" when the units shown have different prices.
+function teTokPriceText(ym, emps){
+  const units=[...new Set(emps.map(e=>unitCodeOf(e.unit)))];
+  const prices=(units.length?units:[teUnitFilter||'']).map(u=>canteenTokenPrice(ym, u));
+  const lo=Math.min(...prices), hi=Math.max(...prices);
+  return lo===hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
 }
 function renderTETokensTab(){
-  const ym=teTokMonth, can=teTokCanEdit(), price=+(getSettings().canteenTokenPrice)||0;
+  const ym=teTokMonth, can=teTokCanEdit();
   const emps=teFilteredEmployees(ym), q=teTokSearch.trim().toLowerCase();
+  let amount=0;
   const rows=emps.map((e,i)=>{
     const n=canteenTokensFor(e, ym), t=teTokTyped(ym, e.code), s=`${e.code} ${e.name}`.toLowerCase();
+    const price=canteenTokenPrice(ym, e.unit), amt=Math.round(n*price*100)/100; amount+=amt;
     return `<tr data-code="${teEsc(e.code)}" data-s="${teEsc(s)}" ${q&&!s.includes(q)?'hidden':''}>
       <td class="num">${i+1}</td><td>${teEsc(e.code)}</td><td style="text-align:left;">${teEsc(e.name)}</td><td>${teEsc(unitLabel(e.unit))}</td><td>${teEsc(contractorName(e)||'-')}</td>
-      <td class="num">${+e.canteenTokens||0}</td>
       <td class="num"><input class="teTokIn" type="number" min="0" step="1" data-code="${teEsc(e.code)}" value="${t?n:''}" placeholder="${+e.canteenTokens||0}" ${can?'':'disabled'}
         onchange="teTokSet(this)" onkeydown="teTokKey(event,this)" aria-label="Tokens for ${teEsc(e.name)}"></td>
-      <td class="teTokSrc">${t?'This month':'Usual'}</td>
-      <td class="num teTokAmt">${fmt(Math.round(n*price*100)/100)}</td></tr>`;
+      <td class="num">${fmt(price)}</td>
+      <td class="num teTokAmt">${fmt(amt)}</td></tr>`;
   }).join('');
   const total=emps.reduce((s,e)=>s+canteenTokensFor(e, ym),0), typed=emps.filter(e=>teTokTyped(ym,e.code)).length;
+  const priceAdmin=isAdmin()||isSoftwareAdmin();
   return `<div class="teStatRow">
       <div class="teStatBox"><b>${emps.length}</b><span>Employees</span></div>
       <div class="teStatBox"><b id="teTokTotal">${total}</b><span>Tokens this month</span></div>
-      <div class="teStatBox"><b>${fmt(price)}</b><span>Price per token</span></div>
-      <div class="teStatBox"><b id="teTokAmount">${fmt(Math.round(total*price*100)/100)}</b><span>Deducted from salary</span></div>
+      <div class="teStatBox" title="Each unit has its own price (Admin → Canteen Token Prices)"><b>${teTokPriceText(ym, emps)}</b><span>Price per token${teUnitFilter?'':' (by unit)'}</span></div>
+      <div class="teStatBox"><b id="teTokAmount">${fmt(Math.round(amount*100)/100)}</b><span>Deducted from salary</span></div>
       <div class="teStatBox"><b id="teTokTyped">${typed}</b><span>Entered for this month</span></div>
     </div>
     <div class="panel">
     <div class="teCalHead">
       <h3 style="margin:0;">${ico('clipboard')} Monthly Token Entry — ${monthLabel(ym)}</h3>
       <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap;">
+        ${priceAdmin?`<button class="btn secondary" onclick="settingsTab='canteen';render('settings')">${ico('settings')} Unit token prices</button>`:''}
         <input type="month" value="${ym}" onchange="teTokSetMonth(this.value)" aria-label="Month">
         <input type="search" placeholder="Search employee" value="${teEsc(teTokSearch)}" oninput="teTokFilter(this.value)" aria-label="Search employee">
       </div>
     </div>
     <div class="tableScrollWrap teTokWrap"><table class="teTokTable" id="teTokTable">
-      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Unit</th><th>Contractor</th><th class="num" title="From the Employee form">Usual</th><th class="num">Tokens this month</th><th>From</th><th class="num">Amount</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="9" class="empty">No employees on the roll in ${monthLabel(ym)}${teFilterText()?' for '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
+      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Unit</th><th>Contractor</th><th class="num">Tokens this month</th><th class="num" title="Token price of the employee's unit">Price</th><th class="num">Amount</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="8" class="empty">No employees on the roll in ${monthLabel(ym)}${teFilterText()?' for '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
     </table></div>
-    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee). Leave a box empty to use the usual count from the Employee form. ':''}Payroll deducts tokens × ${fmt(price)} (Admin → Payroll Rates). The figures show on the salary slip.</p>
+    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee). ':''}Payroll deducts tokens × the token price of the employee's unit (Admin → Canteen Token Prices). The figures show on the salary slip.</p>
   </div>`;
 }
 

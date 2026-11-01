@@ -71,7 +71,7 @@ function defaultDB(){
     timeEntries:{}, // {date: {empCode: {inH,inM,inAP,outH,outM,outAP}}}
     timeHolidays:[], // [{date:'YYYY-MM-DD', remarks:''}] — booked dates: time worked is full-day OT (not NOWD/NOPH)
     timeLeaves:[], // [{date:'YYYY-MM-DD', empCode, type, remarks}] — Employee Leave (Loss of Pay / Half Day)
-    payrollSettings:{}, // {ym: {pfRate, pfEmployerRate, esiRate, esiEmployerRate, canteenTokenPrice, lateGraceMinutes}} — rates fixed when a month is generated
+    payrollSettings:{}, // {ym: {pfRate, pfEmployerRate, esiRate, esiEmployerRate, canteenTokenPrice, canteenTokenPrices:{unit:₹}, lateGraceMinutes}} — rates fixed when a month is generated
     loginLogs:[] // Login/Logout audit trail — {id, userId (username), name, loginTime (ISO string,
                  // recorded the moment sign-in succeeds), logoutTime (ISO string,
                  // recorded on Logout — '' while the session is still open), sessionDuration

@@ -533,7 +533,7 @@ function renderAttendanceEmployee(){
   const adj = getAdj(attMonth, attEmpCode);
   const otVal = otHoursFor(emp, attMonth);
   const s = getSettings();
-  const tokenPrice = canteenTokenPrice(attMonth);
+  const tokenPrice = canteenTokenPrice(attMonth, emp.unit);
   const monthTokens = canteenTokensFor(emp, attMonth);
   const pay = computePayrollForEmployee(emp, attMonth); // same figures as the salary slip
   const canteenAmt = Math.round(monthTokens*tokenPrice*100)/100;

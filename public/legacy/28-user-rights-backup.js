@@ -316,8 +316,7 @@ function savePayrollConstants(){
   s.esiEmployerRate=rate('s_esiEmployerRate', 0.0325);
   s.pfRate=rate('s_pfRate', 0.12);
   s.pfEmployerRate=rate('s_pfEmployerRate', 0.12);
-  const tp=document.getElementById('s_canteenTokenPrice').value;
-  s.canteenTokenPrice = tp==='' ? 150 : Math.max(0, +tp||0);
+  // The canteen token price is set per unit in Admin → Canteen Token Prices (saveCanteenPrices).
   const lg=document.getElementById('s_lateGraceMinutes').value;
   s.lateGraceMinutes = lg==='' ? 120 : Math.max(0, Math.round(+lg||0));
   saveDB(db);
