@@ -39,8 +39,10 @@ function teDwTotals(dt){
     const md=teEwRowModel(e.code, dt);
     t.emps++;
     if(md.onLeave){ t.leave++; return; }
-    if(md.hasIn){ t.present++; t.working+=md.c.working; t.late+=md.c.late; t.ot+=md.c.ot; if(!md.hasOut) t.missing++; }
-    else if(!nonWorking && dt<=todayStr()) t.missing++;
+    if(md.leave){ t.leave+=0.5; t.present+=0.5; } // Half Day: ½ present, ½ leave
+    else if(md.hasIn) t.present++;
+    if(md.hasIn){ t.working+=md.c.working; t.late+=md.c.late; t.ot+=md.c.ot; if(!md.hasOut) t.missing++; }
+    else if(!md.leave && !nonWorking && dt<=todayStr()) t.missing++;
   });
   return t;
 }

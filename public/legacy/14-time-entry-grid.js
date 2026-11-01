@@ -100,7 +100,8 @@ function teEwRowModel(code, dt){
   const entry=(db.timeEntries[dt]&&db.timeEntries[dt][code])||teEwBlankEntry();
   const leave=teGetLeave(dt, code);
   const onLeave=!!(leave && leave.type!=='Half Day');
-  const c=teCompute(entry, dt);
+  const half=!!(leave && leave.type==='Half Day');
+  const c=teHalfDayCap(teCompute(entry, dt), half);
   const [y,m,d]=dt.split('-').map(Number);
   const dow=new Date(y,m-1,d).getDay();
   const hol=db.timeHolidays.find(h=>h.date===dt)||null;
@@ -136,14 +137,16 @@ function teEwRowClass(md, dt){
 }
 
 /* ---- Month totals ---- */
+// A Half Day counts as ½ present and ½ leave; Loss of Pay as 1 leave.
 function teEwTotals(code, ym){
   const t={present:0,leave:0,missing:0,working:0,late:0,ot:0,total:0};
   const today=todayStr();
   teEwMonthDates(ym).forEach(dt=>{
     const md=teEwRowModel(code, dt);
-    if(md.leave) t.leave++;
-    if(md.onLeave) return;
-    if(md.hasIn){ t.present++; t.working+=md.c.working; t.late+=md.c.late; t.ot+=md.c.ot; t.total+=md.total; if(!md.hasOut) t.missing++; }
+    if(md.onLeave){ t.leave++; return; }
+    if(md.leave){ t.leave+=0.5; t.present+=0.5; }
+    else if(md.hasIn) t.present++;
+    if(md.hasIn){ t.working+=md.c.working; t.late+=md.c.late; t.ot+=md.c.ot; t.total+=md.total; if(!md.hasOut) t.missing++; }
     else if(!md.leave && md.dow!==0 && !md.hol && dt<=today) t.missing++;
   });
   return t;
@@ -571,7 +574,7 @@ function renderTEDayList(){
       if(leave && leave.type!=='Half Day'){ onLeave.push({code,emp,leave}); return; }
       const entry=rows[code];
       if(!entry || entry.inH==='' || entry.inH===undefined){ if(!leave) return; } // nothing entered yet
-      const c=teCompute(entry, dt);
+      const c=teHalfDayCap(teCompute(entry, dt), !!leave);
       const shiftName=c.shift?c.shift.name:'General Shift';
       (byShift[shiftName]||byShift['General Shift']).push({code,emp,entry,c,leave});
     });
@@ -624,7 +627,7 @@ function printTEDay(dt){
       return `<tr><td>${idx+1}</td><td>${code}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td>
       <td colspan="6">${ico('palm')} On Leave — ${leave.type}${leave.remarks?' ('+leave.remarks+')':''}</td></tr>`;
     }
-    const entry=rows[code]; const c=teCompute(entry,dt);
+    const entry=rows[code]; const c=teHalfDayCap(teCompute(entry,dt), !!leave);
     const halfDayNote = leave ? ` <span style="font-size:10px;">${ico('contrast')} Half Day${leave.remarks?' — '+leave.remarks:''}</span>` : '';
     return `<tr><td>${idx+1}</td><td>${code}</td><td style="text-align:left;">${emp.name}${halfDayNote}</td><td>${emp.department||'-'}</td>
       <td>${c.shift?c.shift.name:'-'}</td>
@@ -829,7 +832,7 @@ function teMonthSummaryRows(monthStr){
     const p=computePayrollForEmployee(e, monthStr);
     const working=teMonthDays(e.code, monthStr).reduce((s,x)=>s+(x.c.working||0),0);
     return {emp:e, presentDays:p.presentDays, halfDays:p.halfDayCount, lopDays:p.lopMarked, nophDays:p.holidayDays,
-      unmarked:p.unmarkedDays, paidDays:p.daysWorking, leaveDays:p.lopMarked+p.halfDayCount, workingMin:working,
+      unmarked:p.unmarkedDays, paidDays:p.daysWorking, leaveDays:p.lopMarked+p.halfDayCount*0.5, workingMin:working,
       otHours:p.otHours, otMin:Math.round(p.otHours*60), otAmount:p.otAmount, lateMin:p.lateMinutes,
       lateCharged:p.lateChargedMinutes, lateDeduction:p.lateDeduction};
   });
