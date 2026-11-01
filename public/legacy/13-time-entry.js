@@ -68,6 +68,7 @@ function teShiftLabel(s){ return `${s.label} (${teMinLabel(s.inMin)} – ${teMin
 //   First Shift   (7:00 AM – 3:30 PM):  In before 9:00 AM
 //   General Shift (9:00 AM – 5:30 PM):  In from 9:00 AM until 3:00 PM
 //   Second Shift  (3:30 PM – 12:00 AM): In from 3:00 PM
+// Used for an employee with no planned shift that day (see teShiftWindow).
 function teDetectShift(inMin){
   if(inMin===null) return null;
   if(inMin < 9*60) return {name:'First Shift', standard:7*60};
@@ -88,30 +89,50 @@ function teGetLeave(dateStr2, code){
   const l=(db.timeLeaves||[]).find(l=>l.date===dateStr2 && l.empCode===code) || null;
   return l && l.type==='NOPL' ? {...l, type:'Loss of Pay'} : l; // NOPL was removed — old records read as Loss of Pay
 }
-function teCompute(entry, dateForRow){
+/* ---- Late, Working and OT for one day ----
+   Measured against the employee's SHIFT: the shift planned for them that day (Shift Groups →
+   weekly rotation, or a one-day change in Date-wise), otherwise the shift their In Time falls in
+   (teDetectShift). A planned shift more than 4 hours away from the In Time is treated as not
+   applying (e.g. a person who swapped shifts) and the detected shift is used.
+     Late    = minutes after the shift start (9:00 for General: 9:00 on time, 9:36 → 36 min)
+             + minutes left before the shift end (out 4:30 PM on a 5:30 PM shift → 60 min).
+     Working = the time inside the shift (coming early does not add; leaving late is OT) less the
+               30-minute break, at most 8 hours.
+     OT      = minutes after the shift end (shift start + 8 hours + 30-minute break).
+   Sundays and holidays: no Late; the whole time worked is OT. */
+const TE_BREAK_MIN=30, TE_WORK_MIN=8*60;
+function teShiftWindow(inMin, dateForRow, code){
+  const planned = code && dateForRow && typeof teEmpShift==='function' ? teEmpShift(code, dateForRow) : null;
+  if(planned){
+    let start=planned.inMin;
+    // Second-shift style starts late in the day; an In Time just after midnight belongs to it.
+    if(start-inMin>12*60) start-=1440; else if(inMin-start>12*60) start+=1440;
+    if(Math.abs(inMin-start)<=4*60) return {name:planned.label, start};
+  }
+  const d=teDetectShift(inMin);
+  return {name:d.name, start:d.standard};
+}
+function teCompute(entry, dateForRow, code){
   const inMin=teTimeToMinutes(entry.inH,entry.inM,entry.inAP);
   const outMinRaw=teTimeToMinutes(entry.outH,entry.outM,entry.outAP);
-  if(inMin===null) return {shift:null,late:0,working:0,ot:0};
+  if(inMin===null) return {shift:null,late:0,lateIn:0,earlyOut:0,working:0,ot:0};
   let outMin=outMinRaw;
   if(outMin!==null && outMin<=inMin) outMin+=24*60; // overnight out-time
   const holidayFullOT = dateForRow ? teIsHolidayDate(dateForRow) : false;
   if(holidayFullOT){
     const dur = (outMin!==null) ? Math.max(0,outMin-inMin) : 0;
-    return {shift:teDetectShift(inMin), late:0, working:0, ot:dur};
+    return {shift:teDetectShift(inMin), late:0, lateIn:0, earlyOut:0, working:0, ot:dur};
   }
-  const shift=teDetectShift(inMin);
-  // Personal shift-start for Late/OT purposes = the actual In Time rounded DOWN to the
-  // nearest HALF-HOUR (e.g. 7:10 AM → 7:00, 8:10 AM → 8:00, 5:30 PM → 5:30 — since Second
-  // Shift's own standard start already falls on a half-hour mark) — not the shift's fixed
-  // standard start. Late is always just the minutes past that half-hour mark. The 8 working
-  // hours (+30-minute break) then run from that rounded mark, so anything worked beyond it is OT.
-  const roundedStart = Math.floor(inMin/30)*30;
-  const late = inMin - roundedStart;
-  if(outMin===null) return {shift, late, working:0, ot:0};
-  const regularEnd = roundedStart + 8*60 + 30; // 8 working hours + 30-minute break
-  const working = Math.min(Math.max(0,outMin-roundedStart-30), 8*60);
+  const w=teShiftWindow(inMin, dateForRow, code);
+  const shift={name:w.name, standard:w.start};
+  const regularEnd = w.start + TE_WORK_MIN + TE_BREAK_MIN; // shift start + 8 hours + 30-minute break
+  const lateIn = Math.max(0, inMin - w.start);
+  if(outMin===null) return {shift, late:lateIn, lateIn, earlyOut:0, working:0, ot:0};
+  const earlyOut = Math.max(0, regularEnd - outMin);
+  const span = Math.min(outMin, regularEnd) - Math.max(inMin, w.start);
+  const working = Math.min(Math.max(0, span - TE_BREAK_MIN), TE_WORK_MIN);
   const ot = Math.max(0, outMin - regularEnd);
-  return {shift, late, working, ot};
+  return {shift, late:lateIn+earlyOut, lateIn, earlyOut, working, ot};
 }
 // The days of a month whose Time Entry Late and OT count in payroll: the employee is on the roll,
 // the day has a time entry, and the day is not Loss of Pay (a Time Entry leave or a mark on the
@@ -126,13 +147,14 @@ function teMonthDays(code, ym){
     if(emp && !isEmpOnRollOn(emp, ds)) continue;
     const lv=teGetLeave(ds, code); if(lv && lv.type!=='Half Day') continue;
     if(typeof getAttStatus==='function' && getAttStatus(ds, code)==='LossOfPay') continue;
-    out.push({date:ds, c:teHalfDayCap(teCompute(entry, ds), !!lv)});
+    out.push({date:ds, c:teHalfDayCap(teCompute(entry, ds, code), !!lv)});
   }
   return out;
 }
-// A Half Day counts at most 4 working hours (half of 8); Late and OT are kept as worked.
+// A Half Day counts at most 4 working hours (half of 8) and no Late — the person is off for half
+// the shift, so coming late or leaving early is the half day itself. OT is kept as worked.
 const TE_HALF_DAY_MIN=4*60;
-function teHalfDayCap(c, half){ return half && c && c.working>TE_HALF_DAY_MIN ? {...c, working:TE_HALF_DAY_MIN} : c; }
+function teHalfDayCap(c, half){ return half && c ? {...c, working:Math.min(c.working, TE_HALF_DAY_MIN), late:0, lateIn:0, earlyOut:0} : c; }
 function teMonthTotal(code, ym, key){ return teMonthDays(code, ym).reduce((s,x)=>s+(x.c[key]||0), 0); }
 // Total Late (minutes) in a month. Payroll uses it for the Late Deduction unless a different figure
 // is typed for that month on the Attendance screen.

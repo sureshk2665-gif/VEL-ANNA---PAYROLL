@@ -11,8 +11,8 @@
    A week without its own choice follows from the week before, with First and Second swapped
    (the usual rotation); a week before the first one set follows back from the week after it the
    same way. The planner shows it like any other choice and it can be changed.
-   Late, Working and OT are still measured by teCompute() from the times entered; a shift here
-   only decides which times are filled in.
+   The shift planned here also sets the times Late, Working and OT are measured against
+   (teCompute: Late = after the shift start or before its end; OT = after its end).
    ================================================================================ */
 const TE_DEFAULT_GROUPS=[{key:'A',label:'Shift A Group'},{key:'B',label:'Shift B Group'},{key:'G',label:'General Group'}];
 const TE_SWAP={first:'second', firstOT:'secondOT', second:'first', secondOT:'firstOT'};

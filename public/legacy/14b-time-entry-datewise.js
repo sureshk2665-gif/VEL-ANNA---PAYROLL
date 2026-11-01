@@ -144,7 +144,8 @@ function teDwSetOTFor(dt, code, hours){
   const e=db.timeEntries[dt][code];
   const inMin=teTimeToMinutes(e.inH,e.inM,e.inAP);
   const mins=Math.round(Math.max(0, +hours||0)*60);
-  const out = teIsHolidayDate(dt) ? inMin+mins : Math.floor(inMin/30)*30 + 8*60 + 30 + mins;
+  // Out = the shift end (shift start + 8 hours + 30-minute break) + the OT; on a holiday all time is OT.
+  const out = teIsHolidayDate(dt) ? inMin+mins : teShiftWindow(inMin, dt, code).start + TE_WORK_MIN + TE_BREAK_MIN + mins;
   teWriteTimeFor(dt, code, 'out', teMinToHMAP(out));
   return true;
 }
