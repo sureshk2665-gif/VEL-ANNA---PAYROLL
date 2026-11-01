@@ -593,6 +593,7 @@ function renderAttendanceEmployee(){
       <div class="attSumGrid">
         <div class="sk" title="Full days + Half Days × ½">Present Days</div><div class="sv">${sum.presentPaid}</div>
         <div class="sk">Loss Of Pay Days</div><div class="sv">${sum.absent}</div>
+        <div class="sk" title="Sundays — the weekly off, not paid">Week Off (Sundays)</div><div class="sv">${sundaysInMonth(attMonth)}</div>
         <div class="sk">NOPH Days</div><div class="sv">${sum.nophDays}</div>
         <div class="sk">Half Days</div><div class="sv">${sum.halfDay}</div>
         <div class="sk" title="Working days up to today with no status — not paid">Not Marked (unpaid)</div><div class="sv" style="${sum.unmarked?'color:var(--warn);':''}">${sum.unmarked}</div>

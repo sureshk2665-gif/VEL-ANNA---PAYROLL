@@ -48,7 +48,7 @@ function openSlip(code, ym){
       </tr>
       <tr>
         <td>Paid days ${r.daysWorking}</td>
-        <td>NOPH ${r.noph}</td>
+        <td>NOPH ${r.noph} &nbsp;·&nbsp; WEEK OFF ${payWeekOff(r, ym)}</td>
         <td>LATE ${r.lateMinutes||0} MIN</td>
       </tr>
       <tr>
@@ -101,7 +101,7 @@ function slipCardHTML(e, r, ym){
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}</div>
     <table class="slipMeta">
       <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays} &nbsp;·&nbsp; HALF DAY ${r.halfDayCount||0}</td><td>OT HRS ${r.otHours}</td></tr>
-      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
+      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph} &nbsp;·&nbsp; WEEK OFF ${payWeekOff(r, ym)}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
       <tr><td>MODE ${e.mode||'-'}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
     </table>
     <table class="slipBody">

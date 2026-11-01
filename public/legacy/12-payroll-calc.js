@@ -207,7 +207,7 @@ function computePayrollForEmployee(e, ym){
   return {
     code:e.code, name:e.name, department:e.department, designation:e.designation,
     unit:unitCodeOf(e.unit), contractor:e.contractor||'', mode:e.mode||'', esiNo:e.esiNo||'',
-    nowd, lopDays, lopMarked:lop, daysWorking: Math.round(daysWorking*100)/100,
+    nowd, weekOff:sundaysInMonth(ym), lopDays, lopMarked:lop, daysWorking: Math.round(daysWorking*100)/100,
     presentDays:present, leaveDays:Math.round((lop + halfDay*0.5)*100)/100, holidayDays:noph, halfDayCount:halfDay,
     presentPlusHalf: Math.round((present + halfDay*0.5)*100)/100,
     unmarkedDays:unmarked,
@@ -252,6 +252,8 @@ function payrollMonthMap(ym){
 // One employee's record for a generated month (null if the month isn't generated or they weren't on the roll).
 // Present days as shown on Payroll, the slip and every report: full days + Half Days × ½
 // (e.g. 21 full + 4 half = 23). presentDays alone is the full days (Contractors Bill counts those).
+// Sundays in the month — the weekly off: not working days (NOWD) and not paid (NOPH is paid holidays only).
+function payWeekOff(r, ym){ return r && r.weekOff!==undefined ? +r.weekOff||0 : sundaysInMonth(ym); }
 function payPresentDays(r){
   if(!r) return 0;
   if(r.presentPlusHalf!==undefined && r.presentPlusHalf!==null) return +r.presentPlusHalf||0;
