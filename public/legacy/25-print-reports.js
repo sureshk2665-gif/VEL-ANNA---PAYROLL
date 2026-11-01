@@ -3,9 +3,9 @@
 const REPORT_MONEY_KEYS=['Gross','Earnings','ESI','PF','Canteen','Late','Advance','OtherDed','Deductions','NetSalary',
   'OTAmount','LateAmount','CanteenAmount','AdvanceAmount','DailyWage'];
 // Columns that are never summed in a totals row (rates / per-month constants).
-const REPORT_NO_TOTAL_KEYS=['NOWD','DailyWage'];
+const REPORT_NO_TOTAL_KEYS=['NOWD','WeekOff','DailyWage'];
 // Printed headers for the report row keys (anything not listed prints as its key).
-const REPORT_COL_LABELS={WorkingUnit:'Working Unit',UnitCode:'Unit Code',PaymentMode:'Payment Mode',HalfDay:'Half Day',PaidDays:'Paid Days',DaysWorked:'Paid Days',
+const REPORT_COL_LABELS={WorkingUnit:'Working Unit',WeekOff:'Week Off',UnitCode:'Unit Code',PaymentMode:'Payment Mode',HalfDay:'Half Day',PaidDays:'Paid Days',DaysWorked:'Paid Days',
   OTHrs:'OT Hrs',LateMin:'Late Min',LateChargedMin:'Late Charged Min',Gross:'Gross (Basic + OT)',Earnings:'Total Earnings',Late:'Late (₹)',
   OtherDed:'Other Ded.',Deductions:'Total Deductions',NetSalary:'Net Pay',NotMarked:'Not Marked',OTAmount:'OT ₹',LateAmount:'Late ₹',
   CanteenTokens:'Canteen Tokens',CanteenAmount:'Canteen ₹',AdvanceAmount:'Advance ₹',DailyWage:'Daily Wage'};

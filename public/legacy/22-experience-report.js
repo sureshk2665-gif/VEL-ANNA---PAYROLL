@@ -65,7 +65,7 @@ function payrollReportRows(ym){
     const unit=e?e.unit:r.unit;
     const contractor=e?(e.contractor||''):(r.contractor||'');
     const row={Code:r.code,Name:(e&&e.name)||r.name||'-',WorkingUnit:unitLabel(unit),Contractor:contractorName(contractor)||'-',PaymentMode:(e&&e.mode)||r.mode||'-',
-      Present:payPresentDays(r),NOPH:n(r.holidayDays),HalfDay:n(r.halfDayCount),LOP:n(r.lopDays),PaidDays:n(r.daysWorking),OTHrs:n(r.otHours),LateMin:n(r.lateMinutes),
+      Present:payPresentDays(r),WeekOff:payWeekOff(r, ym||payMonth),NOPH:n(r.holidayDays),HalfDay:n(r.halfDayCount),LOP:n(r.lopDays),PaidDays:n(r.daysWorking),OTHrs:n(r.otHours),LateMin:n(r.lateMinutes),
       Gross:n(r.grossSalary),Earnings:n(r.earningsTotal),ESI:n(r.esi),PF:n(r.pf),Canteen:n(r.canteen),Late:n(r.lateDeduction),Advance:n(r.advance),OtherDed:n(r.otherDed)+n(r.tax),
       Deductions:n(r.deductionsTotal),NetSalary:n(r.netSalary)};
     // Kept for compatibility (same as PaidDays) plus the contractor code for filtering — not
