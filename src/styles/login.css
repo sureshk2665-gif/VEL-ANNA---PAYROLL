@@ -41,6 +41,9 @@
   background:transparent;color:var(--muted);box-shadow:none;display:flex;align-items:center;justify-content:center;filter:none;transform:none;}
 #loginScreen .loginBox .pwToggle:hover{background:var(--raised,var(--hover));color:var(--text,var(--ink));}
 #loginScreen .loginBox .pwToggle:focus-visible{outline:none;box-shadow:var(--focus);}
+/* Edge / old IE add their own reveal (eye) and clear buttons to password boxes — hide them so
+   only the app's show-password button is there (it works in every browser). */
+#loginScreen input::-ms-reveal,#loginScreen input::-ms-clear{display:none;}
 .pwToggle .pwHide{display:none;}
 .pwToggle[aria-pressed="true"] .pwHide{display:block;}
 .pwToggle[aria-pressed="true"] .pwShow{display:none;}
