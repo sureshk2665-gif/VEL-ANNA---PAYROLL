@@ -50,6 +50,9 @@ function cbSaveRates(){
   saveDB(db);
   render('contractorbill');
 }
+function cbShiftMonth(d){ cbMonth=nextMonthKey(cbMonth, d); render('contractorbill'); }
+// A changed rate box lights up the Save button until the rates are saved.
+function cbRateTyped(){ const b=document.getElementById('cbSaveBar'); if(b) b.classList.add('dirty'); }
 function cbSet(field, val){
   if(field==='tab') cbTab=val;
   else if(field==='month'){ if(!val) return; cbMonth=val; }
@@ -82,60 +85,65 @@ function renderContractorBill(){
   const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
   const company=cbTab==='company';
   const cols=company?8:6;
-  // Rate / Day: a box per contractor while the month can still be set, else the fixed rate.
+  // Rate / Day: a box per contractor for an Admin, else the month's rate.
   const rateCell=r=>editable
-    ? `₹ <input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" onkeydown="if(event.key==='Enter')cbSaveRates()" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}">`
-    : `<b>₹${r.rate}</b>`;
+    ? `<span class="cbRateIn">₹<input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" oninput="cbRateTyped()" onkeydown="if(event.key==='Enter')cbSaveRates()" aria-label="Service charge per present day for ${cbEsc(r.c.name||r.c.code)}" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}"></span>`
+    : `₹${r.rate}`;
   // A contractor row (click to show / hide its employees) and, when open, its employee list.
   const contractorRow=r=>{
     const open=!!cbOpen[r.c.code];
-    const head=`<tr class="cbRow${open?' open':''}" onclick="cbSet('toggle','${r.c.code}')" title="Show / hide the employees">
-      <td class="cbCaret">${open?'▾':'▸'}</td><td style="text-align:left;"><b>${cbEsc(r.c.name||r.c.code)}</b></td><td>${r.empCount}</td><td>${r.days}</td><td onclick="event.stopPropagation()" class="cbRateCell">${rateCell(r)}</td>
-      ${company?`<td>${fmt(r.net)}</td>`:''}<td><b>${fmt(r.commission)}</b></td>${company?`<td><b>${fmt(r.total)}</b></td>`:''}</tr>`;
+    const head=`<tr class="cbRow${open?' open':''}" onclick="cbSet('toggle','${r.c.code}')" title="Show / hide the employees" aria-expanded="${open}">
+      <td class="cbCaret"><span>›</span></td><td><b>${cbEsc(r.c.name||r.c.code)}</b></td><td class="num">${r.empCount}</td><td class="num">${r.days}</td><td onclick="event.stopPropagation()" class="num cbRateCell">${rateCell(r)}</td>
+      ${company?`<td class="num">${fmt(r.net)}</td>`:''}<td class="num"><b>${fmt(r.commission)}</b></td>${company?`<td class="num"><b>${fmt(r.total)}</b></td>`:''}</tr>`;
     if(!open) return head;
     const emp=`<table class="cbTable cbInner">
-      <thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Unit</th><th>Present Days</th>${company?'<th>Paid Days</th><th>Total Earnings</th><th>Deductions</th><th>Net Pay</th>':''}<th>Service Charge</th>${company?'<th>Total Payable</th>':''}</tr></thead>
-      <tbody>${r.emps.map((x,i)=>`<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${cbEsc(x.e.name)}</td><td>${unitLabel(x.e.unit)}</td><td>${x.days}</td>${company?`<td>${x.paidDays}</td><td>${fmt(x.earnings)}</td><td>${fmt(x.deductions)}</td><td>${fmt(x.net)}</td>`:''}<td>${fmt(x.commission)}</td>${company?`<td><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="11" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
+      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th>Name</th><th>Unit</th><th class="num">Present Days</th>${company?'<th class="num">Paid Days</th><th class="num">Total Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
+      <tbody>${r.emps.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.e.code}</td><td>${cbEsc(x.e.name)}</td><td>${unitLabel(x.e.unit)}</td><td class="num">${x.days}</td>${company?`<td class="num">${x.paidDays}</td><td class="num">${fmt(x.earnings)}</td><td class="num">${fmt(x.deductions)}</td><td class="num">${fmt(x.net)}</td>`:''}<td class="num">${fmt(x.commission)}</td>${company?`<td class="num"><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="11" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
     </table>`;
-    return head+`<tr class="cbDetail"><td colspan="${cols}"><div class="tableScrollWrap">${emp}</div></td></tr>`;
+    return head+`<tr class="cbDetail"><td colspan="${cols}">${emp}</td></tr>`;
   };
-  const mainTable=`<div class="tableScrollWrap"><table class="cbTable">
-    <thead><tr><th style="width:28px;"></th><th style="text-align:left;">Contractor</th><th>Employees Supplied</th><th>Total Present Days</th><th>Rate / Day</th>${company?'<th>Salary (Net Pay)</th>':''}<th>Service Charge</th>${company?'<th>Total Payable</th>':''}</tr></thead>
+  const mainTable=`<div class="tableScrollWrap cbScroll"><table class="cbTable cbMain">
+    <thead><tr><th style="width:28px;"></th><th>Contractor</th><th class="num">Employees Supplied</th><th class="num">Total Present Days</th><th class="num">Rate / Day</th>${company?'<th class="num">Salary (Net Pay)</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
     <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="${cols}" class="empty">No contractors yet.</td></tr>`}
-    ${rows.length?`<tr class="cbTotal"><td></td><td style="text-align:left;">Total — all contractors</td><td>${sum('empCount')}</td><td>${sum('days')}</td><td></td>${company?`<td>${fmt(sum('net'))}</td>`:''}<td>${fmt(sum('commission'))}</td>${company?`<td>${fmt(sum('total'))}</td>`:''}</tr>`:''}
+    ${rows.length?`<tr class="cbTotal"><td></td><td>Total — all contractors</td><td class="num">${sum('empCount')}</td><td class="num">${sum('days')}</td><td></td>${company?`<td class="num">${fmt(sum('net'))}</td>`:''}<td class="num">${fmt(sum('commission'))}</td>${company?`<td class="num">${fmt(sum('total'))}</td>`:''}</tr>`:''}
     </tbody></table></div>`;
   const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);
-  // Who can change this month's rates, with the one Save for every contractor's box.
-  const rateBar=`<div class="cbRateBox">
-    <span>${ico('tag')} Service charge per present day — ${monthLabel(cbMonth)} (from the 1st):</span>
-    ${editable
-      ? `<span class="cbRateNote">Enter each contractor's rate in the table, then</span> <button class="btn tiny" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button>`
-      : `<span class="cbRateNote">Only an Admin can change the rates</span>`}
+  // Under the table: the one Save for every contractor's rate box (Admin), or who can change them.
+  const saveBar=`<div class="cbSaveBar" id="cbSaveBar">
+    <span>${ico('tag')} Rates per present day for <b>${monthLabel(cbMonth)}</b>, from the 1st.${editable?' Change a contractor\'s rate in the table, then save.':' Only an Admin can change the rates.'}</span>
+    ${editable?`<button class="btn" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button>`:''}
   </div>`;
   return `
-  <div class="panel">
-    <div class="cbTop">
+  <div class="toolbar cbBar">
+    <div class="cbBarGrp">
       <div class="attTabsInline">${tab('commission','users','Contractor Service Charge')}${tab('company','wallet','Company Payable')}</div>
-      <label class="cbLbl">${ico('calendar-days')} Month <input type="month" value="${cbMonth}" onchange="cbSet('month',this.value)"></label>
-      <span style="margin-left:auto;display:flex;gap:8px;">
-        ${rows.length?`<button class="btn secondary" onclick="cbToggleAll(${allOpen?0:1})">${ico('users')} ${allOpen?'Hide':'Show'} all employees</button>`:''}
-        <button class="btn secondary" onclick="printContractorBill()">${ico('printer')} Print</button>
-        ${hasPerm('contractorbill','export')?`<button class="btn secondary" onclick="downloadContractorBillExcel()">${ico('file-spreadsheet')} Excel</button>`:''}
-      </span>
+      <span class="cbSep"></span>
+      <button class="btn secondary cbNav" onclick="cbShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
+      <input type="month" value="${cbMonth}" onchange="cbSet('month',this.value)" aria-label="Month">
+      <button class="btn secondary cbNav" onclick="cbShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
     </div>
-    <div class="grid" style="margin-top:14px;">
-      <div class="stat" style="--stat-color:#0f6b5c;"><div class="n">${sum('empCount')}</div><div class="l">Employees Supplied</div></div>
-      <div class="stat" style="--stat-color:#2563eb;"><div class="n">${sum('days')}</div><div class="l">Total Present Days</div></div>
-      ${cbTab==='company'?`<div class="stat" style="--stat-color:#6d28d9;"><div class="n">${fmt(sum('net'))}</div><div class="l">Salary (Net Pay)</div></div>`:''}
-      <div class="stat" style="--stat-color:#b45309;"><div class="n">${fmt(sum('commission'))}</div><div class="l">Service Charge</div></div>
-      ${cbTab==='company'?`<div class="stat" style="--stat-color:#dc2626;"><div class="n">${fmt(sum('total'))}</div><div class="l">Total Payable</div></div>`:''}
+    <div class="cbBarGrp">
+      ${rows.length?`<button class="btn secondary" onclick="cbToggleAll(${allOpen?0:1})">${ico('users')} ${allOpen?'Hide':'Show'} all employees</button>`:''}
+      <button class="btn secondary" onclick="printContractorBill()">${ico('printer')} Print</button>
+      ${hasPerm('contractorbill','export')?`<button class="btn secondary" onclick="downloadContractorBillExcel()">${ico('file-spreadsheet')} Excel</button>`:''}
     </div>
-    ${rateBar}
+  </div>
+  <div class="teStatRow cbStrip">
+    <div class="teStatBox"><b>${rows.length}</b><span>Contractors</span></div>
+    <div class="teStatBox"><b>${sum('empCount')}</b><span>Employees supplied</span></div>
+    <div class="teStatBox"><b>${sum('days')}</b><span>Total present days</span></div>
+    ${company?`<div class="teStatBox"><b>${fmt(sum('net'))}</b><span>Salary (net pay)</span></div>`:''}
+    <div class="teStatBox ${company?'':'cbKey'}"><b>${fmt(sum('commission'))}</b><span>Service charge</span></div>
+    ${company?`<div class="teStatBox cbKey"><b>${fmt(sum('total'))}</b><span>Total payable</span></div>`:''}
+  </div>
+  ${company && !generated?`<div class="payWarn">${ico('alert')} Payroll for ${monthLabel(cbMonth)} is not generated yet — salary shown is worked out from the current attendance and Time Entry.</div>`:''}
+  <div class="panel cbPanel">
     ${mainTable}
-    <p class="syncNote">${cbTab==='company'
-      ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge. ${generated?'':`<b>Payroll for ${monthLabel(cbMonth)} is not generated yet</b> — salary shown is worked out from the current attendance and Time Entry.`}`
+    ${saveBar}
+    <p class="syncNote">${company
+      ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge.`
       : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
-      ${cbCanEditRate()?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''}</p>
+      ${editable?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''} Click a contractor to see its employees.</p>
   </div>`;
 }
 
