@@ -133,7 +133,7 @@ function attendanceSummary(code, ym){
     else if(s==='LossOfPay') lop++;
   }
   const payableDays = present + leave + noph + halfDay*0.5;
-  return { present, leave, holiday: noph, holidayOnly:0, nophDays:noph, halfDay, lop, absent:lop, marked,
+  return { present, presentPaid: Math.round((present + halfDay*0.5)*100)/100, leave, holiday: noph, holidayOnly:0, nophDays:noph, halfDay, lop, absent:lop, marked,
     unmarked, daysInMonth: dim, lopEquivalent: lop + halfDay*0.5, payableDays: Math.round(payableDays*100)/100 };
 }
 // Kept for payroll compatibility — LOP-equivalent days derived straight from Attendance data.
@@ -591,7 +591,7 @@ function renderAttendanceEmployee(){
     <div class="autoCard grow">
       <h4>${ico('chart')} Attendance Summary (auto)</h4>
       <div class="attSumGrid">
-        <div class="sk">Present Days</div><div class="sv">${sum.present}</div>
+        <div class="sk" title="Full days + Half Days × ½">Present Days</div><div class="sv">${sum.presentPaid}</div>
         <div class="sk">Loss Of Pay Days</div><div class="sv">${sum.absent}</div>
         <div class="sk">NOPH Days</div><div class="sv">${sum.nophDays}</div>
         <div class="sk">Half Days</div><div class="sv">${sum.halfDay}</div>
@@ -682,7 +682,7 @@ function renderAttendanceGrid(){
                 </select>
               </td>`;
             }).join('')}
-            <td class="sumCell">${sum.present}</td>
+            <td class="sumCell">${sum.presentPaid}</td>
             <td class="sumCell">${sum.holiday}</td>
             <td class="sumCell">${sum.halfDay}</td>
             <td class="sumCell">${sum.lop}</td>

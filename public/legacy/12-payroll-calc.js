@@ -137,7 +137,7 @@ function computePayrollForEmployee(e, ym){
   const nowd = computeWorkingDays(ym);
   const adj = adjFor(ym, e.code);
   // DAILY WAGE payroll (as in the company's model sheet), worked out day by day:
-  //   Paid days  = Present + Half Day × 0.5 + Holidays (NOPH), only on days the employee is on the roll
+  //   Paid days  = Present (a Half Day counts ½) + Holidays (NOPH), only on days the employee is on the roll
   //   Basic/HRA  = each paid day at that day's wage (60% / 40% of the Daily Wage — wageOnDate)
   //   OT         = OT rate/hr (Daily Wage ÷ 8 × OT Factor) × OT hours (from Employee Time Entry — otHoursFor)
   //   GROSS      = Basic + OT                    Total Earnings = GROSS + HRA (+ one-off allowance)
@@ -164,7 +164,8 @@ function computePayrollForEmployee(e, ym){
   const otFactor = otFactorOf(e); // 1.0 / 1.5 / 2.0 from the Employee form
   const wage = dailyWageSplit(segs[segs.length-1].dailyWage, otFactor); // wage at month end — the rate shown on the slip
   const daysWorking = paidDays;
-  const lopDays = (adj.lopOverride!==null && adj.lopOverride!==undefined) ? adj.lopOverride : lop + halfDay*0.5;
+  // LOP = Loss of Pay days only (a Half Day is shown in its own column and counts ½ in Present).
+  const lopDays = (adj.lopOverride!==null && adj.lopOverride!==undefined) ? adj.lopOverride : lop;
 
   const basicE=Math.round(basicSum);
   const hraE=Math.round(hraSum);
@@ -207,7 +208,7 @@ function computePayrollForEmployee(e, ym){
     code:e.code, name:e.name, department:e.department, designation:e.designation,
     unit:unitCodeOf(e.unit), contractor:e.contractor||'', mode:e.mode||'', esiNo:e.esiNo||'',
     nowd, lopDays, lopMarked:lop, daysWorking: Math.round(daysWorking*100)/100,
-    presentDays:present, leaveDays:0, holidayDays:noph, halfDayCount:halfDay,
+    presentDays:present, leaveDays:Math.round((lop + halfDay*0.5)*100)/100, holidayDays:noph, halfDayCount:halfDay,
     presentPlusHalf: Math.round((present + halfDay*0.5)*100)/100,
     unmarkedDays:unmarked,
     noph, otHours, otPerHourRate:Math.round(otPerHourRate*100)/100,
@@ -249,6 +250,13 @@ function payrollMonthMap(ym){
   const m={}; list.forEach(r=>{ m[r.code]=r; }); return m;
 }
 // One employee's record for a generated month (null if the month isn't generated or they weren't on the roll).
+// Present days as shown on Payroll, the slip and every report: full days + Half Days × ½
+// (e.g. 21 full + 4 half = 23). presentDays alone is the full days (Contractors Bill counts those).
+function payPresentDays(r){
+  if(!r) return 0;
+  if(r.presentPlusHalf!==undefined && r.presentPlusHalf!==null) return +r.presentPlusHalf||0;
+  return Math.round(((+r.presentDays||0) + (+r.halfDayCount||0)*0.5)*100)/100;
+}
 function payrollRecordFor(code, ym){
   if(!payrollGenerated(ym)) return null;
   if(payrollIsLegacyMonth(ym)) return db.payroll[ym][code]||null;
