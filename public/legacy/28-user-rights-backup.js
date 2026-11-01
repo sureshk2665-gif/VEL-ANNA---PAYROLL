@@ -317,8 +317,7 @@ function savePayrollConstants(){
   s.pfRate=rate('s_pfRate', 0.12);
   s.pfEmployerRate=rate('s_pfEmployerRate', 0.12);
   // The canteen token price is set per unit in Admin → Canteen Token Prices (saveCanteenPrices).
-  const lg=document.getElementById('s_lateGraceMinutes').value;
-  s.lateGraceMinutes = lg==='' ? 120 : Math.max(0, Math.round(+lg||0));
+  // The monthly late waiver is set in Admin → Late Waiver (saveLateWaiver).
   saveDB(db);
   alert('Payroll rates saved. They apply to months generated from now on; to apply them to a month already generated, click Regenerate Payroll for that month on the Payroll page.');
   render('settings');
