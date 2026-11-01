@@ -143,13 +143,13 @@ function renderTEShiftGroupsTab(){
       <td><select ${can?'':'disabled'} onchange="teSmMap('${teEsc(e.code)}',this.value)" aria-label="Group for ${teEsc(e.name)}">${gOpts(k)}</select></td></tr>`;
   }).join('');
   return `<div class="panel">
-    <div class="teCalHead"><div><h3 style="margin:0;">${ico('calendar-range')} Weekly Rotation Planner — ${monthLabel(teSmMonth)}</h3>
+    <div class="teCalHead teSmHead"><div class="teSmTitle"><h3 style="margin:0;">${ico('calendar-range')} Weekly Rotation Planner — ${monthLabel(teSmMonth)}</h3>
       <p class="teSmSub">Set this week once — the next weeks follow with First and Second swapped. Change any week if needed. Employee Time Entry fills these shifts.</p></div>
       <div class="teSmMonthBar">
         <button class="btn secondary teDwNav" onclick="teSmSetMonth(nextMonthKey(teSmMonth,-1))" title="Previous month" aria-label="Previous month">‹</button>
         <input type="month" value="${teSmMonth}" onchange="teSmSetMonth(this.value)" aria-label="Month">
         <button class="btn secondary teDwNav" onclick="teSmSetMonth(nextMonthKey(teSmMonth,1))" title="Next month" aria-label="Next month">›</button>
-        ${teSmMonth!==monthKey(todayStr())?`<button class="btn secondary" onclick="teSmSetMonth(monthKey(todayStr()))">This month</button>`:''}
+        <button class="btn secondary" ${teSmMonth===monthKey(todayStr())?'disabled':''} onclick="teSmSetMonth(monthKey(todayStr()))">This month</button>
       </div></div>
     <div class="tableScrollWrap teSmWrap"><table class="teSmTable">
       <thead><tr><th style="text-align:left;">Week (Mon – Sun)</th>${groups.map(g=>`<th>${teGroupBadge(g.key)}</th>`).join('')}</tr></thead>
