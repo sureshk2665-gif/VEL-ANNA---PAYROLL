@@ -9,7 +9,8 @@
      db.groupWeekShift {monday: {groupKey: presetKey}}  the shift a group works that week (Mon–Sun)
      db.shiftOverrides {date: {empCode: presetKey}}     one person's shift changed for one day
    A week without its own choice follows from the week before, with First and Second swapped
-   (the usual rotation); the planner shows it like any other choice and it can be changed.
+   (the usual rotation); a week before the first one set follows back from the week after it the
+   same way. The planner shows it like any other choice and it can be changed.
    Late, Working and OT are still measured by teCompute() from the times entered; a shift here
    only decides which times are filled in.
    ================================================================================ */
@@ -50,6 +51,14 @@ function teGroupWeekShift(dt, g){
     if(!teShiftByKey(pk)) continue;
     let k=pk; for(let i=0;i<back;i++) k=TE_SWAP[k]||k;
     return {key:teShiftByKey(k)?k:pk, suggested:true};
+  }
+  // Nothing set before this week (e.g. a month before the rotation was first planned): work back
+  // from the nearest week set AFTER it, with the same swap, so whole months can be filled.
+  for(let fwd=1; fwd<=104; fwd++){
+    const next=w[teEwShiftDate(ws,7*fwd)], nk=next&&next[g];
+    if(!teShiftByKey(nk)) continue;
+    let k=nk; for(let i=0;i<fwd;i++) k=TE_SWAP[k]||k;
+    return {key:teShiftByKey(k)?k:nk, suggested:true};
   }
   return {key:'', suggested:false};
 }
