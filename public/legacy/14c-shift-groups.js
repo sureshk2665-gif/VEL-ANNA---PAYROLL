@@ -16,6 +16,7 @@
 const TE_DEFAULT_GROUPS=[{key:'A',label:'Shift A Group'},{key:'B',label:'Shift B Group'},{key:'G',label:'General Group'}];
 const TE_SWAP={first:'second', firstOT:'secondOT', second:'first', secondOT:'firstOT'};
 let teSmSearch='';
+let teSmMonth=monthKey(todayStr()); // month shown in the Weekly Rotation Planner
 
 function teShiftPresets(){
   if(!Array.isArray(db.shiftPresets) || !db.shiftPresets.length) db.shiftPresets=TE_SHIFTS.map(s=>({key:s.key, label:s.label, inMin:s.inMin, outMin:s.outMin%1440}));
@@ -44,7 +45,7 @@ function teWeekMap(){ if(!db.groupWeekShift || typeof db.groupWeekShift!=='objec
 function teGroupWeekShift(dt, g){
   const w=teWeekMap(), ws=teWeekStart(dt);
   if(w[ws] && teShiftByKey(w[ws][g])) return {key:w[ws][g], suggested:false};
-  for(let back=1; back<=8; back++){
+  for(let back=1; back<=104; back++){ // up to two years back, so months picked ahead still follow the rotation
     const prev=w[teEwShiftDate(ws,-7*back)], pk=prev&&prev[g];
     if(!teShiftByKey(pk)) continue;
     let k=pk; for(let i=0;i<back;i++) k=TE_SWAP[k]||k;
@@ -67,6 +68,7 @@ function teEmpShift(code, dt){ return teShiftByKey(teEmpShiftKey(code, dt)); }
 function teSmCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teSmDeny(){ alert('You do not have permission to change shift groups.'); }
 function teRotSet(ws, g, k){ if(!teSmCanEdit()) return teSmDeny(); const w=teWeekMap(); w[ws]=w[ws]||{}; if(k) w[ws][g]=k; else delete w[ws][g]; if(!Object.keys(w[ws]).length) delete w[ws]; saveDB(db); render('timeentry'); }
+function teSmSetMonth(v){ if(!v) return; teSmMonth=v; render('timeentry'); }
 function teSmMap(code, key){ if(!teSmCanEdit()) return teSmDeny(); if(key) teGroupMap()[code]=key; else delete teGroupMap()[code]; saveDB(db); render('timeentry'); }
 function teSmBulkMap(){
   if(!teSmCanEdit()) return teSmDeny();
@@ -110,8 +112,13 @@ function renderTEShiftGroupsTab(){
   const can=teSmCanEdit(), canDel=hasPerm('timeentry','delete');
   const groups=teGroups(), shifts=teShiftPresets(), emps=activeEmployeesForTE().filter(teEmpMatchesFilter);
   const q=teSmSearch.trim().toLowerCase();
-  const thisWk=teWeekStart(todayStr()), weeks=[0,1,2,3].map(i=>teEwShiftDate(thisWk,7*i));
-  const wkLabel=ws=>{ const e=teEwShiftDate(ws,6); const f=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'}); return `${f(ws)} – ${f(e)}`; };
+  // Every Monday–Sunday week that touches the month shown, so the rows cover day 1 to the month's last day.
+  const thisWk=teWeekStart(todayStr()), mFirst=teSmMonth+'-01', mLast=dateStr(teSmMonth, daysInMonth(teSmMonth));
+  const weeks=[]; for(let ws=teWeekStart(mFirst); ws<=mLast; ws=teEwShiftDate(ws,7)) weeks.push(ws);
+  const f=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  // The days of the month in that week, and the full week beside them when it runs into another month.
+  const wkLabel=ws=>{ const we=teEwShiftDate(ws,6), a=ws<mFirst?mFirst:ws, b=we>mLast?mLast:we;
+    return `<b>${a===b?f(a):`${f(a)} – ${f(b)}`}</b>${a!==ws||b!==we?` <span class="teSmYear">week ${f(ws)} – ${f(we)}</span>`:` <span class="teSmYear">${ws.slice(0,4)}</span>`}`; };
   const gOpts=sel=>`<option value="">— No group —</option>`+groups.map(g=>`<option value="${g.key}" ${sel===g.key?'selected':''}>${teEsc(g.label)}</option>`).join('');
   const order=k=>{ const i=groups.findIndex(g=>g.key===k); return i<0?99:i; };
   const sorted=emps.slice().sort((a,b)=>order(teEmpGroup(a.code))-order(teEmpGroup(b.code)) || a.code.localeCompare(b.code,undefined,{numeric:true}));
@@ -127,11 +134,17 @@ function renderTEShiftGroupsTab(){
       <td><select ${can?'':'disabled'} onchange="teSmMap('${teEsc(e.code)}',this.value)" aria-label="Group for ${teEsc(e.name)}">${gOpts(k)}</select></td></tr>`;
   }).join('');
   return `<div class="panel">
-    <div class="teCalHead"><div><h3 style="margin:0;">${ico('calendar-range')} Weekly Rotation Planner</h3>
-      <p class="teSmSub">Set this week once — the next weeks follow with First and Second swapped. Change any week if needed. Employee Time Entry fills these shifts.</p></div></div>
+    <div class="teCalHead"><div><h3 style="margin:0;">${ico('calendar-range')} Weekly Rotation Planner — ${monthLabel(teSmMonth)}</h3>
+      <p class="teSmSub">Set this week once — the next weeks follow with First and Second swapped. Change any week if needed. Employee Time Entry fills these shifts.</p></div>
+      <div class="teSmMonthBar">
+        <button class="btn secondary teDwNav" onclick="teSmSetMonth(nextMonthKey(teSmMonth,-1))" title="Previous month" aria-label="Previous month">‹</button>
+        <input type="month" value="${teSmMonth}" onchange="teSmSetMonth(this.value)" aria-label="Month">
+        <button class="btn secondary teDwNav" onclick="teSmSetMonth(nextMonthKey(teSmMonth,1))" title="Next month" aria-label="Next month">›</button>
+        ${teSmMonth!==monthKey(todayStr())?`<button class="btn secondary" onclick="teSmSetMonth(monthKey(todayStr()))">This month</button>`:''}
+      </div></div>
     <div class="tableScrollWrap teSmWrap"><table class="teSmTable">
       <thead><tr><th style="text-align:left;">Week (Mon – Sun)</th>${groups.map(g=>`<th>${teGroupBadge(g.key)}</th>`).join('')}</tr></thead>
-      <tbody>${weeks.map(ws=>`<tr class="${ws===thisWk?'teSmThisWk':''}"><td style="text-align:left;"><b>${wkLabel(ws)}</b> <span class="teSmYear">${ws.slice(0,4)}</span>${ws===thisWk?' <span class="teSmNow">This week</span>':''}</td>
+      <tbody>${weeks.map(ws=>`<tr class="${ws===thisWk?'teSmThisWk':''}"><td style="text-align:left;">${wkLabel(ws)}${ws===thisWk?' <span class="teSmNow">This week</span>':''}</td>
         ${groups.map(g=>{ const r=teGroupWeekShift(ws,g.key); return `<td><select ${can?'':'disabled'} onchange="teRotSet('${ws}','${g.key}',this.value)" aria-label="${teEsc(g.label)}, week of ${ws}">
           <option value="">—</option>${shifts.map(p=>`<option value="${p.key}" ${r.key===p.key?'selected':''}>${teEsc(p.label)}</option>`).join('')}</select></td>`; }).join('')}</tr>`).join('')}</tbody>
     </table></div>
