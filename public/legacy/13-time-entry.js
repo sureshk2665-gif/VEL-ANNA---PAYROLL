@@ -164,7 +164,66 @@ function teMonthLateMinutes(code, ym){ return teMonthTotal(code, ym, 'late'); }
 function teMonthOTMinutes(code, ym){ return teMonthTotal(code, ym, 'ot'); }
 // OT minutes per day (for a month whose wage changed part-way: each day is paid at its own rate).
 function teMonthOTByDay(code, ym){ return teMonthDays(code, ym).filter(x=>x.c.ot>0).map(x=>({date:x.date, min:x.c.ot})); }
-function teSetTab(t){ teTab=t; render('timeentry'); }
+function teSetTab(t){ if(t!==teTab && !teEditConfirmLeave()) return; teTab=t; render('timeentry'); }
+
+/* ---- Edit / Save --------------------------------------------------------------
+   Nothing changed in Employee Time Entry (Date-wise, Employee-wise, Token Entry, Shift Groups) or
+   in Attendance → Edit Monthly Figures reaches the database — or Payroll — until Save.
+   Edit opens a session and keeps a copy of the stores below; changes show on screen straight away;
+   Save writes them; Cancel puts the copy back. Leaving the screen (another page, another Time Entry
+   tab) with unsaved changes asks to Save or Discard. While a session is open, anything else that
+   saves the database writes these stores as they were before Edit (teDraftSafe), so a half-done
+   edit never leaks out. */
+const TE_EDIT_KEYS=['timeEntries','timeLeaves','shiftOverrides','payrollAdjustments','attendance','groupWeekShift','groupMap','shiftPresets','shiftGroups'];
+let teEdit=null; // {area:'grid'|'tokens'|'groups'|'attendance', snap:JSON, dirty:boolean}
+function teEditActive(area){ return !!teEdit && (!area || teEdit.area===area); }
+function teEditBegin(area){
+  if(teEdit) return teEdit.area===area;
+  teEdit={area, snap:JSON.stringify(Object.fromEntries(TE_EDIT_KEYS.map(k=>[k, db[k]===undefined?null:db[k]]))), dirty:false};
+  return true;
+}
+// A change made inside a session: shown on screen, saved only with Save.
+function teEditTouch(){ if(teEdit){ teEdit.dirty=true; if(typeof teEwSetSaveState==='function') teEwSetSaveState('unsaved'); } }
+// Every screen's Edit flag, closed together when a session ends.
+function teEditEndModes(){
+  teGridEditMode=false;
+  if(typeof teEwEditMode!=='undefined') teEwEditMode=false;
+  if(typeof teDwSel!=='undefined') teDwSel.clear();
+  if(typeof attEditMode!=='undefined'){ attEditMode=false; attEditSnapshot=null; }
+}
+async function teEditSave(){
+  if(!teEdit) return true;
+  teEdit=null; teEditEndModes();
+  return teEwQueueSave();
+}
+function teEditDiscard(){
+  if(!teEdit) return;
+  const snap=JSON.parse(teEdit.snap);
+  TE_EDIT_KEYS.forEach(k=>{ if(snap[k]===null) delete db[k]; else db[k]=snap[k]; });
+  teEdit=null; teEditEndModes();
+  if(typeof teEwSetSaveState==='function') teEwSetSaveState('idle');
+}
+// Cancel button: back to the saved figures.
+function teEditCancel(page){
+  if(teEdit && teEdit.dirty && !confirm('Discard the changes you made since Edit?')) return;
+  teEditDiscard(); render(page||'timeentry');
+}
+// Before leaving a screen that has an open session. true = go on, false = stay.
+function teEditConfirmLeave(){
+  if(!teEdit) return true;
+  if(!teEdit.dirty){ teEditDiscard(); return true; } // opened but nothing changed: just close it
+  if(confirm('You have changes that are not saved yet.\n\nOK = Save them now\nCancel = choose to discard them or keep editing')){ teEditSave(); return true; }
+  if(confirm('Discard the changes?\n\nOK = Discard them\nCancel = stay here and keep editing')){ teEditDiscard(); return true; }
+  return false;
+}
+// What saveDB writes while a session is open: the edited stores as they were before Edit.
+function teDraftSafe(d){
+  if(!teEdit) return d;
+  const snap=JSON.parse(teEdit.snap), out={...d};
+  TE_EDIT_KEYS.forEach(k=>{ if(snap[k]===null) delete out[k]; else out[k]=snap[k]; });
+  return out;
+}
+window.addEventListener('beforeunload',e=>{ if(teEdit && teEdit.dirty){ e.preventDefault(); e.returnValue=''; } });
 // Changing the date switches the whole Date-wise grid to that date, auto-creating blank rows for
 // every active employee on it. The grid stays unlocked if it was, so entry can continue
 // date after date (‹ › buttons or Alt+PgUp / Alt+PgDn).

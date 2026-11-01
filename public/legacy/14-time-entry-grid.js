@@ -35,6 +35,7 @@ function teEwBlankEntry(){ return {inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP
 // Ordered, coalesced save: saveDB() upserts the whole store, so rapid keystrokes are
 // funnelled into one in-flight write at a time; the latest state is always written last.
 async function teEwQueueSave(){
+  if(typeof teEditActive==='function' && teEditActive()){ teEditTouch(); return true; } // saved with Save
   teEwSetSaveState('saving');
   if(teEwSaveBusy){ teEwSavePending=true; return; }
   teEwSaveBusy=true;
@@ -42,12 +43,15 @@ async function teEwQueueSave(){
   do{ teEwSavePending=false; ok=await saveDB(db); }while(teEwSavePending);
   teEwSaveBusy=false;
   teEwSetSaveState(ok?'saved':'error');
+  return ok;
 }
 function teEwSetSaveState(s){
   teEwSaveState=s;
   const el=document.getElementById('teEwSaveState'); if(!el) return;
   el.className='teEwSave '+s;
-  el.innerHTML = s==='saving'?'Saving…' : s==='saved'?ico('check')+' All changes saved' : s==='error'?ico('alert')+' Not saved — check connection':'';
+  el.innerHTML = s==='saving'?'Saving…' : s==='saved'?ico('check')+' Saved' : s==='error'?ico('alert')+' Not saved — check connection'
+    : s==='unsaved'?ico('pencil')+' Not saved':'';
+  el.title = s==='unsaved' ? 'Changes since Edit are kept on this screen only — click Save to put them in the database and Payroll' : '';
 }
 window.addEventListener('beforeunload',e=>{ if(teEwSaveBusy){ e.preventDefault(); e.returnValue=''; } });
 
@@ -398,10 +402,12 @@ function teEwSetMonth(v){ if(!v) return; teEwMonth=v; render('timeentry'); }
 function teEwStepMonth(dir){ const [y,m]=teEwMonth.split('-').map(Number); const d=new Date(y,m-1+dir,1); teEwMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
 function teEwUnlock(){
   if(!teEwCanEdit()){ alert('You do not have permission to edit time entries.'); return; }
+  if(!teEditBegin('grid')){ alert('Save or cancel the other edit first.'); return; }
   teEwEditMode=true; if(teEwEmp) teEwFocus={r:teEwFirstEmptyRow(),c:0}; render('timeentry');
 }
 function teEwLock(){
   const a=document.activeElement; if(a && a.closest && a.closest('#teEwGrid') && a.tagName==='INPUT') teEwCommitTime(a);
+  teEditSave(); // everything typed since Edit goes to the database now (and so to Payroll)
   teEwEditMode=false; render('timeentry');
 }
 // Cross-links between the two views (same records, different angle).
@@ -455,7 +461,7 @@ function renderTEEmpWiseTab(){
         <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
         ${!unlocked
           ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teEwUnlock()">${ico('pencil')} Edit</button>`
-          : `<button class="btn" onclick="teEwLock()">${ico('save')} Save</button>`}
+          : `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teEwLock()">${ico('save')} Save</button>`}
         <button class="btn secondary" ${emp?'':'disabled'} onclick="printTEEmployee()">${ico('printer')} Print</button>
       </div>
     </div>`;
@@ -734,8 +740,20 @@ let teTokSearch='';
 function teTokCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teTokSetMonth(v){ if(!v) return; teTokMonth=v; render('timeentry'); }
 function teTokTyped(ym, code){ const a=db.payrollAdjustments&&db.payrollAdjustments[ym]&&db.payrollAdjustments[ym][code]; return !!a && a.canteenTokens!==undefined && a.canteenTokens!==null; }
+// Edit opens the token boxes; Save puts the counts in Payroll; Cancel puts the saved counts back.
+function teTokEdit(){
+  if(!teTokCanEdit()){ alert('You do not have permission to enter tokens.'); return; }
+  if(!teEditBegin('tokens')){ alert('Save or cancel the other edit first.'); return; }
+  render('timeentry');
+  setTimeout(()=>{ const i=document.querySelector('#teTokTable input.teTokIn:not([disabled])'); if(i){ i.focus(); i.select(); } },0);
+}
+function teTokSave(){
+  const a=document.activeElement; if(a && a.classList && a.classList.contains('teTokIn')) teTokSet(a);
+  teEditSave(); render('timeentry');
+}
 function teTokSet(inp){
   if(!teTokCanEdit()){ alert('You do not have permission to enter tokens.'); return; }
+  if(!teEditActive('tokens')){ alert('Click Edit first.'); return; }
   const code=inp.dataset.code, ym=teTokMonth, raw=String(inp.value).trim();
   if(raw!=='' && (isNaN(+raw) || +raw<0)){ inp.classList.add('bad'); return; }
   inp.classList.remove('bad');
@@ -778,7 +796,7 @@ function teTokPriceText(ym, emps){
   return lo===hi ? fmt(lo) : `${fmt(lo)} – ${fmt(hi)}`;
 }
 function renderTETokensTab(){
-  const ym=teTokMonth, can=teTokCanEdit();
+  const ym=teTokMonth, allowed=teTokCanEdit(), can=allowed && teEditActive('tokens');
   const emps=teFilteredEmployees(ym), q=teTokSearch.trim().toLowerCase();
   let amount=0;
   const rows=emps.map((e,i)=>{
@@ -805,15 +823,19 @@ function renderTETokensTab(){
       <h3 style="margin:0;">${ico('clipboard')} Monthly Token Entry — ${monthLabel(ym)}</h3>
       <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap;">
         ${priceAdmin?`<button class="btn secondary" onclick="settingsTab='canteen';render('settings')">${ico('settings')} Unit token prices</button>`:''}
-        <input type="month" value="${ym}" onchange="teTokSetMonth(this.value)" aria-label="Month">
+        <input type="month" value="${ym}" ${can?'disabled title="Save or cancel first"':''} onchange="teTokSetMonth(this.value)" aria-label="Month">
         <input type="search" placeholder="Search employee" value="${teEsc(teTokSearch)}" oninput="teTokFilter(this.value)" aria-label="Search employee">
+        <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
+        ${!allowed ? '' : can
+          ? `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teTokSave()">${ico('save')} Save</button>`
+          : `<button class="btn btnEditAtt" onclick="teTokEdit()">${ico('pencil')} Edit</button>`}
       </div>
     </div>
     <div class="tableScrollWrap teTokWrap"><table class="teTokTable" id="teTokTable">
       <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Unit</th><th>Contractor</th><th class="num">Tokens this month</th><th class="num" title="Token price of the employee's unit">Price</th><th class="num">Amount</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="8" class="empty">No employees on the roll in ${monthLabel(ym)}${teFilterText()?' for '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
     </table></div>
-    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee). ':''}Payroll deducts tokens × the token price of the employee's unit (Admin → Canteen Token Prices). The figures show on the salary slip.</p>
+    <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee), then Save — Payroll uses the counts only after Save. ':allowed?'Click Edit to enter tokens; Save puts them in Payroll. ':''}Payroll deducts tokens × the token price of the employee's unit (Admin → Canteen Token Prices). The figures show on the salary slip.</p>
   </div>`;
 }
 
