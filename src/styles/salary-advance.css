@@ -1,0 +1,56 @@
+/* =====================================================================================
+   SALARY ADVANCE — screen layout on top of the ledger system (loaded before highlight/motion).
+   A one-row "issue" form with a live preview, the figures strip, and a list with an
+   Active / Recovered / All switch, search, a recovery bar per advance and the schedule opening
+   as a row underneath. Screen only.
+   ===================================================================================== */
+@media screen {
+
+/* ---------- Issue form ---------- */
+.advNew h3{margin:0 0 12px;}
+.advForm{display:grid;grid-template-columns:minmax(220px,2fr) minmax(110px,1fr) minmax(80px,.7fr) minmax(150px,1fr) minmax(180px,1.6fr) auto;gap:10px;align-items:end;}
+.advForm label{display:block;font-size:12px;font-weight:500;color:var(--muted);margin:0 0 5px;}
+.advForm input{box-sizing:border-box;width:100%;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.advForm input:focus{outline:none;box-shadow:var(--focus);}
+.advForm input.bad{border-color:var(--negative) !important;}
+.advForm .btn{height:var(--control-height);white-space:nowrap;}
+.advPreview{margin:10px 0 0;font-size:12.5px;color:var(--muted);}
+.advPreview b{color:var(--text);font-variant-numeric:tabular-nums;}
+@media (max-width:1180px){ .advForm{grid-template-columns:repeat(3,minmax(0,1fr));} .advEmp,.advRem{grid-column:span 2;} }
+
+.advStrip{margin:12px 0;}
+
+/* ---------- List ---------- */
+.advList{padding-top:12px;}
+.advListHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+.advSeg{margin:0;}
+.advCount{display:inline-block;min-width:18px;margin-left:4px;padding:0 6px;border-radius:9px;background:var(--active);color:var(--muted);font-size:11.5px;font-weight:600;line-height:18px;text-align:center;}
+.attUnitTab.active .advCount{background:var(--surface);color:inherit;}
+.advSearchWrap{width:260px;}
+.advSearchWrap input{box-sizing:border-box;height:var(--control-height);border:1px solid var(--control);border-radius:var(--radius-control);}
+.advScroll{max-height:calc(100vh - 420px);min-height:220px;overflow:auto;}
+.advScroll table.advTable{min-width:0;}
+table.advTable{width:100%;border:0;border-collapse:separate;border-spacing:0;font-size:13px;}
+table.advTable th,table.advTable td{padding:9px 12px;border:0;border-bottom:1px solid var(--rule);text-align:left;white-space:nowrap;vertical-align:middle;}
+table.advTable th{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom-color:var(--border);font-size:12px;font-weight:500;color:var(--muted);}
+table.advTable .num{text-align:right;font-variant-numeric:tabular-nums;}
+table.advTable td.advCode{color:var(--muted);font-variant-numeric:tabular-nums;}
+table.advTable td b{font-weight:500;}
+.advRemark{display:block;font-size:12px;color:var(--muted);margin-top:2px;max-width:240px;overflow:hidden;text-overflow:ellipsis;}
+.advProg{min-width:120px;width:140px;}
+.advProg span{display:block;font-size:12px;color:var(--muted);margin-top:4px;font-variant-numeric:tabular-nums;}
+.advBar{height:6px;border-radius:3px;background:var(--active);overflow:hidden;}
+.advBar i{display:block;height:100%;border-radius:3px;background:var(--positive);}
+.advActive{font-size:12.5px;color:var(--st-half-text);font-weight:500;}
+table.advTable .rowActions{text-align:right;width:1%;}
+table.advTable .rowActions button{height:28px;padding:0 8px;}
+table.advTable .rowActions .advDel{width:28px;padding:0;justify-content:center;}
+tr.advOpenRow td{border-bottom-color:transparent;}
+tr.advSchedRow td{padding-top:0;background:var(--surface) !important;}
+.advSched{display:flex;flex-wrap:wrap;gap:6px;padding:0 0 4px;}
+.advInst{display:inline-flex;align-items:center;gap:4px;height:26px;padding:0 10px;border:1px solid var(--border);border-radius:var(--radius-chip);background:var(--raised);font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;}
+.advInst svg{width:13px;height:13px;}
+.advInst.done{background:var(--st-present-bg);border-color:transparent;color:var(--st-present-text);}
+.advInst.now{border-color:var(--hl-stroke,var(--control));font-weight:600;}
+
+}
