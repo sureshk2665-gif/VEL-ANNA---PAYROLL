@@ -126,10 +126,13 @@ function teMonthDays(code, ym){
     if(emp && !isEmpOnRollOn(emp, ds)) continue;
     const lv=teGetLeave(ds, code); if(lv && lv.type!=='Half Day') continue;
     if(typeof getAttStatus==='function' && getAttStatus(ds, code)==='LossOfPay') continue;
-    out.push({date:ds, c:teCompute(entry, ds)});
+    out.push({date:ds, c:teHalfDayCap(teCompute(entry, ds), !!lv)});
   }
   return out;
 }
+// A Half Day counts at most 4 working hours (half of 8); Late and OT are kept as worked.
+const TE_HALF_DAY_MIN=4*60;
+function teHalfDayCap(c, half){ return half && c && c.working>TE_HALF_DAY_MIN ? {...c, working:TE_HALF_DAY_MIN} : c; }
 function teMonthTotal(code, ym, key){ return teMonthDays(code, ym).reduce((s,x)=>s+(x.c[key]||0), 0); }
 // Total Late (minutes) in a month. Payroll uses it for the Late Deduction unless a different figure
 // is typed for that month on the Attendance screen.
