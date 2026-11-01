@@ -6,12 +6,14 @@ function renderSettings(){
   const canEditSettings = hasPerm('settings','edit');
   const tabs=[
     (isAdmin()||isSoftwareAdmin()) && {key:'rates', icon:'percent', label:'Payroll Rates'},
+    (isAdmin()||isSoftwareAdmin()) && {key:'canteen', icon:'receipt', label:'Canteen Token Prices'},
     {key:'designations', icon:'tag', label:'Designations'},
     isAdmin() && {key:'users', icon:'users', label:'Users & Permissions'},
     {key:'account', icon:'lock', label:isAdmin()?'Password & Backup':'Password'},
   ].filter(Boolean);
   if(!tabs.some(t=>t.key===settingsTab)) settingsTab=tabs[0].key;
   const body = settingsTab==='rates' ? renderPayrollRatesPanel()
+    : settingsTab==='canteen' ? renderCanteenPricesPanel()
     : settingsTab==='designations' ? renderDesignationsPanel()
     : settingsTab==='users' ? renderUserRightsPanel()
     : `<div class="setTwo">
@@ -35,6 +37,35 @@ function renderSettings(){
     ${tabs.map(t=>`<div class="teTab ${settingsTab===t.key?'active':''}" role="tab" tabindex="0" aria-selected="${settingsTab===t.key}" onclick="setSettingsTab('${t.key}')" onkeydown="if(event.key==='Enter')setSettingsTab('${t.key}')">${ico(t.icon)} ${t.label}</div>`).join('')}
   </div>
   ${body}`;
+}
+
+// Canteen token price for each working unit (see canteenTokenPrice() in 12-payroll-calc.js). A box
+// left empty uses the default price shown below it.
+function renderCanteenPricesPanel(){
+  const s=getSettings(), own=unitTokenPrices(), def=+s.canteenTokenPrice||0;
+  return `<div class="panel"><h3>${ico('receipt')} Canteen Token Prices</h3>
+    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each working unit can have its own price per canteen token. An employee's tokens (Employee Time Entry → Token Entry) are charged at the price of their unit. A change applies to months generated from now on; to apply it to a month already generated, click Regenerate on the Payroll page for that month.</p>
+    <table class="setPriceTable"><thead><tr><th>Unit</th><th>Unit name</th><th class="num">Employees</th><th class="num">Price per token (₹)</th></tr></thead><tbody>
+      ${getUnits().map(u=>{ const n=(db.employees||[]).filter(e=>e.status!=='Resigned' && unitCodeOf(e.unit)===u.code).length; const v=tokenPriceValue(own[u.code]);
+        return `<tr><td>${u.code}</td><td>${designationEsc(unitDisplayName(u))}</td><td class="num">${n}</td>
+          <td class="num"><input type="number" step="0.01" min="0" class="setPriceIn" data-unit="${designationEsc(u.code)}" value="${v===null?'':v}" placeholder="${def}" aria-label="Token price for ${designationEsc(unitDisplayName(u))}"></td></tr>`; }).join('')}
+    </tbody></table>
+    <div class="formGrid setRates" style="margin-top:14px;">
+      <div><label>Default price (units with an empty box)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${def}"></div>
+    </div>
+    <div class="modalActions"><button class="btn" onclick="saveCanteenPrices()">${ico('save')} Save Token Prices</button></div>
+  </div>`;
+}
+function saveCanteenPrices(){
+  if(!isAdmin() && !isSoftwareAdmin()){ alert('Only an administrator can change canteen token prices.'); return; }
+  const s=getSettings(), prices={};
+  document.querySelectorAll('.setPriceIn').forEach(inp=>{ const v=tokenPriceValue(String(inp.value).trim()); if(v!==null) prices[inp.dataset.unit]=v; });
+  s.canteenTokenPrices=prices;
+  const d=tokenPriceValue(String(document.getElementById('s_canteenTokenPrice').value).trim());
+  s.canteenTokenPrice = d===null ? 150 : d;
+  saveDB(db);
+  alert('Canteen token prices saved. They apply to months generated from now on; to apply them to a month already generated, click Regenerate on the Payroll page for that month.');
+  render('settings');
 }
 
 /* ---- Designations (managed list, like Departments) ----
@@ -108,10 +139,9 @@ function renderPayrollRatesPanel(){
       <div><label>PF rate — employer (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
       <div><label>ESI rate — employee (0.0075 = 0.75%)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
       <div><label>ESI rate — employer (0.0325 = 3.25%)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
-      <div><label>Canteen token price (₹ per token)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${s.canteenTokenPrice}"></div>
       <div><label>Late grace (minutes per month)</label><input type="number" step="1" min="0" id="s_lateGraceMinutes" value="${lateGraceMinutes()}"></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for Present + Half Day × 0.5 + paid holidays. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the free late minutes above. <b>Canteen:</b> tokens (Employee Time Entry → Monthly Token Entry) × the token price. <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for Present + Half Day × 0.5 + paid holidays. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the free late minutes above. <b>Canteen:</b> tokens (Employee Time Entry → Token Entry) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
     <div class="modalActions"><button class="btn" onclick="savePayrollConstants()">${ico('save')} Save Payroll Rates</button></div>
   </div>`;
 }
