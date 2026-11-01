@@ -74,3 +74,10 @@
 .teSmMonthBar input[type=month]{box-sizing:border-box;height:var(--control-height);padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;}
 .teSmMonthBar .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
 }
+@media screen {
+/* Rotation planner heading: title on the left, month controls on the right — always one row,
+   whatever month is shown (the controls never wrap under the title). */
+.teCalHead.teSmHead{flex-wrap:nowrap;align-items:flex-start;}
+.teSmHead .teSmTitle{flex:1 1 auto;min-width:0;}
+.teSmHead .teSmMonthBar{flex:0 0 auto;}
+}
