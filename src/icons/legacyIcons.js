@@ -1,5 +1,5 @@
 import {
-  Ban, Bookmark, Building2, Cake, Calculator, Calendar, CalendarDays, CalendarRange, ChartColumn, Check,
+  ArrowLeft, LayoutGrid, Ban, Bookmark, Building2, Cake, Calculator, Calendar, CalendarDays, CalendarRange, ChartColumn, Check,
   CircleArrowDown, CircleArrowUp, CircleCheck, CircleDashed, CircleX, Clock, ClipboardList, Contrast,
   Copy, CreditCard, Database, DoorOpen, Download, Factory, FileSpreadsheet, FileText, Folder, Gift,
   HeartPulse, History, KeyRound, Landmark, Leaf, LogIn, LogOut, Lock, Moon, OctagonMinus, PenLine, Percent, ShieldCheck,
@@ -12,7 +12,7 @@ import {
 // text colour (so it follows the light/dark and colour themes). React components use
 // `lucide-react` directly — same icon set.
 const ICONS = {
-  'ban': Ban, 'bookmark': Bookmark, 'building': Building2, 'cake': Cake, 'calculator': Calculator,
+  'arrow-left': ArrowLeft, 'grid': LayoutGrid, 'ban': Ban, 'bookmark': Bookmark, 'building': Building2, 'cake': Cake, 'calculator': Calculator,
   'calendar': Calendar, 'calendar-days': CalendarDays, 'calendar-range': CalendarRange,
   'chart': ChartColumn, 'check': Check, 'circle-arrow-down': CircleArrowDown,
   'circle-arrow-up': CircleArrowUp, 'circle-check': CircleCheck, 'circle-dashed': CircleDashed,

@@ -43,40 +43,78 @@ const REPORT_CATEGORIES = [
 function renderReports(){
   return reportView ? renderReportDetail(reportView) : renderReportsList();
 }
+// Report list: category tabs (All / General / Monthly / Yearly) and a find box over the cards.
+let repCat='all';   // 'all' or a REPORT_CATEGORIES key
+let repFind='';     // text typed in "Find a report"
+// What a report asks for before it shows (a month, a financial year, a date range) — shown on its card.
+function repAsksFor(r){
+  return r.needsMonth?'Month':(r.needsFY||r.needsExpFilters)?'Financial year':r.needsDateRange?'Date range':'Ready';
+}
+function repMatches(r){
+  const q=repFind.trim().toLowerCase();
+  return !q || (r.title+' '+r.desc).toLowerCase().includes(q);
+}
+function repSetCat(k){ repCat=k; render('reports'); }
+// Typing filters the cards in place (no redraw, so the cursor stays in the box).
+function repFindType(v){
+  repFind=v;
+  document.querySelectorAll('.reportCard[data-key]').forEach(c=>{ const r=REPORTS_LIST.find(x=>x.key===c.dataset.key); c.hidden=!(r && repMatches(r)); });
+  let any=false;
+  document.querySelectorAll('.repCatPanel').forEach(pn=>{ const vis=!!pn.querySelector('.reportCard:not([hidden])'); pn.hidden=!vis; any=any||vis; });
+  const nm=document.getElementById('repNoMatch'); if(nm){ nm.hidden=any; const t=nm.querySelector('b'); if(t) t.textContent=v.trim(); }
+}
 function renderReportsList(){
+  const count=k=>REPORTS_LIST.filter(r=>k==='all'||r.category===k).length;
+  const tab=(k,icon,label)=>`<button class="attTab ${repCat===k?'active':''}" onclick="repSetCat('${k}')">${ico(icon)} ${label} <span class="repTabCount">${count(k)}</span></button>`;
+  const cats=REPORT_CATEGORIES.filter(c=>repCat==='all' || c.key===repCat);
+  const anyMatch=cats.some(cat=>REPORTS_LIST.some(r=>r.category===cat.key && repMatches(r)));
+  const esc=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
   return `
-  ${REPORT_CATEGORIES.map(cat=>{
+  <div class="toolbar repListBar">
+    <div class="attTabsInline">${tab('all','grid','All reports')}${REPORT_CATEGORIES.map(c=>tab(c.key,c.icon,c.label.replace(/ Reports$/,''))).join('')}</div>
+    <span class="teDwFindWrap repFind">${ico('search')}<input id="repFind" type="search" placeholder="Find a report" autocomplete="off" aria-label="Find a report" value="${esc(repFind)}" oninput="repFindType(this.value)"></span>
+  </div>
+  ${cats.map(cat=>{
     const list=REPORTS_LIST.filter(r=>r.category===cat.key);
     if(!list.length) return '';
     return `
-    <div class="panel">
-      <h3>${ico(cat.icon)} ${cat.label}</h3>
+    <div class="panel repCatPanel" ${list.some(repMatches)?'':'hidden'}>
+      <h3>${ico(cat.icon)} ${cat.label} <span class="repCatCount">${list.length}</span></h3>
       <div class="reportGrid">
         ${list.map(r=>`
-          <div class="reportCard" role="button" tabindex="0" title="${r.desc.replace(/"/g,'&quot;')}" onclick="openReport('${r.key}')" onkeydown="if(event.key==='Enter')openReport('${r.key}')">
+          <div class="reportCard" data-key="${r.key}" ${repMatches(r)?'':'hidden'} role="button" tabindex="0" title="${esc(r.desc)}" onclick="openReport('${r.key}')" onkeydown="if(event.key==='Enter')openReport('${r.key}')">
             <div class="reportCardIcon">${ico(r.icon)}</div>
             <div class="reportCardBody">
               <div class="reportCardTitle">${r.title}</div>
               <div class="reportCardDesc">${r.desc}</div>
+              <div class="reportCardMeta">${ico(repAsksFor(r)==='Month'?'calendar':repAsksFor(r)==='Ready'?'file-text':'calendar-range')} ${repAsksFor(r)==='Ready'?'Opens straight away':'Pick a '+repAsksFor(r).toLowerCase()}</div>
             </div>
             <div class="reportCardArrow">›</div>
           </div>`).join('')}
       </div>
     </div>`;
   }).join('')}
+  <div class="empty repNoMatch" id="repNoMatch" ${anyMatch?'hidden':''}>${ico('search-x')} No report matches "<b>${esc(repFind.trim())}</b>".</div>
   `;
 }
 function openReport(key){ reportView=key; render('reports'); }
+function repShiftMonth(d){ payMonth=nextMonthKey(payMonth, d); render('reports'); }
 function closeReport(){ reportView=null; render('reports'); }
 function renderReportDetail(key){
   const meta=REPORTS_LIST.find(r=>r.key===key);
   if(!meta){ reportView=null; return renderReportsList(); }
   let previewHtml='', hasData=true;
-  if(key==='employee') previewHtml=tableFromRows(employeeReportRows());
-  else if(key==='resignedEmp') previewHtml=tableFromRows(resignedReportRows());
-  else if(key==='department') previewHtml=tableFromRows(departmentReportRows());
+  // Figures for the slim strip above the preview: [value, label, highlighted?] — from the same rows the preview shows.
+  let figs=[];
+  const N=v=>Math.round((Number(v)||0)*100)/100, sumK=(rows,k)=>N(rows.reduce((t,r)=>t+(Number(r[k])||0),0));
+  if(key==='employee'){ const rows=employeeReportRows(); previewHtml=tableFromRows(rows);
+    figs=[[rows.length,'Employees'],[rows.filter(r=>r.Status==='Active').length,'Active'],[rows.filter(r=>r.Status!=='Active').length,'Inactive']]; }
+  else if(key==='resignedEmp'){ const rows=resignedReportRows(); previewHtml=tableFromRows(rows); figs=[[rows.length,'Resigned employees']]; }
+  else if(key==='department'){ const rows=departmentReportRows(); previewHtml=tableFromRows(rows);
+    figs=[[rows.length,'Departments'],[sumK(rows,'Employees'),'Employees (active)'],[rows.filter(r=>!r.Employees).length,'Empty departments']]; }
   else if(key==='experience'){
     const rows=experienceReportRows(expFY, expDept, expDesig, expStatus);
+    figs=[[rows.length,'Employees'],[expFY,'Financial year']];
     if(!rows.length){ previewHtml='<div class="empty">No employees match the selected filters.</div>'; hasData=false; }
     else previewHtml=tableFromRows(rows);
   }
@@ -84,6 +122,7 @@ function renderReportDetail(key){
     if(bonusFromDate>bonusToDate){ previewHtml='<div class="empty">"From Date" cannot be after "To Date".</div>'; hasData=false; }
     else{
       const {rows,months,grandTotal}=bonusReportRows(meta.bonusRate,bonusFromDate,bonusToDate);
+      figs=[[rows.length,'Employees'],[months.filter(payrollGenerated).length+' of '+months.length,'Months with payroll'],[fmt(sumK(rows,'Bonus Eligible Basic Wages')),'Eligible basic wages'],[fmt(grandTotal),'Bonus amount',1]];
       if(!rows.length){ previewHtml='<div class="empty">No payroll records found for employees in the selected period.</div>'; hasData=false; }
       else previewHtml=bonusTableHtml(rows,months,grandTotal);
     }
@@ -92,12 +131,14 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
     else{
       const rows=esiReportRows(payMonth);
+      figs=[[rows.length,'Employees'],[fmt(sumK(rows,'ESI Wages')),'ESI wages'],[fmt(sumK(rows,'ESI Employee Contribution')),'Employee share'],[fmt(sumK(rows,'ESI Employer Contribution')),'Employer share'],[fmt(sumK(rows,'Total ESI Contribution')),'Total ESI',1]];
       if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
       else previewHtml=esiReportTableHtml(rows);
     }
   }
   else if(key==='esiYearly'){
     const {rows,months,grandTotal}=esiYearlyReportRows(yearlyFY);
+    figs=[[rows.length,'Employees'],[months.length,'Months processed'],[fmt(grandTotal.employee),'Employee share'],[fmt(grandTotal.employer),'Employer share'],[fmt(grandTotal.all),'Total ESI',1]];
     if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found for Financial Year '+yearlyFY+'.</div>'; hasData=false; }
     else previewHtml=esiYearlyReportTableHtml(rows,months,grandTotal);
   }
@@ -105,6 +146,7 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
     else{
       const rows=pfMonthlyReportRows(payMonth);
+      figs=[[rows.length,'Employees'],[fmt(sumK(rows,'PF Wages')),'PF wages'],[fmt(sumK(rows,'PF Employee Contribution')),'Employee share'],[fmt(sumK(rows,'PF Employer Contribution')),'Employer share'],[fmt(sumK(rows,'Total PF Contribution')),'Total PF',1]];
       if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
       else previewHtml=pfMonthlyReportTableHtml(rows);
     }
@@ -121,12 +163,14 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">No payroll generated for this month yet.</div>'; hasData=false; }
     else{
       const rows=attendanceRegisterRows(payMonth);
+      figs=[[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'NOPH'),'NOPH days'],[sumK(rows,'LOP'),'LOP days'],[sumK(rows,'PaidDays'),'Paid days',1],[sumK(rows,'OTHrs'),'OT hours'],[sumK(rows,'LateMin'),'Late minutes']];
       if(!rows.length){ previewHtml='<div class="empty">No employees on the roll'+(attRegFilterText()?' for '+attRegFilterText():'')+' this month.</div>'; hasData=false; }
       else previewHtml=tableFromRows(rows,{totals:true});
     }
   }
   else if(key==='pf'){
     const {rows,months,grandTotal}=pfReportRows(yearlyFY);
+    figs=[[rows.length,'Employees'],[months.length,'Months processed'],[fmt(grandTotal.employee),'Employee share'],[fmt(grandTotal.employer),'Employer share'],[fmt(grandTotal.all),'Total PF',1]];
     if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found — no payroll has been generated for Financial Year '+yearlyFY+' yet.</div>'; hasData=false; }
     else previewHtml=pfReportTableHtml(rows,months,grandTotal);
   }
@@ -134,20 +178,20 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">No payroll generated for this month yet.</div>'; hasData=false; }
     else{
       const rows=payrollReportRows(payMonth);
+      const groups=key==='unit'?new Set(rows.map(r=>r.UnitCode)).size:key==='contractor'?new Set(rows.map(r=>r.ContractorCode||'-')).size:key==='mode'?new Set(rows.map(r=>r.PaymentMode||'-')).size:0;
+      figs=[...(groups?[[groups, key==='unit'?'Units':key==='contractor'?'Contractors':'Payment modes']]:[]),[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'PaidDays'),'Paid days'],[fmt(sumK(rows,'Earnings')),'Earnings'],[fmt(sumK(rows,'Deductions')),'Deductions'],[fmt(sumK(rows,'NetSalary')),'Net pay',1]];
       if(!rows.length){ previewHtml='<div class="empty">No payroll records for this month.</div>'; hasData=false; }
       else previewHtml=tableFromRows(rows,{totals:true});
     }
   }
   const canPrint=hasPerm('reports','print');
   const canExport=hasPerm('reports','export');
-  return `
-  <div class="panel">
-    <div class="reportDetailHead">
-      <button class="btn secondary" onclick="closeReport()">← Back to Reports</button>
-      <h3 style="margin:0;">${ico(meta.icon)} ${meta.title}</h3>
-    </div>
-    <div class="toolbar repBar"><div class="repFilters">
-      ${meta.needsMonth ? `<input type="month" value="${payMonth}" onchange="payMonth=this.value;render('reports')">` : ''}
+  // Month with previous / next arrows (the month is shared with the Payroll screen), then the report's own filters.
+  const filtersHtml=`
+      ${meta.needsMonth ? `<span class="repMonth"><span class="repLbl">Month</span>
+        <button class="btn secondary cbNav" onclick="repShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
+        <input type="month" value="${payMonth}" onchange="payMonth=this.value;render('reports')" aria-label="Month">
+        <button class="btn secondary cbNav" onclick="repShiftMonth(1)" title="Next month" aria-label="Next month">›</button></span>` : ''}
       ${meta.needsUnitFilter ? `
         <label style="font-size:12px;color:var(--muted);">Working Unit
           <select onchange="acqUnit=this.value;render('reports')">
@@ -219,11 +263,26 @@ function renderReportDetail(key){
             ${fyOptionsList().map(fy=>`<option value="${fy}" ${fy===yearlyFY?'selected':''}>${fy}</option>`).join('')}
           </select>
         </label>` : ''}
-      </div><div class="repActions">
+`;
+  return `
+  <div class="toolbar repTop">
+    <div class="repTopRow">
+      <div class="repTopL">
+        <button class="btn secondary" onclick="closeReport()" title="Back to the list of reports">${ico('arrow-left')} Reports</button>
+        <span class="cbSep"></span>
+        <span class="repTitleIcon">${ico(meta.icon)}</span>
+        <div class="repTitle"><b>${meta.title}</b><small>${meta.desc}</small></div>
+      </div>
+      <div class="repActions">
       ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('download')} Download PDF</button>` : ''}
       ${canPrint ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('printer')} Print</button>` : ''}
-      ${canExport ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportExcel('${key}')">${ico('file-spreadsheet')} Download Excel</button>` : ''}
-    </div></div>
+      ${canExport ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportExcel('${key}')">${ico('file-spreadsheet')} Excel</button>` : ''}
+      </div>
+    </div>
+    ${filtersHtml.trim()?`<div class="repFilters">${filtersHtml}</div>`:''}
+  </div>
+  ${hasData && figs.length ? `<div class="teStatRow repStrip">${figs.map(([v,l,k])=>`<div class="teStatBox${k?' repKey':''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
+  <div class="panel repPanel">
     <div class="reportPreview">${previewHtml}</div>
     ${meta.needsDateRange ? `<p class="syncNote">Bonus Eligible Basic Wages = actual sum of each month's Earnings → Basic Salary within the selected period (only months with generated payroll are included). For Bonus Amount, each month's Basic Salary is first capped at ${fmt(BONUS_CEILING)} (if Basic ≤ ${fmt(BONUS_CEILING)}, actual is used) and then summed and multiplied by ${(meta.bonusRate*100).toFixed(2).replace(/\.00$/,'')}%.</p>` : ''}
     ${meta.needsExpFilters ? `<p class="syncNote">Age and Company Experience are calculated as on ${fmtDate(fyEndDate(expFY))} (last day of Financial Year ${expFY}). Employees who joined after this date are excluded. Experience is shown in completed Years and Months.</p>` : ''}
