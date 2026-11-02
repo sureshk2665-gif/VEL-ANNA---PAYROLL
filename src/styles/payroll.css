@@ -31,3 +31,16 @@ table.payrollTable tr.payTotalRow td{position:sticky;bottom:0;z-index:1;backgrou
 .panel > .syncNote{margin:12px 0 0;}
 
 }
+@media screen {
+/* Unit tabs above the bar; month with previous / next arrows; generated state; empty state */
+.payNav{min-width:var(--control-height);padding:0 8px !important;justify-content:center;}
+.payState{display:inline-flex;align-items:center;gap:5px;height:26px;margin-left:4px;padding:0 10px;border-radius:999px;background:var(--st-half-bg);color:var(--st-half-text);font-size:12px;font-weight:600;white-space:nowrap;}
+.payState.on{background:var(--st-present-bg,var(--raised));color:var(--st-present-text,var(--text));}
+.payState svg{width:13px;height:13px;}
+.payEmpty{display:flex;flex-direction:column;align-items:center;gap:8px;padding:48px 16px 40px;text-align:center;}
+.payEmpty b{font-size:15px;font-weight:600;}
+.payEmpty span{max-width:480px;font-size:13px;color:var(--muted);line-height:1.5;}
+.payEmpty .btn{margin-top:6px;}
+.payEmptyIcon{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--raised);color:var(--muted);}
+.payEmptyIcon svg{width:22px;height:22px;}
+}
