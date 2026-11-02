@@ -92,12 +92,12 @@ function payrollRegisterColumns(){
     {header:'Basic', key:'basicE', type:'money'}, {header:'HRA', key:'hraE', type:'money'},
     {header:'OT Hrs', key:'otHours', type:'number'}, {header:'OT Rate / hr', key:'otPerHourRate', type:'money', noTotal:true}, {header:'OT Amount', key:'otAmount', type:'money'},
     {header:'Other Allowance', key:'otherAllowance', type:'money'}, {header:'GROSS (Basic + OT)', key:'grossSalary', type:'money'}, {header:'Total Earnings', key:'earningsTotal', type:'money'},
-    {header:'ESI', key:'esi', type:'money'}, {header:'PF', key:'pf', type:'money'}, {header:'Canteen Tokens', key:'canteenTokens', type:'number'}, {header:'Token Price', key:'canteenTokenPrice', type:'money', noTotal:true}, {header:'Canteen', key:'canteen', type:'money'},
+    {header:'PF', key:'pf', type:'money'}, {header:'ESI', key:'esi', type:'money'}, {header:'Canteen Tokens', key:'canteenTokens', type:'number'}, {header:'Token Price', key:'canteenTokenPrice', type:'money', noTotal:true}, {header:'Canteen', key:'canteen', type:'money'},
     {header:'Advance', key:'advance', type:'money'}, {header:'Late Min', key:'lateMinutes', type:'number'}, {header:'Late Charged Min', key:'lateChargedMinutes', type:'number'},
     {header:'Late Deduction', key:'lateDeduction', type:'money'}, {header:'Others', key:'othersDed', type:'money'},
     {header:'Total Deductions', key:'deductionsTotal', type:'money'}, {header:'Net Pay', key:'netSalary', type:'money'},
-    {header:'ESI Wages', key:'esiWages', type:'money'}, {header:'ESI (Employer)', key:'esiEmployer', type:'money'},
     {header:'PF Wages', key:'pfWages', type:'money'}, {header:'PF (Employer)', key:'pfEmployer', type:'money'},
+    {header:'ESI Wages', key:'esiWages', type:'money'}, {header:'ESI (Employer)', key:'esiEmployer', type:'money'},
     {header:'PF No', key:'pfNo', width:14}, {header:'UAN', key:'uan', width:14}, {header:'ESI No', key:'esiNo', width:14},
   ];
 }
