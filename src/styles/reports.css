@@ -77,3 +77,12 @@
 .reportPreview + .syncNote{margin-top:12px;}
 
 }
+@media screen {
+/* Contractor-wise Report: service charge by contractor, above the employee register */
+.repSvc{margin:0 0 12px;}
+.repSvcHead{display:flex;align-items:baseline;gap:4px 12px;flex-wrap:wrap;margin:0 0 8px;font-size:13px;}
+.repSvcHead > b{display:inline-flex;align-items:center;gap:6px;font-weight:600;}
+.repSvcHead > b svg{width:15px;height:15px;color:var(--muted);}
+.repSvcHead > span{font-size:12.5px;color:var(--muted);}
+.repSvcHead > span b{color:var(--text);font-weight:600;}
+}
