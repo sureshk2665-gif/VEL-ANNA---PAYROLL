@@ -10,7 +10,9 @@
    Software Admin can change rates, for any month, at any time. (Older data stored one number per
    month for every contractor; that still reads as that month's rate for all of them.) Salary and
    present days are the live payroll figures (computePayrollForEmployee), so they always match the
-   Payroll screen and the salary slips. */
+   Payroll screen and the salary slips. Company Payable also shows the NOPH (paid holiday) days next
+   to the present days: Net Pay pays them, so a month with a paid holiday has a salary even when
+   nobody was present; the service charge never counts them. */
 let cbTab='commission';               // 'commission' | 'company'
 let cbMonth=monthKey(todayStr());
 let cbOpen={};                        // contractor code -> true when its employee list is expanded
@@ -73,12 +75,13 @@ function cbContractorRows(ym){
     const emps=payrollEmployeesFor(ym).filter(e=>e.contractor===c.code).map(e=>{
       const r=(generated && payrollRecordFor(e.code, ym)) || computePayrollForEmployee(e, ym);
       const days=+r.presentDays||0;
-      return {e, days, commission:Math.round(days*rate*100)/100, earnings:+r.earningsTotal||0, deductions:+r.deductionsTotal||0, net:+r.netSalary||0, paidDays:+r.daysWorking||0};
+      return {e, days, noph:+(r.noph??r.holidayDays)||0, commission:Math.round(days*rate*100)/100, earnings:+r.earningsTotal||0, deductions:+r.deductionsTotal||0, net:+r.netSalary||0, paidDays:+r.daysWorking||0};
     });
     const days=emps.reduce((s,x)=>s+x.days,0);
+    const noph=emps.reduce((s,x)=>s+x.noph,0);
     const net=Math.round(emps.reduce((s,x)=>s+x.net,0)*100)/100;
     const commission=Math.round(days*rate*100)/100;
-    return {c, emps, empCount:emps.length, days, rate, commission, net, total:Math.round((net+commission)*100)/100};
+    return {c, emps, empCount:emps.length, days, noph, rate, commission, net, total:Math.round((net+commission)*100)/100};
   });
 }
 
@@ -89,7 +92,7 @@ function renderContractorBill(){
   const sum=k=>Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
   const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
   const company=cbTab==='company';
-  const cols=company?8:6;
+  const cols=company?9:6;
   // Rate / Day: a box per contractor for an Admin, else the month's rate.
   const rateCell=r=>editable
     ? `<span class="cbRateIn">₹<input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" oninput="cbRateTyped()" onkeydown="if(event.key==='Enter')cbSaveRates()" aria-label="Service charge per present day for ${cbEsc(r.c.name||r.c.code)}" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}"></span>`
@@ -98,19 +101,19 @@ function renderContractorBill(){
   const contractorRow=r=>{
     const open=!!cbOpen[r.c.code];
     const head=`<tr class="cbRow${open?' open':''}" onclick="cbSet('toggle','${r.c.code}')" title="Show / hide the employees" aria-expanded="${open}">
-      <td class="cbCaret"><span>›</span></td><td><b>${cbEsc(r.c.name||r.c.code)}</b></td><td class="num">${r.empCount}</td><td class="num">${r.days}</td><td onclick="event.stopPropagation()" class="num cbRateCell">${rateCell(r)}</td>
+      <td class="cbCaret"><span>›</span></td><td><b>${cbEsc(r.c.name||r.c.code)}</b></td><td class="num">${r.empCount}</td><td class="num">${r.days}</td>${company?`<td class="num">${r.noph}</td>`:''}<td onclick="event.stopPropagation()" class="num cbRateCell">${rateCell(r)}</td>
       ${company?`<td class="num">${fmt(r.net)}</td>`:''}<td class="num"><b>${fmt(r.commission)}</b></td>${company?`<td class="num"><b>${fmt(r.total)}</b></td>`:''}</tr>`;
     if(!open) return head;
     const emp=`<table class="cbTable cbInner">
-      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th>Name</th><th>Unit</th><th class="num">Present Days</th>${company?'<th class="num">Paid Days</th><th class="num">Total Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
-      <tbody>${r.emps.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.e.code}</td><td>${cbEsc(x.e.name)}</td><td>${unitLabel(x.e.unit)}</td><td class="num">${x.days}</td>${company?`<td class="num">${x.paidDays}</td><td class="num">${fmt(x.earnings)}</td><td class="num">${fmt(x.deductions)}</td><td class="num">${fmt(x.net)}</td>`:''}<td class="num">${fmt(x.commission)}</td>${company?`<td class="num"><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="11" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
+      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th>Name</th><th>Unit</th><th class="num">Present Days</th>${company?'<th class="num" title="Paid holidays (Holiday Calendar) — paid like a Present day">NOPH</th><th class="num">Paid Days</th><th class="num">Total Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
+      <tbody>${r.emps.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.e.code}</td><td>${cbEsc(x.e.name)}</td><td>${unitLabel(x.e.unit)}</td><td class="num">${x.days}</td>${company?`<td class="num">${x.noph}</td><td class="num">${x.paidDays}</td><td class="num">${fmt(x.earnings)}</td><td class="num">${fmt(x.deductions)}</td><td class="num">${fmt(x.net)}</td>`:''}<td class="num">${fmt(x.commission)}</td>${company?`<td class="num"><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="12" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
     </table>`;
     return head+`<tr class="cbDetail"><td colspan="${cols}">${emp}</td></tr>`;
   };
   const mainTable=`<div class="tableScrollWrap cbScroll"><table class="cbTable cbMain">
-    <thead><tr><th style="width:28px;"></th><th>Contractor</th><th class="num">Employees Supplied</th><th class="num">Total Present Days</th><th class="num">Rate / Day</th>${company?'<th class="num">Salary (Net Pay)</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
+    <thead><tr><th style="width:28px;"></th><th>Contractor</th><th class="num">Employees Supplied</th><th class="num">Total Present Days</th>${company?'<th class="num" title="Paid holidays (NOPH) of all the employees supplied — paid in their salary like a Present day, not counted for the service charge">Total NOPH Days</th>':''}<th class="num">Rate / Day</th>${company?'<th class="num">Salary (Net Pay)</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
     <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="${cols}" class="empty">No contractors yet.</td></tr>`}
-    ${rows.length?`<tr class="cbTotal"><td></td><td>Total — all contractors</td><td class="num">${sum('empCount')}</td><td class="num">${sum('days')}</td><td></td>${company?`<td class="num">${fmt(sum('net'))}</td>`:''}<td class="num">${fmt(sum('commission'))}</td>${company?`<td class="num">${fmt(sum('total'))}</td>`:''}</tr>`:''}
+    ${rows.length?`<tr class="cbTotal"><td></td><td>Total — all contractors</td><td class="num">${sum('empCount')}</td><td class="num">${sum('days')}</td>${company?`<td class="num">${sum('noph')}</td>`:''}<td></td>${company?`<td class="num">${fmt(sum('net'))}</td>`:''}<td class="num">${fmt(sum('commission'))}</td>${company?`<td class="num">${fmt(sum('total'))}</td>`:''}</tr>`:''}
     </tbody></table></div>`;
   const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);
   // Under the table: the one Save for every contractor's rate box (Admin), or who can change them.
@@ -139,6 +142,7 @@ function renderContractorBill(){
     <div class="teStatBox"><b>${rows.length}</b><span>Contractors</span></div>
     <div class="teStatBox"><b>${sum('empCount')}</b><span>Employees supplied</span></div>
     <div class="teStatBox"><b>${sum('days')}</b><span>Total present days</span></div>
+    ${company?`<div class="teStatBox" title="Paid holidays from the Holiday Calendar — paid in the salary like a Present day"><b>${sum('noph')}</b><span>NOPH days</span></div>`:''}
     ${company?`<div class="teStatBox"><b>${fmt(sum('net'))}</b><span>Salary (net pay)</span></div>`:''}
     <div class="teStatBox ${company?'':'cbKey'}"><b>${fmt(sum('commission'))}</b><span>Service charge</span></div>
     ${company?`<div class="teStatBox cbKey"><b>${fmt(sum('total'))}</b><span>Total payable</span></div>`:''}
@@ -148,7 +152,7 @@ function renderContractorBill(){
     ${mainTable}
     ${saveBar}
     <p class="syncNote">${company
-      ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge.`
+      ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge. Net Pay pays Present days and <b>NOPH</b> days (paid holidays in the Holiday Calendar), so it is not ₹0 when a month has a paid holiday even with 0 present days. The service charge counts full Present days only.`
       : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
       ${allowed?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''} Click a contractor to see its employees.</p>
   </div>`;
@@ -165,18 +169,19 @@ function cbExcelSheets(){
     title:`${db.companyName||''} — ${company?'Company Payable to Contractors':'Contractor Service Charge'} — ${monthLabel(cbMonth)}`,
     subtitle:'Service charge per full present day, at each contractor\'s rate',
     columns:[{header:'Contractor', key:'name', width:28},{header:'Employees Supplied', key:'empCount', type:'number'},{header:'Total Present Days', key:'days', type:'number'},
+      ...(company?[{header:'Total NOPH Days', key:'noph', type:'number'}]:[]),
       {header:'Rate / Day', key:'rate', type:'money', noTotal:true},
       ...(company?[{header:'Salary (Net Pay)', key:'net', type:'money'}]:[]),
       {header:'Service Charge', key:'commission', type:'money'},
       ...(company?[{header:'Total Payable', key:'total', type:'money'}]:[])],
-    rows:rows.map(r=>({name:r.c.name||r.c.code, empCount:r.empCount, days:r.days, rate:r.rate, net:r.net, commission:r.commission, total:r.total})), totals:true };
+    rows:rows.map(r=>({name:r.c.name||r.c.code, empCount:r.empCount, days:r.days, noph:r.noph, rate:r.rate, net:r.net, commission:r.commission, total:r.total})), totals:true };
   const detail={ name:'Employees', title:`${monthLabel(cbMonth)} — employees by contractor`,
     columns:[{header:'Contractor', key:'contractor', width:24},{header:'Emp Code', key:'code'},{header:'Name', key:'name', width:24},{header:'Unit', key:'unit'},
       {header:'Present Days', key:'days', type:'number'},
-      ...(company?[{header:'Paid Days', key:'paidDays', type:'number'},{header:'Total Earnings', key:'earnings', type:'money'},{header:'Deductions', key:'deductions', type:'money'},{header:'Net Pay', key:'net', type:'money'}]:[]),
+      ...(company?[{header:'NOPH', key:'noph', type:'number'},{header:'Paid Days', key:'paidDays', type:'number'},{header:'Total Earnings', key:'earnings', type:'money'},{header:'Deductions', key:'deductions', type:'money'},{header:'Net Pay', key:'net', type:'money'}]:[]),
       {header:'Service Charge', key:'commission', type:'money'},
       ...(company?[{header:'Total Payable', key:'total', type:'money'}]:[])],
-    rows:rows.flatMap(r=>r.emps.map(x=>({contractor:r.c.name||r.c.code, code:x.e.code, name:x.e.name, unit:unitLabel(x.e.unit), days:x.days, paidDays:x.paidDays, earnings:x.earnings, deductions:x.deductions, net:x.net, commission:x.commission, total:Math.round((x.net+x.commission)*100)/100}))),
+    rows:rows.flatMap(r=>r.emps.map(x=>({contractor:r.c.name||r.c.code, code:x.e.code, name:x.e.name, unit:unitLabel(x.e.unit), days:x.days, noph:x.noph, paidDays:x.paidDays, earnings:x.earnings, deductions:x.deductions, net:x.net, commission:x.commission, total:Math.round((x.net+x.commission)*100)/100}))),
     totals:true };
   return [summary, detail];
 }
