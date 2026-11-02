@@ -90,9 +90,20 @@ async function toggleUserActive(i){
   saveDB(db);
   render(userAdminRedirectPage());
 }
+/* ---- Reset All Data — Software Admin ----
+   Erases everything except the user accounts: company details, units, contractors, employees,
+   attendance, time entries, payroll, advances and settings. Same safety as Delete All Attendance
+   Data: you type RESET to confirm, and a backup file is downloaded first — if that fails, nothing
+   is erased. The backup can be put back with Backup → Restore Data. */
 async function resetAllData(){
   if(!isSoftwareAdmin()){ alert('You do not have permission to reset all data.'); return; }
-  if(!confirm('This will erase ALL data in Supabase (user accounts are kept). Continue?')) return;
+  const typed=prompt(`Reset ALL data?\n\n`
+    +`Erases: company details, units, contractors, ${(db.employees||[]).length} employee(s), attendance, In / Out times, leave, holidays, shift groups, payroll, salary advances, canteen tokens and all settings.\n`
+    +`Keeps: the user accounts (logins).\n\n`
+    +`A backup file is downloaded first. This cannot be undone except by restoring that backup.\n\nType RESET to continue.`);
+  if(typed===null) return;
+  if(typed.trim()!=='RESET'){ alert('Nothing was reset. Type RESET in capital letters to confirm.'); return; }
+  if(!backupData()){ alert('The backup could not be downloaded, so nothing was reset.'); return; }
   const fresh=defaultDB();
   // Keep the user profiles: their login accounts live in Supabase Auth and would otherwise be
   // left without a profile (and the person resetting would lose their own).
@@ -101,5 +112,6 @@ async function resetAllData(){
   db=fresh;
   applyCompanyBranding();
   render('dashboard');
+  alert('All data was reset (user accounts kept). A backup file was downloaded first — restore it from Software Admin → Backup if needed.');
 }
 
