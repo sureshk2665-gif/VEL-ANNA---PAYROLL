@@ -161,10 +161,18 @@ function printPayrollReport(by){
   const byContractor = by==='contractor';
   const contractorOf=r=>r.ContractorCode||'';
   const sections = byContractor
-    ? [...getContractors().map(c=>({title:(c.name||c.code)+(c.address?(' — '+c.address):''), rows:allRows.filter(r=>contractorOf(r)===c.code)})),
+    ? [...getContractors().map(c=>({title:(c.name||c.code)+(c.address?(' — '+c.address):''), code:c.code, rows:allRows.filter(r=>contractorOf(r)===c.code)})),
        {title:'Contractor not set', rows:allRows.filter(r=>!getContractors().some(c=>c.code===contractorOf(r))), unset:true}].filter(s=>s.rows.length || !s.unset)
     : getUnits().map(u=>({title:unitDisplayName(u)+(u.address?(' — '+u.address):''), rows:allRows.filter(r=>r.UnitCode ? r.UnitCode===u.code : r.WorkingUnit===unitLabel(u.code))}));
   const sumOf=(rows,key)=>rows.reduce((s,r)=>s+(Number(r[key])||0),0);
+  // Contractor-wise: each contractor's service charge = rate × FULL Present days (NOPH / Half Days not
+  // counted) — the same figures as Contractors Bill → Company Payable.
+  const svcByCode={};
+  if(byContractor && typeof cbContractorRows==='function') cbContractorRows(payMonth).forEach(r=>{ svcByCode[r.c.code]=r; });
+  const svcLineHTML=code=>{
+    const r=svcByCode[code]; if(!r) return '';
+    return `<p class="svcLine">Service charge: <b>${r.days}</b> full present day${r.days===1?'':'s'} × ₹${r.rate} = <b>${fmt(r.commission)}</b> <span>(NOPH ${r.noph} day${r.noph===1?'':'s'} and Half Days not counted)</span> &nbsp;|&nbsp; Total payable to contractor = Net Pay ${fmt(r.net)} + Service Charge ${fmt(r.commission)} = <b>${fmt(r.total)}</b></p>`;
+  };
   // Every mode present in the rows (incl. "Not set"), so the mode columns add up to the Total.
   const modeSummaryHTML=(rows)=>{
     const present=reportModesOf(rows);
@@ -178,13 +186,14 @@ function printPayrollReport(by){
       </tbody>
     </table>`;
   };
-  const unitTableHTML=(title, rows)=>{
+  const unitTableHTML=(title, rows, code)=>{
     if(!rows.length) return `<div class="reportSection"><h3 class="unitTitle">${title}</h3><p class="noRows">No employees currently ${byContractor?'supplied by this contractor':'working in this unit'}.</p></div>`;
     return `
     <div class="reportSection">
     <h3 class="unitTitle">${title} <span class="cnt">(${rows.length} employee${rows.length>1?'s':''})</span></h3>
     ${payrollSectionTableHTML(payrollSectionCols({h:'Payment Mode', k:'PaymentMode', w:7}), rows, 'Sub Total — '+title)}
     ${modeSummaryHTML(rows) ? `<h4 class="modeTitle">Mode of Payment Summary — ${title}</h4>${modeSummaryHTML(rows)}` : ''}
+    ${byContractor ? svcLineHTML(code) : ''}
     </div>`;
   };
   const grandNet=sumOf(allRows,'NetSalary'), grandEarn=sumOf(allRows,'Earnings'), grandDed=sumOf(allRows,'Deductions');
@@ -212,6 +221,9 @@ function printPayrollReport(by){
     table.modeTable tr:last-child td{font-weight:700;color:#0f6b5c;background:#f6faf9;}
     table.modeTable td:last-child{font-weight:700;background:#e4f2ee !important;color:#0f6b5c;}
     .noRows{font-size:11px;color:#888;padding:4px 8px;font-style:italic;}
+    .svcLine{margin:4px 0 8px;padding:4px 8px;border:1px solid #d8d6cd;border-radius:4px;background:#f6f5f1;font-size:11px;text-align:center;page-break-inside:avoid;break-inside:avoid;}
+    .svcLine b{color:#0f6b5c;}
+    .svcLine span{color:#666;}
     table.repTable{width:100%;border-collapse:collapse;font-size:9.5px;margin-bottom:4px;table-layout:fixed;}
     table.repTable th,table.repTable td{border:1px solid #d8d6cd;padding:2px 3px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     table.repTable tbody tr{page-break-inside:avoid;break-inside:avoid;}
@@ -247,12 +259,14 @@ function printPayrollReport(by){
   <div class="reportTitle">${byContractor?'Contractor-wise ':''}Payroll / Salary Report<span>For the month of ${monthLabel(payMonth)}</span></div>
   </td></tr></thead>
   <tbody><tr><td>
-  ${sections.map(s=>unitTableHTML(s.title, s.rows)).join('\n  ')}
+  ${sections.map(s=>unitTableHTML(s.title, s.rows, s.code)).join('\n  ')}
   <div class="grandTotalBox">
     <span>Total Employees: <b>${allRows.length}</b></span>
     <span>Total Earnings: <b>${fmt(grandEarn)}</b></span>
     <span>Total Deductions: <b>${fmt(grandDed)}</b></span>
     <span>Grand Total Net Pay: <b>${fmt(grandNet)}</b></span>
+    ${byContractor ? (()=>{ const v=Object.values(svcByCode), t=k=>Math.round(v.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
+      return `<span>Total Service Charge (full present days only): <b>${fmt(t('commission'))}</b></span><span>Total Payable to Contractors: <b>${fmt(t('total'))}</b></span>`; })() : ''}
   </div>
   <div class="footNote">
     <span>Prepared by: ____________________</span>

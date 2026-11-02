@@ -106,6 +106,7 @@ function renderReportDetail(key){
   let previewHtml='', hasData=true;
   // Figures for the slim strip above the preview: [value, label, highlighted?] — from the same rows the preview shows.
   let figs=[];
+  let aboveHtml='';   // shown above the preview (Contractor-wise Report: service charge by contractor)
   const N=v=>Math.round((Number(v)||0)*100)/100, sumK=(rows,k)=>N(rows.reduce((t,r)=>t+(Number(r[k])||0),0));
   if(key==='employee'){ const rows=employeeReportRows(); previewHtml=tableFromRows(rows);
     figs=[[rows.length,'Employees'],[rows.filter(r=>r.Status==='Active').length,'Active'],[rows.filter(r=>r.Status!=='Active').length,'Inactive']]; }
@@ -180,6 +181,11 @@ function renderReportDetail(key){
       const rows=payrollReportRows(payMonth);
       const groups=key==='unit'?new Set(rows.map(r=>r.UnitCode)).size:key==='contractor'?new Set(rows.map(r=>r.ContractorCode||'-')).size:key==='mode'?new Set(rows.map(r=>r.PaymentMode||'-')).size:0;
       figs=[...(groups?[[groups, key==='unit'?'Units':key==='contractor'?'Contractors':'Payment modes']]:[]),[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'PaidDays'),'Paid days'],[fmt(sumK(rows,'Earnings')),'Earnings'],[fmt(sumK(rows,'Deductions')),'Deductions'],[fmt(sumK(rows,'NetSalary')),'Net pay',1]];
+      if(key==='contractor' && rows.length){
+        const svc=repContractorSummary(payMonth);
+        figs.splice(figs.length-1, 0, [fmt(N(svc.reduce((t,r)=>t+r.ServiceCharge,0))),'Service charge']);
+        aboveHtml=repContractorSummaryHtml(svc);
+      }
       if(!rows.length){ previewHtml='<div class="empty">No payroll records for this month.</div>'; hasData=false; }
       else previewHtml=tableFromRows(rows,{totals:true});
     }
@@ -283,6 +289,7 @@ function renderReportDetail(key){
   </div>
   ${hasData && figs.length ? `<div class="teStatRow repStrip">${figs.map(([v,l,k])=>`<div class="teStatBox${k?' repKey':''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
   <div class="panel repPanel">
+    ${hasData?aboveHtml:''}
     <div class="reportPreview">${previewHtml}</div>
     ${meta.needsDateRange ? `<p class="syncNote">Bonus Eligible Basic Wages = actual sum of each month's Earnings → Basic Salary within the selected period (only months with generated payroll are included). For Bonus Amount, each month's Basic Salary is first capped at ${fmt(BONUS_CEILING)} (if Basic ≤ ${fmt(BONUS_CEILING)}, actual is used) and then summed and multiplied by ${(meta.bonusRate*100).toFixed(2).replace(/\.00$/,'')}%.</p>` : ''}
     ${meta.needsExpFilters ? `<p class="syncNote">Age and Company Experience are calculated as on ${fmtDate(fyEndDate(expFY))} (last day of Financial Year ${expFY}). Employees who joined after this date are excluded. Experience is shown in completed Years and Months.</p>` : ''}
@@ -317,6 +324,27 @@ function downloadReportPDF(key){
   if(key==='pf') return printPFReport();
   const meta=REPORTS_LIST.find(r=>r.key===key);
   if(meta && meta.needsDateRange) return printBonusReport(meta);
+}
+/* ---- Contractor service charge (Contractor-wise Report) ----
+   The same figures as Contractors Bill → Company Payable (cbContractorRows): service charge = the
+   contractor's rate × the FULL Present days its employees worked. NOPH (paid holidays), Half Days and
+   absent days are not counted — NOPH is paid to the employee in the salary only. */
+function repContractorSummary(ym){
+  return cbContractorRows(ym).filter(r=>r.empCount).map(r=>({Contractor:r.c.name||r.c.code, Code:r.c.code, Employees:r.empCount, PresentDays:r.days, NOPH:r.noph,
+    NetPay:r.net, RatePerDay:r.rate, ServiceCharge:r.commission, TotalPayable:r.total}));
+}
+function repContractorSummaryHtml(rows){
+  if(!rows.length) return '';
+  const sum=k=>Math.round(rows.reduce((t,r)=>t+(+r[k]||0),0)*100)/100;
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  return `<div class="repSvc">
+    <div class="repSvcHead"><b>${ico('users')} Service charge by contractor</b><span>Rate × full <b>Present</b> days only. NOPH (paid holidays), Half Days and absent days are not counted — NOPH is paid in the employee's salary.</span></div>
+    <div class="cbScroll"><table class="cbTable">
+      <thead><tr><th>Contractor</th><th class="num">Employees</th><th class="num" title="Full Present days (a Half Day is not counted)">Full Present Days</th><th class="num" title="Paid holidays — paid in the salary, not counted for the service charge">NOPH (not counted)</th><th class="num">Salary (Net Pay)</th><th class="num">Rate / Day</th><th class="num">Service Charge</th><th class="num">Total Payable</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td><b>${esc(r.Contractor)}</b></td><td class="num">${r.Employees}</td><td class="num">${r.PresentDays}</td><td class="num">${r.NOPH}</td><td class="num">${fmt(r.NetPay)}</td><td class="num">₹${r.RatePerDay}</td><td class="num"><b>${fmt(r.ServiceCharge)}</b></td><td class="num"><b>${fmt(r.TotalPayable)}</b></td></tr>`).join('')}
+      <tr class="cbTotal"><td>Total — all contractors</td><td class="num">${sum('Employees')}</td><td class="num">${sum('PresentDays')}</td><td class="num">${sum('NOPH')}</td><td class="num">${fmt(sum('NetPay'))}</td><td></td><td class="num">${fmt(sum('ServiceCharge'))}</td><td class="num">${fmt(sum('TotalPayable'))}</td></tr></tbody>
+    </table></div>
+  </div>`;
 }
 /* ---- Attendance & OT Register (Monthly) — live from payrollMonthRecords ---- */
 function attRegFilterText(){
@@ -376,6 +404,12 @@ function payrollReportExcelSpec(key){
     getUnits().forEach(u=>{ const list=rows.filter(r=>unitCodeOf(empOf(r).unit)===u.code); if(list.length) sheets.push(sheet(u.code, list, unitDisplayName(u))); });
   } else if(key==='contractor'){
     label='Contractor-wise-Payroll';
+    sheets.push({name:'Service Charge', title:`${db.companyName||''} — Contractor Service Charge — ${ml}`,
+      subtitle:'Service charge = rate × full Present days only (NOPH, Half Days and absent days not counted)',
+      columns:[{header:'Contractor', key:'Contractor', width:28},{header:'Employees', key:'Employees', type:'number'},{header:'Full Present Days', key:'PresentDays', type:'number'},
+        {header:'NOPH (not counted)', key:'NOPH', type:'number'},{header:'Salary (Net Pay)', key:'NetPay', type:'money'},{header:'Rate / Day', key:'RatePerDay', type:'money', noTotal:true},
+        {header:'Service Charge', key:'ServiceCharge', type:'money'},{header:'Total Payable', key:'TotalPayable', type:'money'}],
+      rows:repContractorSummary(payMonth), totals:true});
     getContractors().forEach(c=>{ const list=rows.filter(r=>contractorFilterMatches(empOf(r), c.code)); if(list.length) sheets.push(sheet(c.name||c.code, list, 'Contractor: '+(c.name||c.code))); });
     const none=rows.filter(r=>!getContractors().some(c=>c.code===(empOf(r).contractor||'')));
     if(none.length) sheets.push(sheet('Contractor not set', none, 'Contractor not set'));
