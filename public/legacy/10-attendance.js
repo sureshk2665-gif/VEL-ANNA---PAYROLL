@@ -180,7 +180,7 @@ function renderAttendanceOverview(){
     const any=c.Present+c.LossOfPay+c.HalfDay;
     cells.push(`<button type="button" class="attOvCell ${sun?'sun':''} ${hol?'hol':''} ${dt===today?'today':''} ${future?'future':''}" onclick="openAttDay('${dt}')" title="Open ${fmtDate(dt)} in Day View">
       <div class="attOvHead"><b>${d}</b><span>${weekdayShort(attMonth,d)}</span>${hol?`<em>${STATUS_LABEL[hol]||hol}</em>`:sun?'<em>Sunday</em>':''}</div>
-      ${hol ? `<div class="attOvHoliday">Holiday</div>`
+      ${hol ? `<div class="attOvHoliday" title="${String((getHolidayEntry(dt)||{}).name||'Holiday').replace(/"/g,'&quot;')}">${String((getHolidayEntry(dt)||{}).name||'Holiday').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`
         : any ? `${line('present','Present',c.Present)}${line('absent','Absent',c.LossOfPay)}${line('half','Half Day',c.HalfDay)}` : ''}
     </button>`);
   }

@@ -432,7 +432,7 @@ function renderTEDateGrid(){
   const dayName=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
   const hol=db.timeHolidays.find(h=>h.date===dt);
   const dayTag = new Date(dt+'T00:00:00').getDay()===0 ? `<span class="tag NOPH" style="margin-left:8px;">Sunday · full-day OT</span>`
-    : getHolidayType(dt)==='NOPH' ? `<span class="tag NOPH" style="margin-left:8px;">Paid holiday (NOPH) · time worked is OT</span>`
+    : getHolidayType(dt)==='NOPH' ? `<span class="tag NOPH" style="margin-left:8px;">${(getHolidayEntry(dt)||{}).name?teEsc(getHolidayEntry(dt).name)+' · ':''}Paid holiday (NOPH) · time worked is OT</span>`
     : hol ? `<span class="tag NOPH" style="margin-left:8px;">${teEsc(hol.remarks||'Holiday')} · full-day OT</span>` : '';
   const t=teDwTotals(dt);
   // Quick Fill buttons: each shift planned today, with how many still have no time.
