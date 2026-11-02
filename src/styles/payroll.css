@@ -31,7 +31,3 @@ table.payrollTable tr.payTotalRow td{position:sticky;bottom:0;z-index:1;backgrou
 .panel > .syncNote{margin:12px 0 0;}
 
 }
-@media screen {
-/* Canteen cell: "3 × 155 = ₹465" — tokens bought × the unit's token price, then the amount. */
-table.payrollTable td.payCanteen span{color:var(--muted);font-size:12px;}
-}
