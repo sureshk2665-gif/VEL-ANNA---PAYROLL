@@ -52,14 +52,16 @@ function teFmtHM(mins){
   mins=Math.max(0,Math.round(mins));
   return Math.floor(mins/60)+':'+String(mins%60).padStart(2,'0');
 }
-// The company's shifts (8 working hours + a 30-minute break; "+ OT" = 2 hours more). Used by
-// the Bulk Shift tool in the Date-wise grid; times are minutes from midnight (> 1440 = next day).
+// The company's shifts (8 working hours + a 30-minute break; "+ OT" = 2 hours more, "+ Extra OT" on
+// the Second Shift = till 5:00 AM, 5 hours more). Times are minutes from midnight (> 1440 = next day).
+// These are the starting list; the timings in use live in db.shiftPresets (teShiftPresets).
 const TE_SHIFTS=[
   {key:'first',    label:'First Shift',       inMin:7*60,     outMin:15*60+30},
   {key:'firstOT',  label:'First Shift + OT',  inMin:7*60,     outMin:17*60+30},
   {key:'general',  label:'General Shift',     inMin:9*60,     outMin:17*60+30},
   {key:'second',   label:'Second Shift',      inMin:15*60+30, outMin:24*60},
-  {key:'secondOT', label:'Second Shift + OT', inMin:15*60+30, outMin:26*60}
+  {key:'secondOT', label:'Second Shift + OT', inMin:15*60+30, outMin:26*60},
+  {key:'secondOTx', label:'Second Shift + Extra OT', inMin:15*60+30, outMin:29*60}
 ];
 function teMinToHMAP(min){ min=((min%1440)+1440)%1440; return {h:(Math.floor(min/60)%12)||12, m:min%60, ap:min>=720?'PM':'AM'}; }
 function teMinLabel(min){ const t=teMinToHMAP(min); return t.h+':'+String(t.m).padStart(2,'0')+' '+t.ap; }
@@ -174,7 +176,7 @@ function teSetTab(t){ if(t!==teTab && !teEditConfirmLeave()) return; teTab=t; re
    tab) with unsaved changes asks to Save or Discard. While a session is open, anything else that
    saves the database writes these stores as they were before Edit (teDraftSafe), so a half-done
    edit never leaks out. */
-const TE_EDIT_KEYS=['timeEntries','timeLeaves','shiftOverrides','payrollAdjustments','attendance','groupWeekShift','groupMap','shiftPresets','shiftGroups','holidays','timeHolidays'];
+const TE_EDIT_KEYS=['timeEntries','timeLeaves','shiftOverrides','payrollAdjustments','attendance','groupWeekShift','groupMap','shiftPresets','shiftPresetsOffered','shiftGroups','holidays','timeHolidays'];
 let teEdit=null; // {area:'grid'|'tokens'|'groups'|'leave'|'holidays'|'attendance', snap:JSON, dirty:boolean}
 function teEditActive(area){ return !!teEdit && (!area || teEdit.area===area); }
 function teEditBegin(area){
