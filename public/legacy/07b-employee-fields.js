@@ -111,6 +111,8 @@ function employeeFields(){
       formValue:e=>e.pfDeduction || (e.pfApplicable===false ? 'no' : 'yes'),
       readValue:v=>({pfDeduction:v, pfApplicable:v==='yes'}), width:13},
     {key:'esiApplicable', label:'ESI Deduction', section:'salary', input:'select', sheet:false,
+      hint:`ESI = Total Earnings (Basic + HRA + OT + Other Allowance) × ${esiRatePctText()}, rounded`,
+      title:'Each month: Total Earnings on the salary slip × the ESI rate (Admin → Payroll Rates), rounded to the rupee. Exempted = no ESI.',
       options:[{value:'yes',label:'Yes'},{value:'no',label:'Exempted'}],
       formValue:e=>e.esiApplicable===false ? 'no' : 'yes',
       readValue:v=>v==='yes', width:13},
@@ -120,6 +122,8 @@ function employeeFields(){
       title:'Usual number of canteen tokens this employee buys each month (change a single month in Employee Time Entry → Monthly Token Entry). Deducted from salary at the canteen token price (Admin → Payroll Rates).', width:14}
   ];
 }
+// The employee ESI rate as text, e.g. "0.75%" (Admin → Payroll Rates).
+function esiRatePctText(){ const r=+(getSettings().esiRate ?? 0.0075); return +(r*100).toFixed(2)+'%'; }
 // OT Factor (Employee form): the multiplier in the OT rate. Employees without one use 1.5.
 const OT_FACTORS=[1, 1.5, 2];
 const OT_FACTOR_DEFAULT=1.5;
@@ -171,7 +175,7 @@ function employeeFormHtml(e){
         control=`<input${type}${idAttr} value="${empAttr(val)}"${extra}>`;
       }
       const wrapAttrs=(f.full?' class="full"':'')+(f.wrap?f.wrap(e):'');
-      return `<div${wrapAttrs}><label>${f.label}</label>${control}</div>`;
+      return `<div${wrapAttrs}><label>${f.label}</label>${control}${f.hint?`<small class="empFieldHint">${f.hint}</small>`:''}</div>`;
     }).join('\n      ');
     return `<fieldset data-sec="${sec.key}"><legend>${sec.title}</legend>
     <div class="formGrid">

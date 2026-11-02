@@ -141,6 +141,8 @@ function computePayrollForEmployee(e, ym){
   //   Basic/HRA  = each paid day at that day's wage (60% / 40% of the Daily Wage — wageOnDate)
   //   OT         = OT rate/hr (Daily Wage ÷ 8 × OT Factor) × OT hours (from Employee Time Entry — otHoursFor)
   //   GROSS      = Basic + OT                    Total Earnings = GROSS + HRA (+ one-off allowance)
+  //   ESI        = Total Earnings × ESI rate (0.75%), rounded — this company's rule (e.g. ₹22,392 → ₹168)
+  //   PF         = Basic × PF rate (12%), rounded
   // Sundays are never paid days. Working days on the roll with no status up to today are "not marked"
   // (unpaid). NOWD is shown for reference.
   const dim=daysInMonth(ym), today=todayStr(), ev=wageEvents(e);
@@ -182,7 +184,9 @@ function computePayrollForEmployee(e, ym){
   const grossSalary = basicE+otAmount; // GROSS = Basic + OT
   const earningsTotal = grossSalary+hraE+otherAllowance;
 
-  const esiWages = grossSalary; // ESI on GROSS (Basic + OT)
+  // ESI wages = Total Earnings (Basic + HRA + OT + other allowance) — this company's rule; the
+  // employee share (0.75%) and the employer share (3.25%) are both worked out on it.
+  const esiWages = earningsTotal;
   const esi = e.esiApplicable ? Math.round(esiWages*rates.esiRate) : 0;
   const esiEmployer = e.esiApplicable ? Math.round(esiWages*rates.esiEmployerRate) : 0;
   // PF Wages = Basic (as processed this month). PF is only applicable when the employee's PF
