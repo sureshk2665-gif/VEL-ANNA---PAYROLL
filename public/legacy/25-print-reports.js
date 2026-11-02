@@ -1,6 +1,6 @@
 // Report columns printed as money (₹) — an explicit list, so day/hour counts are never formatted
 // as rupees and every money column is (not just the ones whose key happens to contain "Salary").
-const REPORT_MONEY_KEYS=['Gross','Earnings','ESI','PF','Canteen','Late','Advance','OtherDed','Deductions','NetSalary',
+const REPORT_MONEY_KEYS=['Gross','Earnings','PF','ESI','Canteen','Late','Advance','OtherDed','Deductions','NetSalary',
   'OTAmount','LateAmount','CanteenAmount','AdvanceAmount','DailyWage'];
 // Columns that are never summed in a totals row (rates / per-month constants).
 const REPORT_NO_TOTAL_KEYS=['NOWD','WeekOff','DailyWage'];
@@ -133,7 +133,7 @@ function payrollSectionCols(fourth){
     {h:'S.No', w:3, sn:true}, {h:'Code', k:'Code', w:6}, {h:'Name', k:'Name', w:13}, fourth,
     {h:'Present', k:'Present', w:4.5, num:true}, {h:'Paid Days', k:'PaidDays', w:4.5, num:true}, {h:'LOP', k:'LOP', w:3.5, num:true},
     {h:'OT Hrs', k:'OTHrs', w:4, num:true}, {h:'Late Min', k:'LateMin', w:4, num:true},
-    {h:'Total Earnings', k:'Earnings', w:6.5, money:true}, {h:'ESI', k:'ESI', w:5, money:true}, {h:'PF', k:'PF', w:5, money:true},
+    {h:'Total Earnings', k:'Earnings', w:6.5, money:true}, {h:'PF', k:'PF', w:5, money:true}, {h:'ESI', k:'ESI', w:5, money:true},
     {h:'Canteen', k:'Canteen', w:5, money:true}, {h:'Late (₹)', k:'Late', w:5, money:true}, {h:'Advance', k:'Advance', w:5, money:true},
     {h:'Other Ded.', k:'OtherDed', w:5, money:true}, {h:'Total Ded.', k:'Deductions', w:6, money:true}, {h:'Net Pay', k:'NetSalary', w:7, money:true, net:true}
   ];
@@ -308,8 +308,8 @@ function printModeWiseReport(){
       <thead><tr><th>Mode of Payment</th>${modesPresent.map(m=>`<th>${reportModeLabel(m)}</th>`).join('')}<th>Total</th></tr></thead>
       <tbody>
         ${dedLine('Total Earnings','Earnings')}
-        ${dedLine('Total ESI Deductions','ESI')}
         ${dedLine('Total PF Deductions','PF')}
+        ${dedLine('Total ESI Deductions','ESI')}
         ${dedLine('Total Canteen Deductions','Canteen')}
         ${dedLine('Total Late Deductions','Late')}
         ${dedLine('Total Advance Deductions','Advance')}
