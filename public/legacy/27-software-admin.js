@@ -190,7 +190,7 @@ function renderSoftwareAdmin(){
   else if(saTab==='danger') body=`
   <div class="panel saDanger"><h3>${ico('alert')} Danger Zone</h3>
     <p style="font-size:13px;color:var(--muted);"><b>Delete All Attendance Data</b> is for clearing test entries before go-live: it removes attendance, In / Out times, leave entries and OT / late figures, and keeps employees, holidays, shift groups and settings. It downloads a backup file first and asks you to type DELETE.</p>
-    <p style="font-size:13px;color:var(--muted);"><b>Reset All Data</b> erases all data except the user accounts, after one confirmation, and does <b>not</b> download a backup — take one from the Backup tab first.</p>
+    <p style="font-size:13px;color:var(--muted);"><b>Reset All Data</b> erases all data except the user accounts — company details, units, contractors, employees, attendance, payroll and settings. It downloads a backup file first and asks you to type RESET.</p>
     <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
       <button class="btn danger" onclick="deleteAllAttendanceData()">${ico('trash')} Delete All Attendance Data</button>
       <button class="btn danger" onclick="resetAllData()">Reset All Data</button>
