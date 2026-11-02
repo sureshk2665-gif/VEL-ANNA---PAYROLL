@@ -5,12 +5,57 @@
    Admin Management panel (which, unlike the Admin's own restricted copy, can create/edit/delete
    Admin and Software Admin accounts too). This is intentionally kept out of the regular per-user
    permission checkboxes so Software Admin access can never be handed out by accident. */
+/* Software Admin is shown one section at a time under tabs (like Admin). Company details and
+   Units & Contractors are locked until Edit; Save applies them, Cancel puts back what is saved. */
+let saTab='company';
+let saEdit='';        // '' | 'company' | 'units' — the section open for editing
+function saSetTab(t){
+  if(saEdit && t!==saTab && !saConfirmDiscard()) return;
+  saEdit=''; saTab=t; render('softwareadmin');
+}
+function saConfirmDiscard(){
+  const f=document.querySelector('.saEditFs');
+  return !(f && f.dataset.dirty) || confirm('Discard the changes you are making?');
+}
+function saEditOpen(area){ if(!isSoftwareAdmin()) return; saEdit=area; render('softwareadmin'); setTimeout(()=>{ const i=document.querySelector('.saEditFs input:not([type=file])'); if(i) i.focus(); },0); }
+function saEditCancel(){ if(!saConfirmDiscard()) return; saEdit=''; render('softwareadmin'); }
+function saEditSave(){ saveCompanySettings(); saEdit=''; render('softwareadmin'); }
+// Edit / Cancel / Save for a locked section
+function saEditBar(area, note){
+  const on=saEdit===area;
+  return `<div class="saEditBar${on?' on':''}"><span>${on?note:'Locked. Click Edit to make changes.'}</span>
+    ${on?`<span class="saEditBtns"><button class="btn secondary" onclick="saEditCancel()">${ico('x')} Cancel</button><button class="btn" onclick="saEditSave()">${ico('save')} Save</button></span>`
+        :`<button class="btn btnEditAtt" onclick="saEditOpen('${area}')">${ico('pencil')} Edit</button>`}</div>`;
+}
 function renderSoftwareAdmin(){
   if(!isSoftwareAdmin()) return denyMsg('view this page','System');
-  return `
+  const tabs=[
+    {key:'company', icon:'building', label:'Company'},
+    {key:'units', icon:'factory', label:'Units & Contractors'},
+    {key:'users', icon:'users', label:'Users & Rights'},
+    {key:'empdata', icon:'file-spreadsheet', label:'Employee Data'},
+    {key:'backup', icon:'database', label:'Backup'},
+    {key:'logins', icon:'key', label:'Login Log'},
+    {key:'danger', icon:'alert', label:'Danger Zone'},
+  ];
+  if(!tabs.some(t=>t.key===saTab)) saTab='company';
+  if(saEdit && saEdit!==saTab) saEdit='';
+  const lastBk=(db.backupHistory||[]).slice(-1)[0];
+  const strip=`<div class="teStatRow saStrip">
+    <div class="teStatBox"><b>${getUnits().length}</b><span>Working units</span></div>
+    <div class="teStatBox"><b>${getContractors().length}</b><span>Contractors</span></div>
+    <div class="teStatBox"><b>${(db.employees||[]).filter(e=>e.status!=='Resigned').length}</b><span>Employees (not resigned)</span></div>
+    <div class="teStatBox"><b>${(db.users||[]).filter(u=>u.active!==false).length}</b><span>Active users</span></div>
+    <div class="teStatBox"><b>${db.autoBackup?.enabled?'On':'Off'}</b><span>Automatic backup${lastBk?' · last '+lastBk.date:''}</span></div>
+  </div>`;
+  const editOn=a=>saEdit===a;
+  const fs=(a,inner)=>`<fieldset class="setEditFs saEditFs" ${editOn(a)?'':'disabled'} oninput="this.dataset.dirty=1">${inner}</fieldset>`;
+  let body='';
+  if(saTab==='company') body=`
   <div class="panel"><h3>${ico('building')} Company Details</h3>
-    <p style="font-size:12px;color:var(--muted);">These appear in the header of printed slips and reports.</p>
-    <div class="formGrid" style="align-items:flex-start;">
+    <p class="saNote">These appear in the header of printed slips and reports, and the name and logo across the app.${editOn('company')?' The logo is saved as soon as you choose it.':''}</p>
+    ${saEditBar('company','Change the details, then Save. Cancel puts back what is saved.')}
+    ${fs('company', `    <div class="formGrid" style="align-items:flex-start;">
       <div>
         <label>Company Logo</label>
         <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
@@ -32,8 +77,13 @@ function renderSoftwareAdmin(){
       <div><label>Phone</label><input id="s_companyPhone" value="${db.companyPhone||''}"></div>
       <div><label>Email</label><input id="s_companyEmail" value="${db.companyEmail||''}"></div>
     </div>
-    <h4 style="margin:18px 0 4px;">Working Units</h4>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Units are shown as "${unitPrefix()?unitPrefix()+' ':''}Unit-1", "${unitPrefix()?unitPrefix()+' ':''}Unit-2" … (the first word of the Company Name). Edit a unit's address here and press Save — it changes everywhere the unit is shown (employee form and list, attendance, salary slips, acquittance register and reports). A unit can be deleted only while no employee (active, inactive or resigned) belongs to it.</p>
+`)}
+  </div>`;
+  else if(saTab==='units') body=`
+  <div class="panel">
+    ${saEditBar('units','Change addresses or contractor details, then Save. Adding or deleting a unit or contractor is saved straight away.')}
+    ${fs('units', `    <h4 style="margin:18px 0 4px;">Working Units</h4>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Units are shown as "${unitPrefix()?unitPrefix()+' ':''}Unit-1", "${unitPrefix()?unitPrefix()+' ':''}Unit-2" … (the first word of the Company Name). Click Edit, change a unit's address and press Save — it changes everywhere the unit is shown (employee form and list, attendance, salary slips, acquittance register and reports). A unit can be deleted only while no employee (active, inactive or resigned) belongs to it.</p>
     <div style="overflow-x:auto;">
     <table>
       <thead><tr><th>Unit</th><th>Address (printed on salary slips)</th><th>Employees</th><th></th></tr></thead>
@@ -48,7 +98,7 @@ function renderSoftwareAdmin(){
     </table>
     </div>
     <h4 style="margin:22px 0 4px;">Contractors</h4>
-    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Contractors supply employees; any contractor can supply employees to any unit. Rename a contractor here and press Save — it changes everywhere (employee form and list, salary slips, reports, Excel template). A contractor can be deleted only while no employee (active, inactive or resigned) was supplied by them.</p>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 8px;">Contractors supply employees; any contractor can supply employees to any unit. Click Edit, rename a contractor and press Save — it changes everywhere (employee form and list, salary slips, reports, Excel template). A contractor can be deleted only while no employee (active, inactive or resigned) was supplied by them.</p>
     <div style="overflow-x:auto;">
     <table>
       <thead><tr><th>Contractor Name</th><th>Address</th><th>Phone</th><th>Employees</th><th></th></tr></thead>
@@ -63,32 +113,32 @@ function renderSoftwareAdmin(){
       </tbody>
     </table>
     </div>
-    <div class="modalActions"><button class="btn secondary" onclick="addWorkingUnit()">${ico('plus')} Add Unit</button><button class="btn secondary" onclick="addContractor()">${ico('plus')} Add Contractor</button><button class="btn" onclick="saveCompanySettings()">Save</button></div>
-  </div>
+
+    ${editOn('units')?`<div class="modalActions" style="justify-content:flex-start;"><button class="btn secondary" onclick="addWorkingUnit()">${ico('plus')} Add Unit</button><button class="btn secondary" onclick="addContractor()">${ico('plus')} Add Contractor</button></div>`:''}`)}
+  </div>`;
+  else if(saTab==='users') body=renderUserRightsPanel();
+  else if(saTab==='empdata') body=`
+  <div class="setTwo">
   <div class="panel"><h3>${ico('file-spreadsheet')} Bulk Import Employees</h3>
     <p style="font-size:13px;color:var(--muted);">Add many new employees at once from an Excel file: download the template, fill one row per employee, then upload it. Rows are checked before anything is added. Bulk import is available only here; other users add employees one at a time from Employees → + Add Employee.</p>
     <div class="modalActions" style="justify-content:flex-start;"><button class="btn" onclick="openBulkImport()">${ico('file-spreadsheet')} Bulk Import (Excel)</button></div>
   </div>
-  ${renderUserRightsPanel()}
+  <div class="panel"><h3>${ico('file-spreadsheet')} Download All Employee Details</h3>
+    <p style="font-size:13px;color:var(--muted);">One Excel sheet with every employee and every field of the employee form. Empty cells are coloured yellow, and the last columns list what still needs to be filled for each employee.</p>
+    <div class="modalActions" style="justify-content:flex-start;">
+      <button class="btn secondary" onclick="downloadAllEmployeeDetails()">${ico('file-spreadsheet')} Download All Employee Details (Excel)</button>
+    </div>
+  </div>
+  </div>`;
+  else if(saTab==='backup') body=`
   <div class="panel"><h3>${ico('database')} Data Backup &amp; Restore</h3>
-    <p style="font-size:13px;color:var(--muted);">All data is stored locally in this browser (no server). Take a backup regularly and store the file safely — clearing browser data, reinstalling the browser, or switching devices will erase records unless you restore from a backup.</p>
+    <p style="font-size:13px;color:var(--muted);">All data is kept in the online database. A backup is a full copy in one file that you keep yourself — download one regularly and store it safely. Restore puts a backup file back and replaces the current data.</p>
     <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
       <button class="btn" onclick="backupData()">${ico('download')} Backup Data (Download)</button>
       <button class="btn secondary" onclick="document.getElementById('restoreFileInput').click()">${ico('upload')} Restore Data (Upload)</button>
       <input type="file" id="restoreFileInput" accept="application/json,.json" style="display:none" onchange="restoreData(this.files[0])">
     </div>
     <p id="backupInfo" style="font-size:12px;color:var(--muted);margin-top:8px;"></p>
-    <hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">
-    <p style="font-size:13px;color:var(--muted);">Employee details: one Excel sheet with every employee and every field of the employee form. Empty cells are coloured yellow, and the last columns list what still needs to be filled for each employee.</p>
-    <div class="modalActions" style="justify-content:flex-start;">
-      <button class="btn secondary" onclick="downloadAllEmployeeDetails()">${ico('file-spreadsheet')} Download All Employee Details (Excel)</button>
-    </div>
-    <hr style="border:none;border-top:1px solid var(--line);margin:16px 0;">
-    <p style="font-size:13px;color:var(--muted);">Danger zone. <b>Delete All Attendance Data</b> is for clearing test entries before go-live: it removes attendance, In / Out times, leave entries and OT / late figures, and keeps employees, holidays, shift groups and settings. A backup file is downloaded first.</p>
-    <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
-      <button class="btn danger" onclick="deleteAllAttendanceData()">${ico('trash')} Delete All Attendance Data</button>
-      <button class="btn danger" onclick="resetAllData()">Reset All Data</button>
-    </div>
   </div>
   <div class="panel"><h3>${ico('timer')} Automatic Backup Scheduler</h3>
     <p style="font-size:13px;color:var(--muted);">Schedule backups to run on their own, saved as a download in the same location as manual backups above. This works while the app is open in a browser tab — keep a tab open (or open it once a day) so the schedule can trigger. If the app wasn't open at the scheduled time, the overdue backup runs automatically the next time it's opened.</p>
@@ -135,8 +185,23 @@ function renderSoftwareAdmin(){
       </tbody>
     </table>
     </div>
+  </div>`;
+  else if(saTab==='logins') body=renderLoginLogsPanel();
+  else if(saTab==='danger') body=`
+  <div class="panel saDanger"><h3>${ico('alert')} Danger Zone</h3>
+    <p style="font-size:13px;color:var(--muted);"><b>Delete All Attendance Data</b> is for clearing test entries before go-live: it removes attendance, In / Out times, leave entries and OT / late figures, and keeps employees, holidays, shift groups and settings. It downloads a backup file first and asks you to type DELETE.</p>
+    <p style="font-size:13px;color:var(--muted);"><b>Reset All Data</b> erases all data except the user accounts, after one confirmation, and does <b>not</b> download a backup — take one from the Backup tab first.</p>
+    <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
+      <button class="btn danger" onclick="deleteAllAttendanceData()">${ico('trash')} Delete All Attendance Data</button>
+      <button class="btn danger" onclick="resetAllData()">Reset All Data</button>
+    </div>
+  </div>`;
+  return `
+  <div class="teTabs setTabs saTabs" role="tablist">
+    ${tabs.map(t=>`<div class="teTab ${saTab===t.key?'active':''}" role="tab" tabindex="0" aria-selected="${saTab===t.key}" onclick="saSetTab('${t.key}')" onkeydown="if(event.key==='Enter')saSetTab('${t.key}')">${ico(t.icon)} ${t.label}</div>`).join('')}
   </div>
-  ${renderLoginLogsPanel()}`;
+  ${strip}
+  ${body}`;
 }
 // LoginLog viewer — shown at the bottom of the Software Admin page so the LoginLog data
 // feature actually has somewhere to be seen and used, not just written silently to storage.
