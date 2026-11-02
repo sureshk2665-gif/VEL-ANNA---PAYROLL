@@ -26,6 +26,10 @@ function slipNotesHtml(r){
     notes.push('Daily wage this month: '+r.wageSegments.map(g=>`₹${g.dailyWage} (${fmtDate(g.from).slice(0,5)}–${fmtDate(g.to).slice(0,5)})`).join(', '));
   return notes.join(' · ');
 }
+// Slip figures: Present = full days + Half Days × ½; LOP = Loss of Pay days + Half Days × ½ (the
+// half day is counted in both, so Present + LOP = NOWD when every working day is marked).
+function slipLopDays(r){ return Math.round(((+r.lopDays||0) + (+r.halfDayCount||0)*0.5)*100)/100; }
+function slipPfNo(e, r){ return (e && e.pfNo) || (r && r.pfNo) || '-'; }
 // Viewing a slip only reads: it is computed from current data (payrollRecordFor) and never saved.
 function openSlip(code, ym){
   const e=db.employees.find(x=>x.code===code);
@@ -43,32 +47,36 @@ function openSlip(code, ym){
     <table style="font-size:17px;margin-bottom:8px;">
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
-        <td>LOP ${r.lopDays} &nbsp;·&nbsp; HALF DAY ${r.halfDayCount||0}</td>
+        <td>LOP ${slipLopDays(r)}</td>
         <td>OT HOURS ${r.otHours}</td>
       </tr>
       <tr>
-        <td>Paid days ${r.daysWorking}</td>
-        <td>NOPH ${r.noph} &nbsp;·&nbsp; WEEK OFF ${payWeekOff(r, ym)}</td>
+        <td>Present Days ${payPresentDays(r)}</td>
+        <td>NOPH ${r.noph}</td>
         <td>LATE ${r.lateMinutes||0} MIN</td>
       </tr>
       <tr>
-        <td>MODE ${e.mode||'-'}</td>
+        <td>Per Day ${fmt(r.scaleTotal??r.dailyWage??currentDailyWage(e))}</td>
         <td>CANTEEN TOKENS ${r.canteenTokens||0}</td>
         <td>ESI NO : ${e.esiNo||'-'}</td>
       </tr>
+      <tr>
+        <td></td>
+        <td></td>
+        <td>PF NO : ${slipPfNo(e, r)}</td>
+      </tr>
     </table>
     <table style="border:1px solid #1c2430;text-align:center;">
-      <colgroup><col style="width:24%"><col style="width:15%"><col style="width:15%"><col style="width:30%"><col style="width:16%"></colgroup>
-      <tr style="background:#0f6b5c;color:#fff;"><th style="text-align:center;">DETAILS</th><th style="text-align:center;">PER DAY</th><th style="text-align:center;">EARNED</th><th style="text-align:center;">DEDUCTIONS</th><th style="text-align:center;">AMOUNT (₹)</th></tr>
-      <tr><td style="text-align:left;">Basic</td><td>${fmt(r.basicPerDay??e.basic).replace('₹','')}</td><td>${fmt(r.basicE).replace('₹','')}</td><td style="text-align:left;">ESI</td><td>${fmt(r.esi).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;">HRA</td><td>${fmt(r.hraPerDay??e.hra).replace('₹','')}</td><td>${fmt(r.hraE).replace('₹','')}</td><td style="text-align:left;">PF</td><td>${fmt(r.pf).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;">Over Time</td><td>${r.otPerHourRate?fmt(r.otPerHourRate).replace('₹','')+'/hr':''}</td><td>${fmt(r.otAmount).replace('₹','')}</td><td style="text-align:left;">Canteen (${r.canteenTokens||0} × ₹${r.canteenTokenPrice||0})</td><td>${fmt(r.canteen).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;">Other Allowance</td><td></td><td>${fmt(r.otherAllowance).replace('₹','')}</td><td style="text-align:left;">Advance</td><td>${fmt(r.advance).replace('₹','')}</td></tr>
-      <tr><td style="text-align:left;font-weight:700;">GROSS (Basic + OT)</td><td></td><td style="font-weight:700;">${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</td><td style="text-align:left;">Others</td><td>${fmt(others).replace('₹','')}</td></tr>
-      <tr><td></td><td></td><td></td><td style="text-align:left;">Late (${r.lateChargedMinutes||0} min${r.lateChargedMinutes?' × ₹'+r.latePerMinute:''})</td><td>${fmt(r.lateDeduction||0).replace('₹','')}</td></tr>
+      <colgroup><col style="width:28%"><col style="width:20%"><col style="width:34%"><col style="width:18%"></colgroup>
+      <tr style="background:#0f6b5c;color:#fff;"><th style="text-align:center;">DETAILS</th><th style="text-align:center;">EARNED</th><th style="text-align:center;">DEDUCTIONS</th><th style="text-align:center;">AMOUNT (₹)</th></tr>
+      <tr><td style="text-align:left;">Basic</td><td>${fmt(r.basicE).replace('₹','')}</td><td style="text-align:left;">ESI</td><td>${fmt(r.esi).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;">HRA</td><td>${fmt(r.hraE).replace('₹','')}</td><td style="text-align:left;">PF</td><td>${fmt(r.pf).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;">Over Time</td><td>${fmt(r.otAmount).replace('₹','')}</td><td style="text-align:left;">Canteen (${r.canteenTokens||0} × ₹${r.canteenTokenPrice||0})</td><td>${fmt(r.canteen).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;">Other Allowance</td><td>${fmt(r.otherAllowance).replace('₹','')}</td><td style="text-align:left;">Advance</td><td>${fmt(r.advance).replace('₹','')}</td></tr>
+      <tr><td style="text-align:left;font-weight:700;">GROSS (Basic + OT)</td><td style="font-weight:700;">${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</td><td style="text-align:left;">Others</td><td>${fmt(others).replace('₹','')}</td></tr>
+      <tr><td></td><td></td><td style="text-align:left;">Late (${r.lateChargedMinutes||0} min${r.lateChargedMinutes?' × ₹'+r.latePerMinute:''})</td><td>${fmt(r.lateDeduction||0).replace('₹','')}</td></tr>
       <tr style="font-weight:700;background:#f3f3f3;">
         <td style="text-align:left;">TOTAL EARNINGS</td>
-        <td>${fmt(r.scaleTotal).replace('₹','')}</td>
         <td>${fmt(r.earningsTotal).replace('₹','')}</td>
         <td style="text-align:left;">TOTAL DEDUCTIONS</td>
         <td>${fmt(r.deductionsTotal).replace('₹','')}</td>
@@ -100,22 +108,22 @@ function slipCardHTML(e, r, ym){
     </div>
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}</div>
     <table class="slipMeta">
-      <tr><td>NOWD ${r.nowd}</td><td>LOP ${r.lopDays} &nbsp;·&nbsp; HALF DAY ${r.halfDayCount||0}</td><td>OT HRS ${r.otHours}</td></tr>
-      <tr><td>Paid Days ${r.daysWorking}</td><td>NOPH ${r.noph} &nbsp;·&nbsp; WEEK OFF ${payWeekOff(r, ym)}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
-      <tr><td>MODE ${e.mode||'-'}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
+      <tr><td>NOWD ${r.nowd}</td><td>LOP ${slipLopDays(r)}</td><td>OT HRS ${r.otHours}</td></tr>
+      <tr><td>Present Days ${payPresentDays(r)}</td><td>NOPH ${r.noph}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
+      <tr><td>Per Day ${fmt(r.scaleTotal??r.dailyWage??currentDailyWage(e))}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
+      <tr><td></td><td></td><td>PF NO : ${slipPfNo(e, r)}</td></tr>
     </table>
     <table class="slipBody">
-      <colgroup><col style="width:25%"><col style="width:11%"><col style="width:12%"><col style="width:32%"><col style="width:20%"></colgroup>
-      <tr class="hd"><th>DETAILS</th><th>PER DAY</th><th>EARNED</th><th>DEDUCTIONS</th><th>AMT ₹</th></tr>
-      <tr><td>Basic</td><td class="amt">${fmt(r.basicPerDay??e.basic).replace('₹','')}</td><td class="amt">${fmt(r.basicE).replace('₹','')}</td><td>ESI</td><td class="amt">${fmt(r.esi).replace('₹','')}</td></tr>
-      <tr><td>HRA</td><td class="amt">${fmt(r.hraPerDay??e.hra).replace('₹','')}</td><td class="amt">${fmt(r.hraE).replace('₹','')}</td><td>PF</td><td class="amt">${fmt(r.pf).replace('₹','')}</td></tr>
-      <tr><td>OT</td><td class="amt">${r.otPerHourRate?fmt(r.otPerHourRate).replace('₹','')+'/hr':''}</td><td class="amt">${fmt(r.otAmount).replace('₹','')}</td><td>Canteen (${r.canteenTokens||0} tkn)</td><td class="amt">${fmt(r.canteen).replace('₹','')}</td></tr>
-      <tr><td>Other Allw.</td><td class="amt"></td><td class="amt">${fmt(r.otherAllowance).replace('₹','')}</td><td>Advance</td><td class="amt">${fmt(r.advance).replace('₹','')}</td></tr>
-      <tr><td><b>GROSS</b></td><td class="amt"></td><td class="amt"><b>${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</b></td><td>Others</td><td class="amt">${fmt((+r.otherDed||0)+(+r.tax||0)).replace('₹','')}</td></tr>
-      <tr><td></td><td class="amt"></td><td class="amt"></td><td>Late (${r.lateChargedMinutes||0} min)</td><td class="amt">${fmt(r.lateDeduction||0).replace('₹','')}</td></tr>
+      <colgroup><col style="width:28%"><col style="width:18%"><col style="width:34%"><col style="width:20%"></colgroup>
+      <tr class="hd"><th>DETAILS</th><th>EARNED</th><th>DEDUCTIONS</th><th>AMT ₹</th></tr>
+      <tr><td>Basic</td><td class="amt">${fmt(r.basicE).replace('₹','')}</td><td>ESI</td><td class="amt">${fmt(r.esi).replace('₹','')}</td></tr>
+      <tr><td>HRA</td><td class="amt">${fmt(r.hraE).replace('₹','')}</td><td>PF</td><td class="amt">${fmt(r.pf).replace('₹','')}</td></tr>
+      <tr><td>OT</td><td class="amt">${fmt(r.otAmount).replace('₹','')}</td><td>Canteen (${r.canteenTokens||0} tkn)</td><td class="amt">${fmt(r.canteen).replace('₹','')}</td></tr>
+      <tr><td>Other Allw.</td><td class="amt">${fmt(r.otherAllowance).replace('₹','')}</td><td>Advance</td><td class="amt">${fmt(r.advance).replace('₹','')}</td></tr>
+      <tr><td><b>GROSS</b></td><td class="amt"><b>${fmt(r.grossSalary??(r.basicE+r.otAmount)).replace('₹','')}</b></td><td>Others</td><td class="amt">${fmt((+r.otherDed||0)+(+r.tax||0)).replace('₹','')}</td></tr>
+      <tr><td></td><td class="amt"></td><td>Late (${r.lateChargedMinutes||0} min)</td><td class="amt">${fmt(r.lateDeduction||0).replace('₹','')}</td></tr>
       <tr class="totalRow">
         <td>TOTAL</td>
-        <td class="amt">${fmt(r.scaleTotal).replace('₹','')}</td>
         <td class="amt">${fmt(r.earningsTotal).replace('₹','')}</td>
         <td>TOTAL</td>
         <td class="amt">${fmt(r.deductionsTotal).replace('₹','')}</td>
