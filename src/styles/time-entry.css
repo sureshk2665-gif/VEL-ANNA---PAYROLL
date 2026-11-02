@@ -89,3 +89,12 @@
 .teSmEditBar .btn{height:var(--control-height);}
 }
 @media screen { .teEwSave{min-width:0;white-space:nowrap;} .teEwSave svg{width:13px;height:13px;vertical-align:-2px;} }
+@media screen {
+/* Holiday dialog: the name box (required for a holiday, hidden for a working day) */
+.teHolNameWrap[hidden]{display:none !important;}
+.teReq{color:var(--negative);}
+.teHolNameHint{display:block;margin-top:4px;font-size:11.5px;color:var(--muted);}
+/* Employee-wise status for a holiday: its name; "without pay" in a quiet grey tag */
+.tag.teEwHolTag{background:var(--raised);color:var(--text);border-color:var(--border);}
+.tag small{font-size:11px;font-weight:500;opacity:.8;}
+}

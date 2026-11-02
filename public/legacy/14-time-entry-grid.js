@@ -100,6 +100,14 @@ function teEwRecentInMin(code, dt){
 }
 
 /* ---- Row model: everything a row shows, derived from the shared store ---- */
+// The Holiday Calendar entry for a date: {kind:'paid'|'unpaid', name, label, remarks} or null.
+function teEwHoliday(dt){
+  const p=(db.holidays||[]).find(h=>h.date===dt);
+  if(p) return {kind:'paid', name:p.name||'', label:'Paid holiday (NOPH)', remarks:p.name||'Paid holiday'};
+  const u=(db.timeHolidays||[]).find(h=>h.date===dt);
+  if(u) return {kind:'unpaid', name:u.remarks||'', label:'Holiday without pay', remarks:u.remarks||'Holiday'};
+  return null;
+}
 function teEwRowModel(code, dt){
   const entry=(db.timeEntries[dt]&&db.timeEntries[dt][code])||teEwBlankEntry();
   const leave=teGetLeave(dt, code);
@@ -108,16 +116,18 @@ function teEwRowModel(code, dt){
   const c=teHalfDayCap(teCompute(entry, dt, code), half);
   const [y,m,d]=dt.split('-').map(Number);
   const dow=new Date(y,m-1,d).getDay();
-  const hol=db.timeHolidays.find(h=>h.date===dt)||null;
+  // A holiday from the Holiday Calendar: paid (NOPH, db.holidays) or without pay (db.timeHolidays),
+  // with its name — shown in the Status column instead of "No entry".
+  const hol=teEwHoliday(dt);
   const hasIn=entry.inH!==''&&entry.inH!==undefined, hasOut=entry.outH!==''&&entry.outH!==undefined;
   const isFuture=dt>todayStr();
   let status;
   if(onLeave) status=`<span class="tag LossOfPay">${ico('palm')} ${teEsc(leave.type)}</span>`;
-  else if(hasIn&&hasOut) status = teIsHolidayDate(dt) ? `<span class="tag NOPH">Holiday OT</span>` : leave ? `<span class="tag HalfDay">${ico('contrast')} Half Day</span>` : `<span class="tag Present">Present</span>`;
+  else if(hasIn&&hasOut) status = teIsHolidayDate(dt) ? `<span class="tag NOPH" title="${teEsc(hol?hol.label:'Holiday')} — time worked is OT">${hol&&hol.name?teEsc(hol.name)+' · ':''}Holiday OT</span>` : leave ? `<span class="tag HalfDay">${ico('contrast')} Half Day</span>` : `<span class="tag Present">Present</span>`;
   else if(hasIn) status=`<span class="tag HalfDay">Out time missing</span>`;
   else if(leave) status=`<span class="tag HalfDay">${ico('contrast')} Half Day</span>`;
   else if(dow===0) status=`<span class="teEwMuted">Sunday</span>`;
-  else if(hol) status=`<span class="teEwMuted">Holiday</span>`;
+  else if(hol) status=`<span class="tag ${hol.kind==='paid'?'NOPH':'teEwHolTag'}" title="${teEsc(hol.label)}">${teEsc(hol.name||hol.label)}${hol.name?` <small>· ${hol.kind==='paid'?'Paid holiday':'No pay'}</small>`:''}</span>`;
   else if(isFuture) status=`<span class="teEwMuted">–</span>`;
   else status=`<span class="teEwMissing">No entry</span>`;
   return {entry,leave,onLeave,c,dow,hol,hasIn,hasOut,status,
@@ -421,7 +431,7 @@ function printTEEmployee(){
   const rows=teEwMonthDates(teEwMonth).map((dt,i)=>{
     const md=teEwRowModel(teEwEmp, dt), cc=teEwComputedCells(md);
     const att = md.onLeave ? `On Leave — ${md.leave.type}${md.leave.remarks?' ('+teEsc(md.leave.remarks)+')':''}`
-      : md.leave ? 'Half Day' : md.hasIn ? (teIsHolidayDate(dt)?'Holiday OT':'Present') : md.dow===0?'Sunday':md.hol?'Holiday':'-';
+      : md.leave ? 'Half Day' : md.hasIn ? (teIsHolidayDate(dt)?'Holiday OT':'Present') : md.dow===0?'Sunday':md.hol?(md.hol.name||md.hol.label):'-';
     return `<tr><td>${i+1}</td><td>${fmtDate(dt)}</td><td>${dayNames[md.dow]}</td><td>${md.onLeave?'-':md.inTxt||'-'}</td><td>${md.onLeave?'-':md.outTxt||'-'}</td>
       <td>${cc.shift}</td><td>${cc.working}</td><td>${cc.late}</td><td>${cc.ot}</td><td>${cc.total}</td><td>${att}</td></tr>`;
   }).join('');
@@ -663,7 +673,7 @@ function teHolOpen(dt){
   if(!teHolCanEdit()) return;
   if(!teEditActive('holidays')){ alert('Click Edit first.'); return; }
   const cur=teHolKind(dt);
-  const opt=(v,label,sub)=>`<label class="teHolOpt"><input type="radio" name="teHolKind" value="${v}" ${cur.kind===v?'checked':''}><span><b>${label}</b><small>${sub}</small></span></label>`;
+  const opt=(v,label,sub)=>`<label class="teHolOpt"><input type="radio" name="teHolKind" value="${v}" ${cur.kind===v?'checked':''} onchange="teHolKindChanged()"><span><b>${label}</b><small>${sub}</small></span></label>`;
   document.getElementById('modalContent').innerHTML=`
     <h3>${fmtDate(dt)} · ${new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'})}</h3>
     <div class="teHolOpts">
@@ -671,9 +681,16 @@ function teHolOpen(dt){
       ${opt('paid','Paid holiday (NOPH)','Paid to every employee and taken off the working days (NOWD). Time worked is OT.')}
       ${opt('unpaid','Holiday without pay','Not a paid day. Time worked is paid as full-day OT.')}
     </div>
-    <div class="formGrid" style="margin-top:14px;"><div class="full"><label>Name (optional)</label><input id="teHolName" value="${teEsc(cur.name)}" placeholder="e.g. Diwali, Ayudha Pooja"></div></div>
+    <div class="formGrid teHolNameWrap" style="margin-top:14px;" ${cur.kind?'':'hidden'}><div class="full"><label>Holiday name <span class="teReq">*</span></label><input id="teHolName" value="${teEsc(cur.name)}" placeholder="e.g. Diwali, Ayudha Pooja" onkeydown="if(event.key==='Enter')teHolSave('${dt}')"><small class="teHolNameHint">Shown in Employee Time Entry, Attendance and the calendar for this day.</small></div></div>
     <div class="modalActions"><button class="btn secondary" onclick="closeModal()">Close</button><button class="btn" onclick="teHolSave('${dt}')">${ico('check')} Apply</button></div>`;
   showModal();
+}
+// The name box shows only when the day is a holiday (paid or without pay).
+function teHolKindChanged(){
+  const sel=document.querySelector('input[name="teHolKind"]:checked');
+  const w=document.querySelector('.teHolNameWrap'); if(!w) return;
+  w.hidden=!(sel && sel.value);
+  if(sel && sel.value){ const i=document.getElementById('teHolName'); if(i) i.focus(); }
 }
 function teHolSave(dt){
   if(!teHolCanEdit()){ alert('You do not have permission to change the Holiday Calendar.'); return; }
@@ -681,6 +698,11 @@ function teHolSave(dt){
   const sel=document.querySelector('input[name="teHolKind"]:checked');
   const kind=sel?sel.value:'';
   const name=String((document.getElementById('teHolName')||{}).value||'').trim();
+  if(kind && !name){
+    alert('Please enter the name of this holiday (e.g. Diwali, Ayudha Pooja).');
+    const i=document.getElementById('teHolName'); if(i) i.focus();
+    return;
+  }
   const cur=teHolKind(dt);
   if(cur.kind && !kind && !hasPerm('timeentry','delete')){ alert('You do not have permission to remove a holiday.'); return; }
   db.holidays=(db.holidays||[]).filter(h=>h.date!==dt);

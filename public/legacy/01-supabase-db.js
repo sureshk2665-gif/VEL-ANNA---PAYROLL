@@ -157,7 +157,8 @@ async function initDB(){
   if(!db.holidays) db.holidays=[];
   // Migrate legacy holiday entries (plain 'YYYY-MM-DD' strings, or the old 'Holiday' type — now
   // removed) all to {date, type:'NOPH'} objects. NOPH is the only selectable Holiday Calendar type.
-  db.holidays = db.holidays.map(h => typeof h==='string' ? {date:h, type:'NOPH'} : {date:h.date, type:'NOPH'});
+  // The holiday's name (e.g. Diwali) is kept.
+  db.holidays = db.holidays.map(h => typeof h==='string' ? {date:h, type:'NOPH'} : {date:h.date, type:'NOPH', ...(h.name ? {name:String(h.name)} : {})});
 
   if(!db.backupHistory) db.backupHistory=[];
   if(!Array.isArray(db.loginLogs)) db.loginLogs=[]; // back-fill for data saved before the LoginLog feature existed
