@@ -40,3 +40,11 @@ table.empTable .rowActions button{height:28px;padding:0 8px;}
 .empFormActions{position:sticky;bottom:-26px;z-index:3;margin:16px -28px -26px;padding:12px 28px;background:var(--surface);border-top:1px solid var(--border);}
 
 }
+@media screen {
+/* Resigned Employees: the reason can be long — one line, full text on hover */
+table.empTable.resTable th,table.empTable.resTable td{padding:8px 8px;}
+table.empTable.resTable th:first-child,table.empTable.resTable td:first-child{padding-left:12px;}
+table.empTable td.resReason{max-width:130px;overflow:hidden;text-overflow:ellipsis;color:var(--muted);}
+table.empTable.resTable td.rowActions{white-space:nowrap;}
+table.empTable.resTable td.rowActions button + button{margin-left:4px;}
+}
