@@ -15,12 +15,28 @@
    (teCompute: Late = after the shift start or before its end; OT = after its end).
    ================================================================================ */
 const TE_DEFAULT_GROUPS=[{key:'A',label:'Shift A Group'},{key:'B',label:'Shift B Group'},{key:'G',label:'General Group'}];
-const TE_SWAP={first:'second', firstOT:'secondOT', second:'first', secondOT:'firstOT'};
+const TE_SWAP={first:'second', firstOT:'secondOT', second:'first', secondOT:'firstOT', secondOTx:'firstOT'};
+// The shifts every company started with. db.shiftPresetsOffered lists the built-in shifts already
+// put into db.shiftPresets, so a built-in shift added later (Second Shift + Extra OT) reaches
+// existing data once — and one the user deletes stays deleted.
 let teSmSearch='';
 let teSmMonth=monthKey(todayStr()); // month shown in the Weekly Rotation Planner
 
+const TE_FIRST_SHIFT_KEYS=['first','firstOT','general','second','secondOT'];
 function teShiftPresets(){
-  if(!Array.isArray(db.shiftPresets) || !db.shiftPresets.length) db.shiftPresets=TE_SHIFTS.map(s=>({key:s.key, label:s.label, inMin:s.inMin, outMin:s.outMin%1440}));
+  const fresh=s=>({key:s.key, label:s.label, inMin:s.inMin, outMin:s.outMin%1440});
+  if(!Array.isArray(db.shiftPresets) || !db.shiftPresets.length){
+    db.shiftPresets=TE_SHIFTS.map(fresh); db.shiftPresetsOffered=TE_SHIFTS.map(s=>s.key);
+  }
+  if(!Array.isArray(db.shiftPresetsOffered)) db.shiftPresetsOffered=[...new Set([...TE_FIRST_SHIFT_KEYS, ...db.shiftPresets.map(p=>p.key)])];
+  TE_SHIFTS.forEach(s=>{
+    if(db.shiftPresetsOffered.includes(s.key)) return;
+    db.shiftPresetsOffered.push(s.key);
+    if(db.shiftPresets.some(p=>p.key===s.key)) return;
+    // Put it right after the shift it extends (Second Shift + OT), else at the end.
+    const after=db.shiftPresets.findIndex(p=>p.key==='secondOT');
+    db.shiftPresets.splice(after<0 ? db.shiftPresets.length : after+1, 0, fresh(s));
+  });
   return db.shiftPresets;
 }
 function teShiftByKey(k){ return k ? teShiftPresets().find(p=>p.key===k)||null : null; }
