@@ -81,32 +81,82 @@ function renderEmployees(){
 }
 
 /* ================= RESIGNED EMPLOYEES ================= */
-let resignedFilter={search:''};
+// Same layout as the Employees list: unit tabs, filters on one line, the figures strip, and a
+// compact list that scrolls inside its panel. Rejoin / Edit work as before.
+let resignedFilter={search:'',unit:'',contractor:'',period:''};
+function resSetSearch(el){ const pos=el.selectionStart; resignedFilter.search=el.value; render('resigned'); const i=document.getElementById('resSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
+// Period filter on the resignation date: '' any time, 'month' this month, '3m' last 3 months, 'fy' this financial year.
+function resInPeriod(e, period){
+  const d=e.resignationDate||''; if(!period) return true; if(!d) return false;
+  const today=todayStr();
+  if(period==='month') return d.slice(0,7)===today.slice(0,7);
+  if(period==='3m') return d>=nextMonthKey(today.slice(0,7),-2)+'-01' && d<=today;
+  if(period==='fy') return financialYearOf(d)===financialYearOf(today);
+  return true;
+}
+// Time with the company for the last stint: joining → resignation, in years and months.
+function resTenure(e){
+  if(!e.joining || !e.resignationDate || e.resignationDate<e.joining) return '-';
+  const [y1,m1,d1]=e.joining.split('-').map(Number), [y2,m2,d2]=e.resignationDate.split('-').map(Number);
+  let m=(y2-y1)*12+(m2-m1); if(d2<d1) m--; if(m<0) m=0;
+  const y=Math.floor(m/12); m=m%12;
+  return y ? `${y}y ${m}m` : `${m}m`;
+}
 function renderResigned(){
-  const list=db.employees.filter(e=>e.status==='Resigned').filter(e=>{
+  const all=db.employees.filter(e=>e.status==='Resigned');
+  const list=all.filter(e=>{
     if(resignedFilter.search && !(`${e.name} ${e.code}`.toLowerCase().includes(resignedFilter.search.toLowerCase()))) return false;
+    if(resignedFilter.unit && unitCodeOf(e.unit)!==resignedFilter.unit) return false;
+    if(resignedFilter.contractor && (e.contractor||'')!==(resignedFilter.contractor==='-'?'':resignedFilter.contractor)) return false;
+    if(!resInPeriod(e, resignedFilter.period)) return false;
     return true;
   }).sort((a,b)=>(b.resignationDate||'').localeCompare(a.resignationDate||''));
+  const canEdit=hasPerm('employees','edit');
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+  const unitTab=(code,label)=>`<button type="button" role="tab" class="attUnitTab ${resignedFilter.unit===code?'active':''}" aria-selected="${resignedFilter.unit===code}" onclick="resignedFilter.unit='${code}';render('resigned')">${label}</button>`;
+  const period=(v,l)=>`<option value="${v}" ${resignedFilter.period===v?'selected':''}>${l}</option>`;
+  const before=all.filter(e=>(e.employmentHistory||[]).length).length;
   return `
-  <div class="toolbar">
-    <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input placeholder="Search name or code..." oninput="resignedFilter.search=this.value;render('resigned')" value="${resignedFilter.search}"></div>
-    <span style="font-size:12.5px;color:var(--muted);">${list.length} resigned employee(s)</span>
+  <div class="attUnitTabs empUnitTabs" role="tablist" aria-label="Working unit">
+    ${unitTab('','All Units')}${getUnits().map(u=>unitTab(u.code, unitTabLabel(u))).join('')}
   </div>
-  <div class="panel">
-    ${list.length? `<table><thead><tr>
-      <th>Employee ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Date of Joining</th><th>Resignation Date</th><th>Reason</th><th>Status</th><th>Actions</th>
+  <div class="toolbar empBar">
+    <div class="empBarGrp">
+      <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input id="resSearch" placeholder="Search name or code..." aria-label="Search name or code" oninput="resSetSearch(this)" value="${esc(resignedFilter.search)}"></div>
+      <select onchange="resignedFilter.contractor=this.value;render('resigned')" aria-label="Contractor">
+        <option value="">All Contractors</option>
+        ${getContractors().map(c=>`<option value="${c.code}" ${resignedFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
+        <option value="-" ${resignedFilter.contractor==='-'?'selected':''}>Contractor not set</option>
+      </select>
+      <select onchange="resignedFilter.period=this.value;render('resigned')" aria-label="Resigned when">
+        ${period('','Resigned any time')}${period('month','Resigned this month')}${period('3m','Last 3 months')}${period('fy','This financial year')}
+      </select>
+    </div>
+  </div>
+  <div class="teStatRow empStrip">
+    <div class="teStatBox"><b>${list.length}</b><span>Shown${list.length!==all.length?' of '+all.length:''}</span></div>
+    <div class="teStatBox"><b>${all.filter(e=>resInPeriod(e,'month')).length}</b><span>Resigned this month</span></div>
+    <div class="teStatBox"><b>${all.filter(e=>resInPeriod(e,'3m')).length}</b><span>Last 3 months</span></div>
+    <div class="teStatBox"><b>${all.filter(e=>resInPeriod(e,'fy')).length}</b><span>This financial year (${financialYearOf(todayStr())})</span></div>
+    <div class="teStatBox" title="Resigned employees who had already left and rejoined once before"><b>${before}</b><span>Worked here before</span></div>
+  </div>
+  <div class="panel empPanel">
+    ${list.length? `<div class="tableScrollWrap empScroll"><table class="empTable resTable"><thead><tr>
+      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th>Joined</th><th>Resigned</th><th title="Joining date to resignation date">Time with us</th><th>Reason</th><th></th>
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
-        <td>${e.code}</td><td class="empNameCell"><span class="avatarChip">${initials(e.name)}</span>${e.name}</td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
-        <td>${e.joining?fmtDate(e.joining):'-'}</td><td>${e.resignationDate?fmtDate(e.resignationDate):'-'}</td>
-        <td>${e.resignReason||'-'}</td><td><span class="tag Resigned">Resigned</span></td>
+        <td class="empCode">${e.code}</td><td class="empNameCell"><b>${e.name}</b></td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
+        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
+        <td>${e.joining?fmtDate(e.joining):'-'}</td><td><b>${e.resignationDate?fmtDate(e.resignationDate):'-'}</b></td><td>${resTenure(e)}</td>
+        <td class="resReason" title="${esc(e.resignReason||'')}">${e.resignReason?esc(e.resignReason):'-'}</td>
         <td class="rowActions">
-          ${hasPerm('employees','edit') ? `<button onclick="openRejoinModal('${e.code}')">↩️ Rejoin</button>` : ''}
-          ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
+          ${canEdit ? `<button onclick="openRejoinModal('${e.code}')" title="Bring this employee back on the roll">${ico('undo')} Rejoin</button>` : ''}
+          ${canEdit ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
         </td>
       </tr>`).join('')}
-    </tbody></table>` : '<div class="empty">'+ico('search-x')+' No resigned employees.</div>'}
-  </div>`;
+    </tbody></table></div>` : `<div class="empty">${ico('search-x')} ${all.length?'No resigned employees match these filters.':'No resigned employees.'}</div>`}
+  </div>
+  <p class="syncNote">Resigned employees are kept with their full history and are not on the roll after their resignation date. <b>Rejoin</b> brings an employee back from a date you choose; their earlier stint is kept in their history.</p>`;
 }
 function openRejoinModal(code){
   if(!hasPerm('employees','edit')){ alert('You do not have permission to do this.'); return; }
