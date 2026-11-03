@@ -19,6 +19,7 @@ let teEwMonth=monthKey(todayStr());    // month shown (YYYY-MM)
 let teEwEditMode=false;                // same lock/unlock behaviour as the Date-wise grid
 let teEwFocus=null;                    // {r,c} to re-focus after a full render (employee/month switch)
 let teEwGrpFilter='';                  // '' = all groups, a group key, or '-' = no group (Shift Groups)
+let teEwShiftFilter='';                // '' = all shifts, a shift key, or '-' = no shift planned all month
 let teEwFillMode='rot';                // 'rot' = the group's weekly rotation, or a shift timing key
 let teEwFillFrom='', teEwFillTo='';    // fill range ('' = month start / today or month end)
 let teEwFillOver=false;                // also replace days that already have a time
@@ -328,11 +329,37 @@ function teEwRestoreFocus(){
   if(!el||el.disabled){ const n=teEwRowCount(); for(let k=0;k<n;k++){ const x=teEwCell(k,f.c); if(x&&!x.disabled){ el=x; break; } } }
   if(el&&!el.disabled){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
 }
-// Employees in the picker: on the roll that month, narrowed by Unit / Contractor and Group.
+// Employees in the picker: on the roll that month, narrowed by Unit / Contractor, Group and Shift.
 function teEwEmployees(){
+  const emps=teEwGroupEmployees();
+  if(!teEwShiftFilter) return emps;
+  const keys=teEwMonthShiftKeys(teEwMonth);
+  return emps.filter(e=>{ const k=keys(e.code); return teEwShiftFilter==='-' ? !k.size : k.has(teEwShiftFilter); });
+}
+// The same without the Shift filter (for the count beside each shift in the Shift drop-down).
+function teEwGroupEmployees(){
   return teFilteredEmployees(teEwMonth).filter(e=>!teEwGrpFilter || (teEwGrpFilter==='-' ? !teEmpGroup(e.code) : teEmpGroup(e.code)===teEwGrpFilter));
 }
+// code -> Set of the shifts that employee is planned to work on any day of the month (the group's
+// weekly rotation, or a one-day change made in Date-wise). Each group's week is worked out once.
+function teEwMonthShiftKeys(ym){
+  const dates=teEwMonthDates(ym), wk={}, ov=teOverrides();
+  const groupKey=(dt, g)=>{ const id=teWeekStart(dt)+'|'+g; if(!(id in wk)) wk[id]=teGroupWeekShift(dt, g).key; return wk[id]; };
+  return code=>{
+    const g=teEmpGroup(code), out=new Set();
+    dates.forEach(dt=>{ const o=ov[dt] && ov[dt][code]; const k=teShiftByKey(o) ? o : g ? groupKey(dt, g) : ''; if(k) out.add(k); });
+    return out;
+  };
+}
+function teEwShiftCounts(){
+  const keys=teEwMonthShiftKeys(teEwMonth), n={'-':0};
+  teShiftPresets().forEach(p=>{ n[p.key]=0; });
+  teEwGroupEmployees().forEach(e=>{ const k=keys(e.code); if(!k.size) n['-']++; k.forEach(x=>{ if(n[x]!==undefined) n[x]++; }); });
+  return n;
+}
 function teEwSetGrpFilter(v){ teEwGrpFilter=v||''; render('timeentry'); }
+function teEwSetShiftFilter(v){ teEwShiftFilter=v||''; render('timeentry'); }
+function teEwClearFilters(){ teEwGrpFilter=''; teEwShiftFilter=''; teUnitFilter=''; teSetContractorFilter(''); }
 // Placeholder for an empty time box: the planned shift's time (grey), else hh:mm while editing.
 function teEwPlaceholder(code, dt, kind, md, unlocked){
   if(md.onLeave) return '';
@@ -393,14 +420,80 @@ function teEwSelectEmp(code){
   if(teEwEmp && teEwFocus===null && teEwEditMode) teEwFocus={r:teEwFirstEmptyRow(),c:0};
   render('timeentry');
 }
-function teEwPickFromText(v){
-  v=String(v||'').trim().toLowerCase(); if(!v) return;
-  const emps=teEwEmployees();
-  const code=v.split('—')[0].trim();
-  const hit=emps.find(e=>e.code.toLowerCase()===code) || emps.find(e=>`${e.code} — ${e.name}`.toLowerCase()===v)
-    || emps.find(e=>e.name.toLowerCase().startsWith(v)) || emps.find(e=>(`${e.code} ${e.name}`).toLowerCase().includes(v));
-  if(hit){ teEwSelectEmp(hit.code); }
-  else { const el=document.getElementById('teEwFind'); if(el){ el.classList.add('bad'); el.title='No active employee matches that.'; } }
+/* ---- Employee picker: a button that shows the chosen employee. Click it (or start typing on it)
+   and the list opens with an empty search box — type a code or name, ↑ ↓ and Enter, or click a
+   name. Picking another employee never needs the old name rubbed out first. ---- */
+function teEpEls(){ return {wrap:document.getElementById('teEmpPick'), btn:document.getElementById('teEpBtn'), pop:document.getElementById('teEpPop'), inp:document.getElementById('teEpFind'), list:document.getElementById('teEpList')}; }
+function teEpOpts(){ return [...document.querySelectorAll('#teEpList .teEpOpt')]; }
+function teEpOpen(text){
+  const el=teEpEls(); if(!el.pop) return;
+  el.pop.hidden=false; el.btn.setAttribute('aria-expanded','true');
+  el.inp.value=text||''; teEpFilter(el.inp.value);
+  el.inp.focus();
+  document.addEventListener('mousedown', teEpOutside, true);
+}
+function teEpClose(focusBtn){
+  const el=teEpEls(); document.removeEventListener('mousedown', teEpOutside, true);
+  if(!el.pop || el.pop.hidden) return;
+  el.pop.hidden=true; el.btn.setAttribute('aria-expanded','false');
+  if(focusBtn) el.btn.focus();
+}
+function teEpOutside(ev){ const w=document.getElementById('teEmpPick'); if(!w || !w.contains(ev.target)) teEpClose(false); }
+function teEpToggle(){ const el=teEpEls(); if(el.pop && el.pop.hidden) teEpOpen(); else teEpClose(true); }
+// Typing on the closed button opens the list with that letter already in the search box.
+function teEpBtnKey(ev){
+  if(ev.key==='ArrowDown'){ ev.preventDefault(); teEpOpen(); return; }
+  if(ev.key.length===1 && ev.key!==' ' && !ev.ctrlKey && !ev.metaKey && !ev.altKey){ ev.preventDefault(); teEpOpen(ev.key); }
+}
+function teEpSetActive(o){
+  teEpOpts().forEach(x=>{ x.classList.toggle('active', x===o); x.setAttribute('aria-selected', x===o?'true':'false'); });
+  const inp=document.getElementById('teEpFind');
+  if(o){ o.scrollIntoView({block:'nearest'}); if(inp) inp.setAttribute('aria-activedescendant', o.id); }
+}
+// Narrows the list to employees whose code, name, department or designation contains the text.
+// The highlighted one: an exact code match, else the chosen employee (empty box), else the first.
+function teEpFilter(v){
+  const q=String(v||'').trim().toLowerCase(), opts=teEpOpts();
+  let shown=0;
+  opts.forEach(o=>{ const hit=!q || o.dataset.s.includes(q); o.hidden=!hit; if(hit) shown++; });
+  const none=document.getElementById('teEpNone'); if(none) none.hidden=!!shown;
+  const vis=opts.filter(o=>!o.hidden);
+  // Just the number ("12") finds EMP012 / 12 first.
+  const num=/^\d+$/.test(q) ? String(+q) : null, codeNum=o=>((o.dataset.code.match(/\d+$/)||[''])[0]).replace(/^0+(?=\d)/,'');
+  teEpSetActive(vis.find(o=>o.dataset.code.toLowerCase()===q) || (num!==null && vis.find(o=>codeNum(o)===num))
+    || (!q && vis.find(o=>o.dataset.code===teEwEmp)) || vis[0] || null);
+}
+function teEpKey(ev){
+  const vis=teEpOpts().filter(o=>!o.hidden), cur=vis.findIndex(o=>o.classList.contains('active'));
+  if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){
+    ev.preventDefault(); if(!vis.length) return;
+    const i=cur<0 ? 0 : Math.min(vis.length-1, Math.max(0, cur+(ev.key==='ArrowDown'?1:-1)));
+    teEpSetActive(vis[i]);
+  } else if(ev.key==='Enter'){
+    ev.preventDefault(); if(cur>=0) teEpPick(vis[cur].dataset.code);
+  } else if(ev.key==='Escape'){
+    ev.preventDefault(); teEpClose(true);
+  } else if(ev.key==='Tab'){ teEpClose(false); }
+}
+function teEpPick(code){ teEpClose(false); teEwSelectEmp(code); setTimeout(()=>{ if(!teEwEditMode){ const b=document.getElementById('teEpBtn'); if(b) b.focus(); } },0); }
+function teEpHtml(emps, emp){
+  const label=e=>`<b>${teEsc(e.code)}</b> ${teEsc(e.name)}`;
+  return `<div class="teEmpPick" id="teEmpPick">
+    <button type="button" id="teEpBtn" class="teEpBtn ${emp?'':'noEmp'}" aria-haspopup="listbox" aria-expanded="false" aria-label="Employee"
+      title="Choose the employee — click, or start typing a code or name" onclick="teEpToggle()" onkeydown="teEpBtnKey(event)">
+      ${ico('user')}<span class="teEpVal">${emp?label(emp):'Choose employee'}</span>${ico('chevron-down')}</button>
+    <div class="teEpPop" id="teEpPop" hidden>
+      <div class="teEpSearch">${ico('search')}<input id="teEpFind" placeholder="Type code or name" autocomplete="off" spellcheck="false"
+        role="combobox" aria-expanded="true" aria-controls="teEpList" aria-label="Find employee" oninput="teEpFilter(this.value)" onkeydown="teEpKey(event)"></div>
+      <div class="teEpList" id="teEpList" role="listbox" aria-label="Employees">
+        ${emps.map((e,i)=>`<button type="button" tabindex="-1" role="option" id="teEpO${i}" class="teEpOpt ${e.code===teEwEmp?'cur':''}" data-code="${teEsc(e.code)}"
+          data-s="${teEsc((e.code+' '+e.name+' '+(e.department||'')+' '+(e.designation||'')).toLowerCase())}" onmousedown="event.preventDefault()" onclick="teEpPick(this.dataset.code)">
+          <span>${label(e)}</span><small>${teEsc([e.department, teEmpGroup(e.code)?teGroupLabel(teEmpGroup(e.code)):''].filter(Boolean).join(' · '))}</small>${e.code===teEwEmp?ico('check'):''}</button>`).join('')}
+        <div class="teEpNone" id="teEpNone" ${emps.length?'hidden':''}>${emps.length?'No employee matches that.':'No employees for these filters.'}</div>
+      </div>
+      <div class="teEpFoot">${emps.length} employee${emps.length===1?'':'s'} · <kbd>↑</kbd> <kbd>↓</kbd> <kbd>Enter</kbd> to choose · <kbd>Esc</kbd> to close</div>
+    </div>
+  </div>`;
 }
 function teEwStepEmp(dir){
   const emps=teEwEmployees(); if(!emps.length) return;
@@ -452,19 +545,16 @@ function renderTEEmpWiseTab(){
   const unlocked=canEdit&&teEwEditMode;
   const [y,m]=teEwMonth.split('-').map(Number);
   const monthName=new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
-  const picker=`<div class="teDwTop teEwTop">
+  const picker=`<div class="teDwTop teEwTop teBar">
       <div class="teDwGroup">
-        <select onchange="teEwSetGrpFilter(this.value)" aria-label="Group" title="Show one group's employees">
-          <option value="">All Groups</option>${teGroups().map(g=>`<option value="${g.key}" ${teEwGrpFilter===g.key?'selected':''}>${teEsc(g.label)}</option>`).join('')}<option value="-" ${teEwGrpFilter==='-'?'selected':''}>No group</option></select>
-        <span class="teDwFindWrap">${ico('user')}<input id="teEwFind" class="teEwFind" list="teEwEmpList" placeholder="Code or name, press Enter" value="${emp?teEsc(emp.code+' — '+emp.name):''}" aria-label="Employee"
-          onfocus="this.select()" onkeydown="if(event.key==='Enter'){event.preventDefault();teEwPickFromText(this.value);}" onchange="teEwPickFromText(this.value)"></span>
-        <datalist id="teEwEmpList">${emps.map(e=>`<option value="${teEsc(e.code+' — '+e.name)}">${teEsc(e.department||'')}</option>`).join('')}</datalist>
-        <button class="btn secondary teDwNav" title="Previous employee (Alt+↑)" onclick="teEwStepEmp(-1)">‹</button>
-        <button class="btn secondary teDwNav" title="Next employee (Alt+↓)" onclick="teEwStepEmp(1)">›</button>
+        <button class="btn secondary teDwNav" title="Previous employee (Alt+↑)" aria-label="Previous employee" onclick="teEwStepEmp(-1)">‹</button>
+        ${teEpHtml(emps, emp)}
+        <button class="btn secondary teDwNav" title="Next employee (Alt+↓)" aria-label="Next employee" onclick="teEwStepEmp(1)">›</button>
         <span class="teBarSep"></span>
-        <label class="teDwLbl">${ico('calendar-days')} Month <input type="month" value="${teEwMonth}" onchange="teEwSetMonth(this.value)"></label>
-        <button class="btn secondary teDwNav" title="Previous month (Alt+PageUp)" onclick="teEwStepMonth(-1)">‹</button>
-        <button class="btn secondary teDwNav" title="Next month (Alt+PageDown)" onclick="teEwStepMonth(1)">›</button>
+        <span class="teBarLbl">${ico('calendar-days')} Month</span>
+        <button class="btn secondary teDwNav" title="Previous month (Alt+PageUp)" aria-label="Previous month" onclick="teEwStepMonth(-1)">‹</button>
+        <input type="month" value="${teEwMonth}" onchange="teEwSetMonth(this.value)" aria-label="Month">
+        <button class="btn secondary teDwNav" title="Next month (Alt+PageDown)" aria-label="Next month" onclick="teEwStepMonth(1)">›</button>
         ${teEwMonth!==monthKey(todayStr())?`<button class="btn secondary" onclick="teEwSetMonth('${monthKey(todayStr())}')">This month</button>`:''}
       </div>
       <div class="teDwGroup">
@@ -474,10 +564,16 @@ function renderTEEmpWiseTab(){
           : `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teEwLock()">${ico('save')} Save</button>`}
         <button class="btn secondary" ${emp?'':'disabled'} onclick="printTEEmployee()">${ico('printer')} Print</button>
       </div>
-    </div>`;
+    </div>
+    ${teFilterRowHtml({grp:teEwGrpFilter, setGrp:'teEwSetGrpFilter', shift:teEwShiftFilter, setShift:'teEwSetShiftFilter',
+      shiftCounts:teEwShiftCounts(), shiftTitle:'Employees planned on this shift on any day of '+monthName+' (Shift Groups)', clear:'teEwClearFilters',
+      shown:emps.length, all:activeEmployeesForTE(teEwMonth).length})}`;
   if(!emp){
     return `<div class="panel">${picker}
-      <div class="empty" style="padding:36px 10px;">${emps.length?'':'No employees in this group'+(teFilterText()?' for '+teEsc(teFilterText()):'')+'. '}Choose an employee above to see and enter their time for ${monthName}.<br><span style="font-size:12px;color:var(--muted);">Type a code or name and press Enter — or use ‹ › to step through the roster.</span></div>
+      <div class="empty teEwPickEmpty">${emps.length
+        ? `<button type="button" class="btn" onclick="teEpOpen()">${ico('user')} Choose employee</button>
+           <span>to see and enter their time for ${monthName} — or use ‹ › to step through the list.</span>`
+        : `<span>No employees match these filters for ${monthName}.</span>`}</div>
     </div>`;
   }
   const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -563,7 +659,7 @@ function renderTimeEntry(){
     <div class="teTab ${teTab==='shiftmap'?'active':''}" onclick="teSetTab('shiftmap')">${ico('users')} Shift Groups</div>
     <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holidays</div>
   </div>
-  ${teTab!=='holiday' ? renderTEFilterBar() : ''}
+  ${teTab!=='holiday' && teTab!=='entry' && teTab!=='empwise' ? renderTEFilterBar() : ''}
   ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : teTab==='tokens' ? renderTETokensTab() : teTab==='shiftmap' ? renderTEShiftGroupsTab() : renderTESummaryTab()}`;
 }
 

@@ -19,8 +19,6 @@
 .teDwFindWrap input{height:var(--control-height);width:230px;padding:0 10px 0 30px;border-color:var(--control);}
 .teDwFindWrap input:focus,.teDwTop select:focus,.teCalHead input:focus,.teSmBar input:focus{outline:none;box-shadow:var(--focus);}
 .teEwTop{margin-bottom:12px;}
-.teEwTop .teDwFindWrap input{width:180px;}
-.teEwTop select{max-width:130px;}
 .teEwTop input[type=month]{width:150px;}
 .teEwTop .teEwSave{font-size:12px;white-space:nowrap;}
 .teCalHead input[type=search],.teSmBar input[type=search]{min-width:220px;}
@@ -37,7 +35,6 @@
 .teStatBox.danger b{color:var(--negative);}
 
 /* ---------- Date-wise ---------- */
-.teDwBanner{margin-top:12px;padding:9px 14px;border:1px solid var(--border);border-left:3px solid var(--text);border-radius:var(--radius-card);background:var(--raised);}
 .teDwActions{margin-top:0;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--raised);font-size:13px;}
 .teDwActRow{display:flex;align-items:center;flex-wrap:wrap;gap:8px 10px;}
 .teDwActRow + .teDwActRow{margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);}
@@ -97,4 +94,59 @@
 /* Employee-wise status for a holiday: its name; "without pay" in a quiet grey tag */
 .tag.teEwHolTag{background:var(--raised);color:var(--text);border-color:var(--border);}
 .tag small{font-size:11px;font-weight:500;opacity:.8;}
+}
+@media screen {
+/* Date-wise / Employee-wise toolbar. Row 1: the date (or the employee and month), Find, Edit / Print.
+   Row 2: every filter as one plain drop-down — a drop-down in use is tinted in the highlight colour. */
+.teBar .teDwGroup{gap:6px;}
+.teBarLbl{display:inline-flex;align-items:center;gap:6px;margin-right:2px;font-size:13px;font-weight:500;color:var(--muted);}
+.teBarLbl svg{width:15px;height:15px;}
+.teBar input[type=date]{width:150px;}
+.teBar input[type=month]{width:160px;}
+.teBarDay{margin-left:4px;font-size:13.5px;font-weight:600;color:var(--text);}
+.teDwTop.teBar .teDwFindWrap input{width:200px;}
+
+.teFiltRow{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--rule);}
+.teFiltLbl{display:inline-flex;align-items:center;gap:6px;margin-right:2px;font-size:13px;font-weight:500;color:var(--muted);}
+.teFiltLbl svg{width:15px;height:15px;}
+.teFiltSel{box-sizing:border-box;height:34px;max-width:230px;padding:0 8px;border:1px solid var(--control);border-radius:var(--radius-control);background-color:var(--surface);color:var(--text);font:inherit;font-size:13px;font-weight:500;cursor:pointer;}
+.teFiltSel:hover{border-color:var(--hl);}
+.teFiltSel:focus{outline:none;box-shadow:var(--focus);}
+.teFiltSel.on{background-color:var(--hl-soft);border-color:var(--hl);color:var(--hl-ink);font-weight:600;}
+.teFiltSel option{background:var(--surface);color:var(--text);font-weight:500;}
+.teFiltCount{margin-left:4px;font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.teFiltCount b{color:var(--text);font-weight:600;}
+.teFiltClear{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:0;border-radius:var(--radius-control);background:none;color:var(--hl-ink);font:inherit;font-size:12.5px;font-weight:600;cursor:pointer;}
+.teFiltClear:hover{background:var(--hl-soft);}
+.teFiltClear svg{width:14px;height:14px;}
+
+/* Employee picker: shows the chosen employee; opens a list with its own search box */
+.teEmpPick{position:relative;}
+.teEpBtn{display:inline-flex;align-items:center;gap:8px;box-sizing:border-box;height:var(--control-height);width:300px;padding:0 10px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer;}
+.teEpBtn:hover,.teEpBtn[aria-expanded=true]{border-color:var(--hl);}
+.teEpBtn:focus-visible{outline:none;box-shadow:var(--focus);}
+.teEpBtn > svg{width:15px;height:15px;flex-shrink:0;color:var(--muted);}
+.teEpVal{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.teEpVal b{margin-right:4px;font-weight:600;font-variant-numeric:tabular-nums;}
+.teEpBtn.noEmp .teEpVal{color:var(--muted);}
+.teEpPop{position:absolute;z-index:40;top:calc(100% + 4px);left:0;width:400px;max-width:calc(100vw - 32px);border:1px solid var(--border);border-radius:var(--radius-card);background:var(--surface);box-shadow:0 14px 34px rgba(0,0,0,.16);overflow:hidden;}
+.teEpPop[hidden]{display:none;}
+.teEpSearch{position:relative;display:flex;align-items:center;padding:8px;border-bottom:1px solid var(--rule);}
+.teEpSearch svg{position:absolute;left:18px;width:15px;height:15px;color:var(--muted);pointer-events:none;}
+.teEpSearch input{box-sizing:border-box;width:100%;height:34px;padding:0 10px 0 32px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.teEpSearch input:focus{outline:none;border-color:var(--hl);box-shadow:var(--focus);}
+.teEpList{max-height:320px;overflow-y:auto;padding:4px;}
+.teEpOpt{display:flex;align-items:center;gap:8px;width:100%;padding:7px 10px;border:0;border-radius:var(--radius-control);background:none;color:var(--text);font:inherit;font-size:13px;text-align:left;cursor:pointer;}
+.teEpOpt[hidden],.teEpNone[hidden]{display:none;}
+.teEpOpt > span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.teEpOpt b{margin-right:4px;font-weight:600;font-variant-numeric:tabular-nums;}
+.teEpOpt small{font-size:11.5px;color:var(--muted);white-space:nowrap;}
+.teEpOpt svg{width:14px;height:14px;flex-shrink:0;color:var(--hl-ink);}
+.teEpOpt:hover{background:var(--raised);}
+.teEpOpt.active{background:var(--hl-soft);color:var(--hl-ink);box-shadow:inset 0 0 0 1px var(--hl);}
+.teEpOpt.active small{color:var(--hl-ink);}
+.teEpNone{padding:16px;text-align:center;font-size:13px;color:var(--muted);}
+.teEpFoot{padding:6px 10px;border-top:1px solid var(--rule);background:var(--raised);font-size:11.5px;color:var(--muted);}
+.teEpFoot kbd{display:inline-block;padding:0 4px;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;background:var(--surface);color:var(--text);font:inherit;font-size:10.5px;font-weight:600;line-height:1.5;}
+.teEwPickEmpty{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;padding:40px 10px;color:var(--muted);}
 }

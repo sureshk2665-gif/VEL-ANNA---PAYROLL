@@ -13,21 +13,35 @@ let teDwSel=new Set();        // employee codes ticked for Bulk Shift (current d
 let teDwBulkShift='general';  // shift timing key (teShiftPresets) chosen in the Bulk Shift box
 let teDwFocus=null;           // {r,c} to re-focus after a full render (e.g. date change)
 let teDwGrpFilter='';         // '' = all groups, a group key, or '-' = employees with no group
+let teDwShiftFilter='';       // '' = all shifts, a shift key, or '-' = no shift planned that day
 let teDwBulkOT='';            // hours typed in the bulk OT box
 
 function teDwCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teDwUnlocked(){ return teDwCanEdit() && teGridEditMode; }
-// On the roll that day, narrowed by the Unit / Contractor and Group filters, in grid order: by the
-// shift each employee is planned to work that day (Shift Groups), then those with no shift.
+// On the roll that day, narrowed by the Unit / Contractor, Group and Shift filters, in grid order: by
+// the shift each employee is planned to work that day (Shift Groups), then those with no shift.
 function teDwEmployees(){
   const dt=teGridDate, order=k=>{ const i=teShiftPresets().findIndex(p=>p.key===k); return i<0?99:i; };
-  return teFilteredEmployees(dt)
-    .filter(e=>!teDwGrpFilter || (teDwGrpFilter==='-' ? !teEmpGroup(e.code) : teEmpGroup(e.code)===teDwGrpFilter))
+  return teDwGroupEmployees()
     .map(e=>({e, k:teEmpShiftKey(e.code, dt)}))
+    .filter(x=>!teDwShiftFilter || (teDwShiftFilter==='-' ? !x.k : x.k===teDwShiftFilter))
     .sort((a,b)=>order(a.k)-order(b.k) || a.e.code.localeCompare(b.e.code,undefined,{numeric:true}))
     .map(x=>x.e);
 }
+// The same without the Shift filter (for the count beside each shift in the Shift drop-down).
+function teDwGroupEmployees(){
+  return teFilteredEmployees(teGridDate)
+    .filter(e=>!teDwGrpFilter || (teDwGrpFilter==='-' ? !teEmpGroup(e.code) : teEmpGroup(e.code)===teDwGrpFilter));
+}
+function teDwShiftCounts(){
+  const n={'-':0};
+  teDwGroupEmployees().forEach(e=>{ const k=teEmpShiftKey(e.code, teGridDate)||'-'; n[k]=(n[k]||0)+1; });
+  teShiftPresets().forEach(p=>{ if(n[p.key]===undefined) n[p.key]=0; });
+  return n;
+}
 function teDwSetGrpFilter(v){ teDwGrpFilter=v||''; teDwSel.clear(); render('timeentry'); }
+function teDwSetShiftFilter(v){ teDwShiftFilter=v||''; teDwSel.clear(); render('timeentry'); }
+function teDwClearFilters(){ teDwGrpFilter=''; teDwShiftFilter=''; teUnitFilter=''; teSetContractorFilter(''); }
 // OT box value in hours ('' when there is no time).
 function teDwOTValue(md){ if(!md.hasIn||md.onLeave) return ''; const h=Math.round((md.c.ot||0)/60*100)/100; return String(h); }
 
@@ -431,38 +445,37 @@ function renderTEDateGrid(){
   [...teDwSel].forEach(c=>{ if(!emps.some(e=>e.code===c)) teDwSel.delete(c); });
   const dayName=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
   const hol=db.timeHolidays.find(h=>h.date===dt);
-  const dayTag = new Date(dt+'T00:00:00').getDay()===0 ? `<span class="tag NOPH" style="margin-left:8px;">Sunday · full-day OT</span>`
-    : getHolidayType(dt)==='NOPH' ? `<span class="tag NOPH" style="margin-left:8px;">${(getHolidayEntry(dt)||{}).name?teEsc(getHolidayEntry(dt).name)+' · ':''}Paid holiday (NOPH) · time worked is OT</span>`
-    : hol ? `<span class="tag NOPH" style="margin-left:8px;">${teEsc(hol.remarks||'Holiday')} · full-day OT</span>` : '';
+  const dayTag = new Date(dt+'T00:00:00').getDay()===0 ? `<span class="tag NOPH">Sunday · full-day OT</span>`
+    : getHolidayType(dt)==='NOPH' ? `<span class="tag NOPH">${(getHolidayEntry(dt)||{}).name?teEsc(getHolidayEntry(dt).name)+' · ':''}Paid holiday (NOPH) · time worked is OT</span>`
+    : hol ? `<span class="tag NOPH">${teEsc(hol.remarks||'Holiday')} · full-day OT</span>` : '';
   const t=teDwTotals(dt);
   // Quick Fill buttons: each shift planned today, with how many still have no time.
   const quick=teShiftPresets().map(p=>({p, n:emps.filter(e=>{ if(teEmpShiftKey(e.code,dt)!==p.key) return false; const md=teEwRowModel(e.code,dt); return !md.hasIn&&!md.onLeave; }).length, all:emps.filter(e=>teEmpShiftKey(e.code,dt)===p.key).length})).filter(q=>q.all);
   if(teDwFocus) setTimeout(teDwRestoreFocus,0);
   if(unlocked) setTimeout(teDwRefreshSel,0); // tick boxes (page and shift headings) match the kept selection
   return `<div class="panel teDwPanel">
-    <div class="teDwTop">
+    <div class="teDwTop teBar">
       <div class="teDwGroup">
-        <label class="teDwLbl">${ico('calendar')} Date <input type="date" value="${dt}" onchange="teDwGoDate(this.value)"></label>
-        <button class="btn secondary teDwNav" title="Previous date (Alt+PgUp)" onclick="teDwStepDate(-1)">‹</button>
-        <button class="btn secondary teDwNav" title="Next date (Alt+PgDn)" onclick="teDwStepDate(1)">›</button>
-        ${dt!==todayStr()?`<button class="btn secondary" onclick="teDwGoDate('${todayStr()}')">Today</button>`:`<button class="btn secondary" disabled>Today</button>`}
-        <select onchange="teDwSetGrpFilter(this.value)" aria-label="Group" title="Show one group">
-          <option value="">All Groups</option>${teGroups().map(g=>`<option value="${g.key}" ${teDwGrpFilter===g.key?'selected':''}>${teEsc(g.label)}</option>`).join('')}<option value="-" ${teDwGrpFilter==='-'?'selected':''}>No group</option></select>
-        <span class="teDwFindWrap">${ico('search')}<input id="teDwFind" placeholder="Search employee, Enter to jump" autocomplete="off"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();teDwJump(this.value);}" oninput="this.classList.remove('bad')"></span>
+        <span class="teBarLbl">${ico('calendar')} Date</span>
+        <button class="btn secondary teDwNav" title="Previous date (Alt+PgUp)" aria-label="Previous date" onclick="teDwStepDate(-1)">‹</button>
+        <input type="date" value="${dt}" onchange="teDwGoDate(this.value)" aria-label="Date">
+        <button class="btn secondary teDwNav" title="Next date (Alt+PgDn)" aria-label="Next date" onclick="teDwStepDate(1)">›</button>
+        ${dt!==todayStr()?`<button class="btn secondary" onclick="teDwGoDate('${todayStr()}')">Today</button>`:''}
+        <span class="teBarDay">${dayName}</span>${dayTag}
       </div>
       <div class="teDwGroup">
+        <span class="teDwFindWrap">${ico('search')}<input id="teDwFind" placeholder="Find employee — Enter" autocomplete="off" title="Type a code or name and press Enter to jump to that row"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();teDwJump(this.value);}" oninput="this.classList.remove('bad')"></span>
         <span id="teEwSaveState" class="teEwSave ${teEwSaveState}"></span>
         ${!unlocked
-          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teDwUnlock()">${ico('pencil')} Edit</button>`
+          ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teDwUnlock()" title="Rows are locked — click Edit to enter time">${ico('pencil')} Edit</button>`
           : `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teDwLock()">${ico('save')} Save</button>`}
         <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button>
       </div>
     </div>
-    <div class="teDwBanner">
-      <div><b>Time entries — ${fmtDate(dt)}</b> <span style="color:var(--muted);">${dayName}</span>${dayTag}${teFilterText()?` <span class="teDwFilterTag">${ico('building')} ${teEsc(teFilterText())}</span>`:''}</div>
-      <div style="font-size:12px;color:var(--muted);">${unlocked?'Unlocked for editing · click a name to open that employee\'s month':'Locked — click '+ico('pencil')+' Edit to enter time'}</div>
-    </div>
+    ${teFilterRowHtml({grp:teDwGrpFilter, setGrp:'teDwSetGrpFilter', shift:teDwShiftFilter, setShift:'teDwSetShiftFilter',
+      shiftCounts:teDwShiftCounts(), shiftTitle:'Shift planned for '+fmtDate(dt)+' (Shift Groups)', clear:'teDwClearFilters',
+      shown:emps.length, all:activeEmployeesForTE(dt).length})}
     <div class="teStatRow" id="teDwStats">${teDwStatsHtml(t)}</div>
     ${unlocked?`<div class="teDwActions">
       <div class="teDwActRow">
@@ -495,7 +508,7 @@ function renderTEDateGrid(){
         <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>${unlocked?'OT hrs':'OT'}</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>
       </tr></thead>
-      <tbody>${teDwBodyHtml(emps, dt, unlocked) || `<tr><td colspan="${unlocked?16:15}"><div class="empty">${teFilterText()?'No active employees in '+teEsc(teFilterText())+'.':'No active employees.'}</div></td></tr>`}</tbody>
+      <tbody>${teDwBodyHtml(emps, dt, unlocked) || `<tr><td colspan="${unlocked?16:15}"><div class="empty">${teFilterText()||teDwGrpFilter||teDwShiftFilter?'No employees match these filters.':'No active employees.'}</div></td></tr>`}</tbody>
     </table></div>
     <p class="syncNote">Rows are grouped by the shift each employee works today (Shift Groups → Weekly Rotation); grey times are the planned shift. Change one person's shift for today in the Group · Shift column. OT hours set the Out time (8 working hours + 30-minute break; time beyond that is OT). Sundays and booked holidays count as full-day OT. Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave; set it back to <b>Auto</b> to remove it. This is the same data as the Employee-wise view.</p>
   </div>`;
