@@ -675,7 +675,7 @@ function renderTEDayList(){
   if(!dates.length) return `<div class="panel"><div class="empty">No time entries recorded yet.</div></div>`;
   return dates.map(dt=>{
     const rows=db.timeEntries[dt]||{};
-    const codes=Object.keys(rows).filter(teCodeInFilter);
+    const codes=Object.keys(rows).filter(code=>teDwCodeInFilter(code, dt));
     if(!codes.length) return '';
     const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
     const byShift={'First Shift':[],'General Shift':[],'Second Shift':[]};
@@ -727,10 +727,15 @@ function renderTEShiftBox(shiftName, list, dt){
     </tr>`).join('')}</tbody></table>
   </div>`;
 }
+// Prints the day as the Date-wise screen shows it: the same Unit, Contractor, Group and Shift filters,
+// in the same order (by the shift planned that day, then employee code).
 function printTEDay(dt){
   const rows=db.timeEntries[dt]||{};
-  const codes=Object.keys(rows).filter(teCodeInFilter);
-  if(!codes.length){ alert('No time entries for this date'+(teFilterText()?' in '+teFilterText():'')+'.'); return; }
+  const order=k=>{ const i=teShiftPresets().findIndex(p=>p.key===k); return i<0?99:i; };
+  const codes=Object.keys(rows).filter(code=>teDwCodeInFilter(code, dt))
+    .sort((a,b)=>order(teEmpShiftKey(a,dt))-order(teEmpShiftKey(b,dt)) || a.localeCompare(b,undefined,{numeric:true}));
+  const ft=teDwFilterText();
+  if(!codes.length){ alert('No time entries for this date'+(ft?' for '+ft:'')+'.'); return; }
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   const tableRows=codes.map((code,idx)=>{
     const emp=empMap[code]||{name:'(removed employee)',department:''};
@@ -748,7 +753,7 @@ function printTEDay(dt){
       <td>${teFmtHM(c.working)}</td><td>${c.late>0?teFmtHM(c.late):'On time'}</td><td>${teFmtHM(c.ot)}</td></tr>`;
   }).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Shift</th><th>In Time</th><th>Out Time</th><th>Working</th><th>Late</th><th>OT</th></tr></thead><tbody>${tableRows}</tbody></table>`;
-  openPrintWindow(`Employee Time Entry — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
+  openPrintWindow(`Employee Time Entry — ${fmtDate(dt)}${ft?' — '+ft:''}`, html);
 }
 
 /* ---------------- Holiday Calendar tab — every holiday in one month calendar:
