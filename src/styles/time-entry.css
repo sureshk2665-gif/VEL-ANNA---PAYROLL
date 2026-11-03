@@ -160,7 +160,7 @@
 .teDwFold:hover .teShiftBadge{border-color:var(--hl);}
 .teDwFold > svg{width:15px;height:15px;margin-right:8px;flex-shrink:0;color:var(--muted);transition:transform .15s ease;}
 .teDwSec.folded .teDwFold > svg,.teDwFoldAll.folded svg{transform:rotate(-90deg);}
-.teDwFoldNote{display:none;margin-left:14px !important;font-size:12px;font-style:italic;color:var(--hl-ink) !important;}
+.teDwFoldNote{display:none;margin-left:14px !important;font-size:12px;color:var(--muted) !important;}
 .teDwSec.folded .teDwFoldNote{display:inline;}
 .teDwSec.folded tr.teDwRow{display:none;}
 .teDwSlTh{white-space:nowrap;}
