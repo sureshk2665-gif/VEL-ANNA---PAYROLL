@@ -527,14 +527,18 @@ function teEwFilterText(){
 }
 // Dates and times on one line (only Attendance wraps), so a month fits one A4 page.
 const TE_EW_PRINT_CSS='<style>table.teEwPrintTbl th,table.teEwPrintTbl td{padding:2px 5px;}table.teEwPrintTbl td:not(:last-child){white-space:nowrap;}</style>';
+// A day's Attendance word, as printed (plain text).
+function teEwAttText(md, dt){
+  return md.onLeave ? `On Leave — ${md.leave.type}${md.leave.remarks?' ('+md.leave.remarks+')':''}`
+    : md.leave ? 'Half Day' : md.hasIn ? (teIsHolidayDate(dt)?'Holiday OT':'Present') : md.dow===0?'Sunday':md.hol?(md.hol.name||md.hol.label):'-';
+}
 // One employee's month: the name line, every date, and the month total.
 function teEwPrintSectionHtml(code, ym){
   const emp=(db.employees||[]).find(e=>e.code===code)||{name:'',department:''};
   const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const rows=teEwMonthDates(ym).map((dt,i)=>{
     const md=teEwRowModel(code, dt), cc=teEwComputedCells(md);
-    const att = md.onLeave ? `On Leave — ${md.leave.type}${md.leave.remarks?' ('+teEsc(md.leave.remarks)+')':''}`
-      : md.leave ? 'Half Day' : md.hasIn ? (teIsHolidayDate(dt)?'Holiday OT':'Present') : md.dow===0?'Sunday':md.hol?(md.hol.name||md.hol.label):'-';
+    const att=teEsc(teEwAttText(md, dt));
     return `<tr><td>${i+1}</td><td>${fmtDate(dt)}</td><td>${dayNames[md.dow]}</td><td>${md.onLeave?'-':md.inTxt||'-'}</td><td>${md.onLeave?'-':md.outTxt||'-'}</td>
       <td>${cc.shift}</td><td>${cc.working}</td><td>${cc.late}</td><td>${cc.ot}</td><td>${cc.total}</td><td>${att}</td></tr>`;
   }).join('');
@@ -556,7 +560,60 @@ function printTEEmployeesAll(){
   const html=TE_EW_PRINT_CSS+emps.map((e,i)=>`<div style="${i?'break-before:page;page-break-before:always;':''}">${teEwPrintSectionHtml(e.code, teEwMonth)}</div>`).join('');
   openPrintWindow(`Employee Time Entry — ${teEwMonthName(teEwMonth)}${ft?' — '+ft:''} — ${emps.length} employee${emps.length===1?'':'s'}`, html);
 }
-// The Print button's two choices.
+/* ---- Excel: the same employees as Print. Hours as numbers (Working, OT, Total in hours; Late in
+   minutes, as on the Attendance & OT summary) so Excel can add them up; Present / Leave per day
+   (Half Day = 0.5 each) so the TOTAL row gives the month's present and leave days. ---- */
+function teEwExcelAllowed(){ return hasPerm('timeentry','export'); }
+const teEwHrs=min=>Math.round((min||0)/60*100)/100;
+function teEwExcelDayColumns(){
+  return [
+    {header:'Date', key:'date', width:12}, {header:'Day', key:'day', width:6}, {header:'In Time', key:'inTime', width:11}, {header:'Out Time', key:'outTime', width:11},
+    {header:'Shift', key:'shift', width:10}, {header:'Working (hrs)', key:'working', type:'number', keepBlank:true}, {header:'Late (min)', key:'late', type:'number', keepBlank:true},
+    {header:'OT (hrs)', key:'ot', type:'number', keepBlank:true}, {header:'Total (hrs)', key:'total', type:'number', keepBlank:true},
+    {header:'Present', key:'present', type:'number', keepBlank:true, width:9}, {header:'Leave', key:'leave', type:'number', keepBlank:true, width:8},
+    {header:'Attendance', key:'attendance', width:30},
+  ];
+}
+function teEwExcelDayRows(code, ym){
+  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  return teEwMonthDates(ym).map(dt=>{
+    const md=teEwRowModel(code, dt), cc=teEwComputedCells(md), blank=!md.hasIn||md.onLeave;
+    return {date:fmtDate(dt), day:dayNames[md.dow], inTime:md.onLeave?'':md.inTxt, outTime:md.onLeave?'':md.outTxt, shift:cc.shift==='–'?'':cc.shift,
+      working:blank?'':teEwHrs(md.c.working), late:blank?'':(md.c.late||0), ot:blank?'':teEwHrs(md.c.ot), total:blank?'':teEwHrs(md.total),
+      present:md.onLeave?'':md.leave?0.5:md.hasIn?1:'', leave:md.onLeave?1:md.leave?0.5:'', attendance:teEwAttText(md, dt)==='-'?'':teEwAttText(md, dt)};
+  });
+}
+function teEwEmpLine(e){ const g=teEmpGroup(e.code); return [`${e.code} — ${e.name}`, e.department, e.unit?unitLabel(e.unit):'', g?teGroupLabel(g):''].filter(Boolean).join(' · '); }
+function excelTEEmployee(){
+  if(!teEwEmp) return;
+  if(!teEwExcelAllowed()){ alert('You do not have permission to export.'); return; }
+  const e=(db.employees||[]).find(x=>x.code===teEwEmp)||{code:teEwEmp, name:''};
+  window.downloadExcel({ fileName:`${companyFilePrefix()}-Time-Entry-${e.code}-${monthLabel(teEwMonth)}.xlsx`,
+    sheets:[{ name:e.code, title:`${db.companyName||''} — Employee Time Entry — ${teEwMonthName(teEwMonth)}`, subtitle:teEwEmpLine(e),
+      columns:teEwExcelDayColumns(), rows:teEwExcelDayRows(e.code, teEwMonth), totals:true, freezeCols:2 }] });
+}
+// Everyone the filters list: a Summary sheet (one row per employee, the month totals) and a Daily
+// sheet (every employee, every date).
+function excelTEEmployeesAll(){
+  if(!teEwExcelAllowed()){ alert('You do not have permission to export.'); return; }
+  const emps=teEwEmployees(), ft=teEwFilterText(), ym=teEwMonth;
+  if(!emps.length){ alert('No employees'+(ft?' for '+ft:'')+' in '+teEwMonthName(ym)+'.'); return; }
+  const who=[{header:'Emp Code', key:'code', width:10}, {header:'Employee', key:'name', width:24}];
+  const summary=emps.map(e=>{ const t=teEwTotals(e.code, ym), g=teEmpGroup(e.code);
+    return {code:e.code, name:e.name, department:e.department||'', unit:e.unit?unitLabel(e.unit):'', contractor:contractorName(e)||'', group:g?teGroupLabel(g):'',
+      present:t.present, leave:t.leave, missing:t.missing, working:teEwHrs(t.working), late:t.late, ot:teEwHrs(t.ot), total:teEwHrs(t.total)}; });
+  const daily=[]; emps.forEach(e=>teEwExcelDayRows(e.code, ym).forEach(r=>daily.push({code:e.code, name:e.name, ...r})));
+  const title=`${db.companyName||''} — Employee Time Entry — ${teEwMonthName(ym)}`, sub=`${ft||'All units · All contractors'} · ${emps.length} employee${emps.length===1?'':'s'}`;
+  window.downloadExcel({ fileName:`${companyFilePrefix()}-Time-Entry-${monthLabel(ym)}-${emps.length}-employees.xlsx`,
+    sheets:[
+      { name:'Summary', title, subtitle:sub, freezeCols:2, totals:true, rows:summary,
+        columns:[...who, {header:'Department', key:'department', width:14}, {header:'Unit', key:'unit', width:12}, {header:'Contractor', key:'contractor', width:18}, {header:'Group', key:'group', width:15},
+          {header:'Present', key:'present', type:'number', width:9}, {header:'Leave', key:'leave', type:'number', width:8}, {header:'Needs entry', key:'missing', type:'number', width:9},
+          {header:'Working (hrs)', key:'working', type:'number'}, {header:'Late (min)', key:'late', type:'number'}, {header:'OT (hrs)', key:'ot', type:'number'}, {header:'Total (hrs)', key:'total', type:'number'}] },
+      { name:'Daily', title, subtitle:sub, freezeCols:2, totals:true, rows:daily, columns:[...who, ...teEwExcelDayColumns()] },
+    ] });
+}
+// The Print / Excel button's choices.
 function teEwPrintToggle(){
   const pop=document.getElementById('teEwPrintPop'), btn=document.getElementById('teEwPrintBtn'); if(!pop) return;
   if(!pop.hidden){ teEwPrintClose(true); return; }
@@ -577,12 +634,16 @@ function teEwPrintKey(ev){
   else if(ev.key==='Tab') teEwPrintClose(false);
 }
 function teEwPrintHtml(emps, emp){
-  const ft=teEwFilterText();
+  const ft=teEwFilterText(), xl=teEwExcelAllowed();
   return `<div class="tePrintPick" id="teEwPrintPick">
-    <button type="button" class="btn secondary" id="teEwPrintBtn" ${emps.length?'':'disabled'} aria-haspopup="menu" aria-expanded="false" onclick="teEwPrintToggle()">${ico('printer')} Print ${ico('chevron-down')}</button>
-    <div class="tePrintPop" id="teEwPrintPop" role="menu" aria-label="Print" hidden onkeydown="teEwPrintKey(event)">
+    <button type="button" class="btn secondary" id="teEwPrintBtn" ${emps.length?'':'disabled'} aria-haspopup="menu" aria-expanded="false" onclick="teEwPrintToggle()">${ico('printer')} Print / Excel ${ico('chevron-down')}</button>
+    <div class="tePrintPop" id="teEwPrintPop" role="menu" aria-label="Print or download Excel" hidden onkeydown="teEwPrintKey(event)">
+      <div class="tePrintHead">${ico('printer')} Print</div>
       <button type="button" role="menuitem" ${emp?'':'disabled'} onclick="teEwPrintClose(false);printTEEmployee()">${ico('user')}<span><b>This employee</b><small>${emp?teEsc(emp.code+' — '+emp.name):'Choose an employee first'}</small></span></button>
       <button type="button" role="menuitem" onclick="teEwPrintClose(false);printTEEmployeesAll()">${ico('users')}<span><b>All ${emps.length} employee${emps.length===1?'':'s'} shown</b><small>${ft?teEsc(ft):'No filters — everyone on the roll'} · one page each</small></span></button>
+      <div class="tePrintHead">${ico('file-spreadsheet')} Excel download</div>
+      <button type="button" role="menuitem" ${emp&&xl?'':'disabled'} ${xl?'':'title="You do not have permission to export"'} onclick="teEwPrintClose(false);excelTEEmployee()">${ico('user')}<span><b>This employee</b><small>${emp?teEsc(emp.code+' — '+emp.name)+' · every date':'Choose an employee first'}</small></span></button>
+      <button type="button" role="menuitem" ${xl?'':'disabled title="You do not have permission to export"'} onclick="teEwPrintClose(false);excelTEEmployeesAll()">${ico('users')}<span><b>All ${emps.length} employee${emps.length===1?'':'s'} shown</b><small>Summary sheet + every date</small></span></button>
     </div>
   </div>`;
 }

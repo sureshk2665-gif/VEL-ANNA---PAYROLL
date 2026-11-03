@@ -183,3 +183,8 @@
 .tePrintPop [role=menuitem]:hover:not(:disabled) svg,.tePrintPop [role=menuitem]:focus-visible svg{color:var(--hl-ink);}
 .tePrintPop [role=menuitem]:disabled{opacity:.5;cursor:not-allowed;}
 }
+@media screen {
+.tePrintHead{display:flex;align-items:center;gap:6px;padding:8px 10px 4px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);}
+.tePrintHead svg{width:13px;height:13px;}
+.tePrintHead:not(:first-child){margin-top:4px;border-top:1px solid var(--rule);padding-top:10px;}
+}
