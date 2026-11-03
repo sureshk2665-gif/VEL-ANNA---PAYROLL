@@ -314,6 +314,57 @@ function renderTEFilterBar(){
     ${(teUnitFilter||teContractorFilter)?`<button type="button" class="teFilterClear" onclick="teClearFilter()">${ico('x')} Clear</button>`:''}
   </div>`;
 }
+/* ---- Keep a grid's frozen headings in sight (Date-wise and Employee-wise) ----
+   A grid scrolls inside its own box; its column headings (and Date-wise's shift bars, Employee-wise's
+   month total at the bottom) freeze at the edges of that box. The page around it scrolls too, so the
+   two are kept in step:
+     - the box is as tall as the room left under the toolbar (at least 360px, at most the window),
+       so the whole grid — headings included — is on screen;
+     - scrolling down over the grid first moves the page just enough to show the whole box, then
+       the rows scroll under the frozen headings;
+     - whenever the rows scroll while the top of the box is above the window (the page was scrolled
+       further), the page brings it back down. */
+const TE_FIT_GAP=8;
+function teFitOuter(box){
+  for(let q=box.parentElement; q; q=q.parentElement){ const o=getComputedStyle(q).overflowY; if((o==='auto'||o==='scroll') && q.scrollHeight>q.clientHeight+1) return q; }
+  return document.scrollingElement || document.documentElement;
+}
+// The page scroller and the visible part of it (top / bottom on screen).
+function teFitView(box){
+  const outer=teFitOuter(box), win=outer===document.scrollingElement || outer===document.documentElement;
+  const r=win ? {top:0, bottom:window.innerHeight} : outer.getBoundingClientRect();
+  return {outer, top:r.top, bottom:r.bottom};
+}
+function teFitGridBox(gridId){
+  const g=document.getElementById(gridId), box=g && g.closest('.teEwWrap'); if(!box) return;
+  const v=teFitView(box), viewH=v.bottom-v.top;
+  const topInPage=box.getBoundingClientRect().top - v.top + v.outer.scrollTop; // where the box starts with the page at the top
+  const room=viewH - topInPage - TE_FIT_GAP;
+  box.classList.add('teFit');
+  box.style.setProperty('--teBoxH', Math.round(Math.min(viewH-2*TE_FIT_GAP, Math.max(360, room)))+'px');
+  if(!box.dataset.fit){
+    box.dataset.fit='1';
+    box.addEventListener('wheel', teFitBoxWheel, {passive:false});
+    box.addEventListener('scroll', teFitBoxScroll, {passive:true});
+  }
+}
+function teFitBoxWheel(ev){
+  if(ev.deltaY<=0 || ev.ctrlKey || ev.shiftKey) return;
+  const box=ev.currentTarget;
+  if(box.scrollTop+box.clientHeight >= box.scrollHeight-1) return; // rows at the end: the page scrolls on as usual
+  const v=teFitView(box), below=box.getBoundingClientRect().bottom - (v.bottom-TE_FIT_GAP);
+  if(below<=1) return; // the whole box is on screen: the rows scroll
+  ev.preventDefault();
+  const px=ev.deltaY*(ev.deltaMode===1 ? 16 : ev.deltaMode===2 ? v.bottom-v.top : 1);
+  v.outer.scrollTop+=Math.min(below, px);
+}
+function teFitBoxScroll(ev){
+  const box=ev.currentTarget; if(box.scrollTop<=0) return;
+  const v=teFitView(box), above=box.getBoundingClientRect().top - (v.top+TE_FIT_GAP);
+  if(above < -1) v.outer.scrollTop+=above; // the headings went above the window: bring them back
+}
+window.addEventListener('resize', ()=>{ ['teDwGrid','teEwGrid'].forEach(id=>{ if(document.getElementById(id)) teFitGridBox(id); }); });
+
 /* ---- One filter row for Date-wise and Employee-wise: Unit, Contractor, Group and Shift side by side
    as plain drop-downs, how many employees are shown, and Clear. A drop-down in use is tinted, so it
    is plain which filters are on. Unit and Contractor are the same filter as the other tabs' bar.

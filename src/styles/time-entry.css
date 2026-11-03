@@ -189,7 +189,7 @@
 .tePrintHead:not(:first-child){margin-top:4px;border-top:1px solid var(--rule);padding-top:10px;}
 }
 @media screen {
-/* Date-wise grid box: as tall as the room under the toolbar (set by teDwFitBox), so the frozen
-   headings and shift bars stay on screen. */
-.teDwPanel .teEwWrap{max-height:var(--teDwBoxH,70vh);}
+/* Date-wise / Employee-wise grid box: as tall as the room under the toolbar (set by teFitGridBox),
+   so the frozen headings (and shift bars / month total) stay on screen. */
+.teEwWrap.teFit{max-height:var(--teBoxH,70vh);}
 }

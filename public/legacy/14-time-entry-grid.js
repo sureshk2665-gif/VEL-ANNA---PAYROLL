@@ -730,6 +730,7 @@ function renderTEEmpWiseTab(){
     </tr>`;
   }).join('');
   if(teEwFocus) setTimeout(teEwRestoreFocus,0);
+  setTimeout(()=>teFitGridBox('teEwGrid'),0); // headings and month total stay on screen while the dates scroll
   return `<div class="panel">
     ${picker}
     <div class="teEwEmpCard">
