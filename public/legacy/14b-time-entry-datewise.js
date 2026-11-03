@@ -55,10 +55,12 @@ function teDwDayCodes(dt){
   return Object.keys(db.timeEntries[dt]||{}).filter(code=>teDwCodeInFilter(code, dt))
     .sort((a,b)=>order(teEmpShiftKey(a,dt))-order(teEmpShiftKey(b,dt)) || a.localeCompare(b,undefined,{numeric:true}));
 }
-function teDwPrintHtml(dt){
+// The Print / Excel menu for a date — in the Date-wise toolbar, and on each day card under the grid
+// (id keeps each card's menu apart).
+function teDwPrintHtml(dt, id){
   const n=teDwDayCodes(dt).length, ft=teDwFilterText(), xl=hasPerm('timeentry','export');
   const note=`${fmtDate(dt)} · ${n} employee${n===1?'':'s'}${ft?' · '+teEsc(ft):''}`;
-  return teMenuHtml('teDwPrint', false, `
+  return teMenuHtml(id||'teDwPrint', false, `
     <div class="tePrintHead">${ico('printer')} Print</div>
     ${teMenuItemHtml('calendar', 'This day', note, `printTEDay('${dt}')`)}
     <div class="tePrintHead">${ico('file-spreadsheet')} Excel download</div>

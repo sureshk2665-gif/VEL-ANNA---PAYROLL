@@ -818,7 +818,7 @@ function renderTEDayList(){
     const holidayTag = teIsHolidayDate(dt) ? ` <span class="tag HalfDay" style="padding:1px 8px;font-size:11px;">Holiday · Full-day OT</span>` : '';
     return `<div class="panel teDayGroup">
       <div class="panelHead"><h4 style="margin:0;">${ico('calendar')} ${fmtDate(dt)}${holidayTag}</h4>
-        <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button></div>
+        ${teDwPrintHtml(dt, 'teDayPrint'+dt.replace(/-/g,''))}</div>
       ${renderTELeaveGroupBox(onLeave)}
       <div class="teShiftGrid">
         ${Object.keys(byShift).map(sn=>renderTEShiftBox(sn,byShift[sn],dt)).join('')}
