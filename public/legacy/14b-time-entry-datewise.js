@@ -48,6 +48,22 @@ function teDwCodeInFilter(code, dt){
   if(teDwShiftFilter){ const k=teEmpShiftKey(code, dt); if(teDwShiftFilter==='-' ? !!k : k!==teDwShiftFilter) return false; }
   return true;
 }
+// The employees Print and Excel give for a date: those with a row that day, through the filters,
+// in grid order (by the shift planned that day, then code).
+function teDwDayCodes(dt){
+  const order=k=>{ const i=teShiftPresets().findIndex(p=>p.key===k); return i<0?99:i; };
+  return Object.keys(db.timeEntries[dt]||{}).filter(code=>teDwCodeInFilter(code, dt))
+    .sort((a,b)=>order(teEmpShiftKey(a,dt))-order(teEmpShiftKey(b,dt)) || a.localeCompare(b,undefined,{numeric:true}));
+}
+function teDwPrintHtml(dt){
+  const n=teDwDayCodes(dt).length, ft=teDwFilterText(), xl=hasPerm('timeentry','export');
+  const note=`${fmtDate(dt)} · ${n} employee${n===1?'':'s'}${ft?' · '+teEsc(ft):''}`;
+  return teMenuHtml('teDwPrint', false, `
+    <div class="tePrintHead">${ico('printer')} Print</div>
+    ${teMenuItemHtml('calendar', 'This day', note, `printTEDay('${dt}')`)}
+    <div class="tePrintHead">${ico('file-spreadsheet')} Excel download</div>
+    ${teMenuItemHtml('calendar', 'This day', 'One row per employee, with totals', `excelTEDay('${dt}')`, !xl, xl?'':TE_NO_EXPORT)}`);
+}
 // "MF UNIT 1 · Shift A Group · Second Shift" — the filters in use, for print titles.
 function teDwFilterText(){
   const grp=teDwGrpFilter ? (teDwGrpFilter==='-' ? 'No group' : teGroupLabel(teDwGrpFilter)) : '';
@@ -522,7 +538,7 @@ function renderTEDateGrid(){
         ${!unlocked
           ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teDwUnlock()" title="Rows are locked — click Edit to enter time">${ico('pencil')} Edit</button>`
           : `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teDwLock()">${ico('save')} Save</button>`}
-        <button class="btn secondary" onclick="printTEDay('${dt}')">${ico('printer')} Print</button>
+        ${teDwPrintHtml(dt)}
       </div>
     </div>
     ${teFilterRowHtml({grp:teDwGrpFilter, setGrp:'teDwSetGrpFilter', shift:teDwShiftFilter, setShift:'teDwSetShiftFilter',
