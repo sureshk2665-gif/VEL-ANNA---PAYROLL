@@ -784,7 +784,6 @@ function renderTimeEntry(){
     <div class="teTab ${teTab==='shiftmap'?'active':''}" onclick="teSetTab('shiftmap')">${ico('users')} Shift Groups</div>
     <div class="teTab ${teTab==='holiday'?'active':''}" onclick="teSetTab('holiday')">${ico('calendar')} Holidays</div>
   </div>
-  ${teTab!=='holiday' && teTab!=='entry' && teTab!=='empwise' ? renderTEFilterBar() : ''}
   ${teTab==='entry' ? renderTEEntryTab() : teTab==='empwise' ? renderTEEmpWiseTab() : teTab==='leave' ? renderTELeaveTab() : teTab==='holiday' ? renderTEHolidayTab() : teTab==='tokens' ? renderTETokensTab() : teTab==='shiftmap' ? renderTEShiftGroupsTab() : renderTESummaryTab()}`;
 }
 
@@ -1065,7 +1064,7 @@ function teTokPriceText(ym, emps){
 }
 function renderTETokensTab(){
   const ym=teTokMonth, allowed=teTokCanEdit(), can=allowed && teEditActive('tokens');
-  const emps=teFilteredEmployees(ym), q=teTokSearch.trim().toLowerCase();
+  const emps=teTfEmployees('tokens', ym), q=teTokSearch.trim().toLowerCase();
   let amount=0;
   const rows=emps.map((e,i)=>{
     const n=canteenTokensFor(e, ym), t=teTokTyped(ym, e.code), s=`${e.code} ${e.name}`.toLowerCase();
@@ -1079,14 +1078,14 @@ function renderTETokensTab(){
   }).join('');
   const total=emps.reduce((s,e)=>s+canteenTokensFor(e, ym),0), typed=emps.filter(e=>teTokTyped(ym,e.code)).length;
   const priceAdmin=isAdmin()||isSoftwareAdmin();
-  return `<div class="teStatRow">
+  const stats=`<div class="teStatRow">
       <div class="teStatBox"><b>${emps.length}</b><span>Employees</span></div>
       <div class="teStatBox"><b id="teTokTotal">${total}</b><span>Tokens this month</span></div>
       <div class="teStatBox" title="Each unit has its own price (Admin → Canteen Token Prices)"><b>${teTokPriceText(ym, emps)}</b><span>Price per token${teUnitFilter?'':' (by unit)'}</span></div>
       <div class="teStatBox"><b id="teTokAmount">${fmt(Math.round(amount*100)/100)}</b><span>Deducted from salary</span></div>
       <div class="teStatBox"><b id="teTokTyped">${typed}</b><span>Entered for this month</span></div>
-    </div>
-    <div class="panel">
+    </div>`;
+  return `<div class="panel">
     <div class="teCalHead">
       <h3 style="margin:0;">${ico('clipboard')} Monthly Token Entry — ${monthLabel(ym)}</h3>
       <div style="display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap;">
@@ -1099,9 +1098,11 @@ function renderTETokensTab(){
           : `<button class="btn btnEditAtt" onclick="teTokEdit()">${ico('pencil')} Edit</button>`}
       </div>
     </div>
+    ${teTfRowHtml('tokens', ym, emps.length, {shiftTitle:'Employees planned on this shift on any day of '+monthLabel(ym)})}
+    ${stats}
     <div class="tableScrollWrap teTokWrap"><table class="teTokTable" id="teTokTable">
       <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Unit</th><th>Contractor</th><th class="num">Tokens this month</th><th class="num" title="Token price of the employee's unit">Price</th><th class="num">Amount</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="8" class="empty">No employees on the roll in ${monthLabel(ym)}${teFilterText()?' for '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="8" class="empty">No employees on the roll in ${monthLabel(ym)}${teTfFilterText('tokens')?' for '+teEsc(teTfFilterText('tokens')):''}.</td></tr>`}</tbody>
     </table></div>
     <p class="syncNote">${can?'Type the number of tokens each employee took this month (Enter moves to the next employee), then Save — Payroll uses the counts only after Save. ':allowed?'Click Edit to enter tokens; Save puts them in Payroll. ':''}Payroll deducts tokens × the token price of the employee's unit (Admin → Canteen Token Prices). The figures show on the salary slip.</p>
   </div>`;
@@ -1118,7 +1119,7 @@ function teSummaryThisMonth(){ teSummaryMonth=monthKey(todayStr()); render('time
 // One row per employee on the roll in the month (narrowed by the Unit / Contractor filter), using
 // computePayrollForEmployee — so it matches the Payroll list and the salary slip.
 function teMonthSummaryRows(monthStr){
-  return teFilteredEmployees(monthStr).map(e=>{
+  return teTfEmployees('summary', monthStr).map(e=>{
     const p=computePayrollForEmployee(e, monthStr);
     const working=teMonthDays(e.code, monthStr).reduce((s,x)=>s+(x.c.working||0),0);
     return {emp:e, presentDays:payPresentDays(p), halfDays:p.halfDayCount, lopDays:p.lopMarked, nophDays:p.holidayDays,
@@ -1151,14 +1152,14 @@ function printTESummary(monthStr){
     ${flat.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td${c.key==='name'?' style="text-align:left;"':''}>${cell(c,r[c.key])}</td>`).join('')}</tr>`).join('')}
     <tr class="subtotal"><td colspan="4">TOTAL</td>${cols.slice(3).map(c=>`<td>${cell(c,tot(c.key))}</td>`).join('')}</tr>
   </tbody></table>`;
-  openPrintWindow(`Attendance & OT Summary — ${teSummaryMonthName(monthStr)}${teFilterText()?' — '+teFilterText():''}`, html, {orientation:'landscape'});
+  openPrintWindow(`Attendance & OT Summary — ${teSummaryMonthName(monthStr)}${teTfFilterText('summary')?' — '+teTfFilterText('summary'):''}`, html, {orientation:'landscape'});
 }
 function downloadTESummaryExcel(monthStr){
   if(!hasPerm('timeentry','export')){ alert('You do not have permission to export.'); return; }
   const rows=teMonthSummaryRows(monthStr);
   window.downloadExcel({ fileName:`${companyFilePrefix()}-Attendance-OT-Summary-${monthLabel(monthStr)}.xlsx`,
     sheets:[{ name:'Attendance & OT', title:`${db.companyName||''} — Attendance & OT Summary — ${teSummaryMonthName(monthStr)}`,
-      subtitle:teFilterText()||'All units · All contractors', columns:teSummaryColumns(), rows:teSummaryFlatRows(rows), totals:true }] });
+      subtitle:teTfFilterText('summary')||'All units · All contractors', columns:teSummaryColumns(), rows:teSummaryFlatRows(rows), totals:true }] });
 }
 function renderTESummaryTab(){
   const rows=teMonthSummaryRows(teSummaryMonth);
@@ -1177,6 +1178,7 @@ function renderTESummaryTab(){
         ${hasPerm('timeentry','export')?`<button class="btn secondary" ${rows.length?'':'disabled'} onclick="downloadTESummaryExcel('${teSummaryMonth}')">${ico('file-spreadsheet')} Excel</button>`:''}
       </div>
     </div>
+    ${teTfRowHtml('summary', teSummaryMonth, rows.length, {shiftTitle:'Employees planned on this shift on any day of '+monthName})}
     <div class="teStatRow">
       <div class="teStatBox"><b>${rows.length}</b><span>Employees</span></div>
       <div class="teStatBox"><b>${tot('paidDays')}</b><span>Total paid days</span></div>
@@ -1190,7 +1192,7 @@ function renderTESummaryTab(){
         <th style="padding:8px;">Working Hrs</th><th style="padding:8px;">OT Hrs</th><th style="padding:8px;">OT ₹</th><th style="padding:8px;">Late Min</th><th style="padding:8px;">Late Ded. ₹</th>
       </tr></thead>
       <tbody>
-      ${!rows.length?`<tr><td colspan="15" class="empty">No employees on the roll this month.</td></tr>`:rows.map((r,idx)=>`<tr style="border-top:1px solid var(--line);text-align:center;">
+      ${!rows.length?`<tr><td colspan="15" class="empty">${teTfFilterText('summary')?'No employees match these filters this month.':'No employees on the roll this month.'}</td></tr>`:rows.map((r,idx)=>`<tr style="border-top:1px solid var(--line);text-align:center;">
         <td style="padding:7px;color:var(--muted);">${idx+1}</td>
         <td style="padding:7px;">${r.emp.code}</td>
         <td style="padding:7px;text-align:left;"><button type="button" class="teEmpLink" title="Open ${teEsc(r.emp.name)}'s month in Employee-wise view" onclick="teOpenEmpWise('${teEsc(r.emp.code)}','${teSummaryMonth}-01')">${teEsc(r.emp.name)}</button></td>

@@ -150,7 +150,7 @@ function teSmDelShift(i){
 /* ---- The tab ---- */
 function renderTEShiftGroupsTab(){
   const allowed=teSmCanEdit(), can=allowed && teSmEditing(), canDel=can && hasPerm('timeentry','delete');
-  const groups=teGroups(), shifts=teShiftPresets(), emps=activeEmployeesForTE().filter(teEmpMatchesFilter);
+  const groups=teGroups(), shifts=teShiftPresets(), emps=activeEmployeesForTE().filter(e=>teEmpMatchesFilter(e) && teTfGroupOk('shiftmap', e.code));
   const q=teSmSearch.trim().toLowerCase();
   // Every Monday–Sunday week that touches the month shown, so the rows cover day 1 to the month's last day.
   const thisWk=teWeekStart(todayStr()), mFirst=teSmMonth+'-01', mLast=dateStr(teSmMonth, daysInMonth(teSmMonth));
@@ -199,7 +199,8 @@ function renderTEShiftGroupsTab(){
   <div class="panel">
     <div class="teCalHead"><div><h3 style="margin:0;">${ico('users')} Employee → Group</h3>
       <p class="teSmSub">Tick employees and assign them to a group, or change one row directly.</p></div></div>
-    <div class="teStatRow" style="margin-top:4px;">${groups.map(g=>`<div class="teStatBox"><b>${count(g.key)}</b><span>${teEsc(g.label)}</span></div>`).join('')}
+    ${teTfRowHtml('shiftmap', undefined, emps.length, {noShift:true})}
+    <div class="teStatRow" style="margin-top:12px;">${groups.map(g=>`<div class="teStatBox"><b>${count(g.key)}</b><span>${teEsc(g.label)}</span></div>`).join('')}
       <div class="teStatBox ${count('')?'warn':''}"><b>${count('')}</b><span>No group</span></div></div>
     <div class="teSmBar">
       <input type="search" placeholder="Search employee, code or department" value="${teEsc(teSmSearch)}" oninput="teSmFilter(this.value)" aria-label="Search employee">
@@ -207,7 +208,7 @@ function renderTEShiftGroupsTab(){
     </div>
     <div class="tableScrollWrap teSmEmpWrap"><table class="teSmTable" id="teSmEmp">
       <thead><tr><th class="teSmChk"><input type="checkbox" ${can?'':'disabled'} onchange="teSmToggleAll(this.checked)" aria-label="Select all shown"></th><th>Emp Code</th><th style="text-align:left;">Employee</th><th>Department</th><th>Unit</th><th>Group</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="empty">No active employees${teFilterText()?' in '+teEsc(teFilterText()):''}.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" class="empty">No active employees${teTfFilterText('shiftmap')?' for '+teEsc(teTfFilterText('shiftmap')):''}.</td></tr>`}</tbody>
     </table></div>
   </div>
   <div class="teSmTwo">

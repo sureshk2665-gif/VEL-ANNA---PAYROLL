@@ -229,14 +229,15 @@ window.addEventListener('beforeunload',e=>{ if(teEdit && teEdit.dirty){ e.preven
 // Edit / Save / Cancel bar for a Time Entry tab whose whole content is one edit area.
 function teAreaEdit(area){ if(!teEditBegin(area)){ alert('Save or cancel the other edit first.'); return; } render('timeentry'); }
 function teAreaSave(){ teEditSave(); render('timeentry'); }
-function teEditBarHtml(area, allowed, offNote, onNote){
+function teEditBarHtml(area, allowed, offNote, onNote, below){
   const on=allowed && teEditActive(area);
-  return `<div class="teSmEditBar">
+  return `<div class="teSmEditBar ${below?'teHasFilt':''}">
     <span class="teSmEditNote">${on?onNote:allowed?offNote:'View only.'}</span>
     <span id="teEwSaveState" class="teEwSave ${typeof teEwSaveState!=='undefined'?teEwSaveState:''}"></span>
     ${!allowed ? '' : on
       ? `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teAreaSave()">${ico('save')} Save</button>`
       : `<button class="btn btnEditAtt" onclick="teAreaEdit('${area}')">${ico('pencil')} Edit</button>`}
+    ${below||''}
   </div>`;
 }
 // Changing the date switches the whole Date-wise grid to that date, auto-creating blank rows for
@@ -298,22 +299,6 @@ function teFilterText(){
 }
 function teSetUnitFilter(v){ teUnitFilter=v||''; teDwSel.clear(); render('timeentry'); }
 function teSetContractorFilter(v){ teContractorFilter=v||''; teDwSel.clear(); render('timeentry'); }
-function teClearFilter(){ teUnitFilter=''; teSetContractorFilter(''); }
-function renderTEFilterBar(){
-  const tab=(code,label,title)=>`<button type="button" role="tab" class="attUnitTab ${teUnitFilter===code?'active':''}" aria-selected="${teUnitFilter===code}" title="${teEsc(title)}" onclick="teSetUnitFilter('${code}')">${label}</button>`;
-  const shown=teFilteredEmployees().length, all=activeEmployeesForTE(teScope()).length;
-  return `<div class="teFilterBar">
-    <div class="attUnitTabs" role="tablist" aria-label="Working unit">
-      ${tab('','All Units','All units')}
-      ${getUnits().map(u=>tab(u.code, unitTabLabel(u), unitDisplayName(u))).join('')}
-    </div>
-    <label class="teFilterLbl">${ico('building')} Contractor
-      <select onchange="teSetContractorFilter(this.value)" title="Filter by contractor">${contractorFilterOptionsHtml(teContractorFilter)}</select>
-    </label>
-    <span class="teFilterCount">${shown===all?`${all} employees`:`Showing ${shown} of ${all} employees`}</span>
-    ${(teUnitFilter||teContractorFilter)?`<button type="button" class="teFilterClear" onclick="teClearFilter()">${ico('x')} Clear</button>`:''}
-  </div>`;
-}
 /* ---- Keep a grid's frozen headings in sight (Date-wise and Employee-wise) ----
    A grid scrolls inside its own box; its column headings (and Date-wise's shift bars, Employee-wise's
    month total at the bottom) freeze at the edges of that box. The page around it scrolls too, so the
@@ -368,7 +353,8 @@ window.addEventListener('resize', ()=>{ ['teDwGrid','teEwGrid'].forEach(id=>{ if
 /* ---- One filter row for Date-wise and Employee-wise: Unit, Contractor, Group and Shift side by side
    as plain drop-downs, how many employees are shown, and Clear. A drop-down in use is tinted, so it
    is plain which filters are on. Unit and Contractor are the same filter as the other tabs' bar.
-     o = {grp, setGrp, shift, setShift, shiftCounts:{key:n,'-':n}, shiftTitle, clear, shown, all} ---- */
+     o = {grp, setGrp, shift, setShift, shiftCounts:{key:n,'-':n}, shiftTitle, clear, shown, all, noShift}
+   setGrp / setShift / clear are called as  <setGrp>(value)  and  <clear>()  in the page. ---- */
 function teFilterRowHtml(o){
   const sel=(on, fn, label, title, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="${fn}(this.value)" aria-label="${label}" title="${teEsc(title)}">${opts}</select>`;
   const opt=(v, cur, text)=>`<option value="${teEsc(v)}" ${cur===v?'selected':''}>${teEsc(text)}</option>`;
@@ -381,11 +367,51 @@ function teFilterRowHtml(o){
     ${sel(teContractorFilter, 'teSetContractorFilter', 'Contractor', 'Contractor', contractorFilterOptionsHtml(teContractorFilter))}
     ${sel(o.grp, o.setGrp, 'Group', 'Shift group (Shift Groups tab)',
       opt('', o.grp, 'All Groups')+teGroups().map(g=>opt(g.key, o.grp, g.label)).join('')+opt('-', o.grp, 'No group'))}
-    ${sel(o.shift, o.setShift, 'Shift', o.shiftTitle,
+    ${o.noShift ? '' : sel(o.shift, o.setShift, 'Shift', o.shiftTitle,
       opt('', o.shift, 'All Shifts')+teShiftPresets().map(p=>opt(p.key, o.shift, p.label+cnt(p.key))).join('')+opt('-', o.shift, 'No shift planned'+cnt('-')))}
     <span class="teFiltCount">${o.shown===o.all?`${o.all} employees`:`<b>${o.shown}</b> of ${o.all} employees`}</span>
     ${any?`<button type="button" class="teFiltClear" onclick="${o.clear}()" title="Show everyone">${ico('filter-x')} Clear filters</button>`:''}
   </div>`;
+}
+
+/* ---- Group and Shift filters for the other tabs (Leave Entry, Attendance & OT, Token Entry,
+   Shift Groups). Each tab keeps its own; Unit and Contractor are shared by every tab. The Shift
+   filter means the shift planned on the date shown (Leave Entry: the leave's date) or, for a month,
+   on any day of that month. ---- */
+const teTabFilt={leave:{grp:'',shift:''}, summary:{grp:'',shift:''}, tokens:{grp:'',shift:''}, shiftmap:{grp:'',shift:''}};
+function teTfSetter(tab, key){ return v=>{ teTabFilt[tab][key]=v||''; render('timeentry'); }; }
+function teTfClear(tab){ teTabFilt[tab].grp=''; teTabFilt[tab].shift=''; teUnitFilter=''; teSetContractorFilter(''); }
+function teTfGroupOk(tab, code){ const g=teTabFilt[tab].grp; return !g || (g==='-' ? !teEmpGroup(code) : teEmpGroup(code)===g); }
+// code -> Set of shift keys planned on the date ('YYYY-MM-DD') or on any day of the month ('YYYY-MM').
+function teTfShiftKeys(scope){
+  if(scope && scope.length===7) return teEwMonthShiftKeys(scope);
+  return code=>{ const k=teEmpShiftKey(code, scope); return new Set(k?[k]:[]); };
+}
+function teTfShiftOk(tab, code, keys){ const sh=teTabFilt[tab].shift; if(!sh) return true; const k=keys(code); return sh==='-' ? !k.size : k.has(sh); }
+// Employees on the roll for the date / month, through Unit, Contractor, Group and Shift.
+function teTfEmployees(tab, scope){
+  const keys=teTfShiftKeys(scope);
+  return teFilteredEmployees(scope).filter(e=>teTfGroupOk(tab, e.code) && teTfShiftOk(tab, e.code, keys));
+}
+// One employee code (for records such as leave), with the shift taken on that record's date.
+function teTfCodeIn(tab, code, scope){ return teCodeInFilter(code) && teTfGroupOk(tab, code) && teTfShiftOk(tab, code, teTfShiftKeys(scope)); }
+function teTfFilterText(tab){
+  const f=teTabFilt[tab];
+  const grp=f.grp ? (f.grp==='-' ? 'No group' : teGroupLabel(f.grp)) : '';
+  const sh=f.shift ? (f.shift==='-' ? 'No shift planned' : (teShiftByKey(f.shift)||{}).label||'') : '';
+  return [teFilterText(), grp, sh].filter(Boolean).join(' · ');
+}
+function teTfRowHtml(tab, scope, shown, opts){
+  opts=opts||{};
+  let counts=null;
+  if(!opts.noShift){
+    const keys=teTfShiftKeys(scope), n={'-':0}; teShiftPresets().forEach(p=>{ n[p.key]=0; });
+    teFilteredEmployees(scope).filter(e=>teTfGroupOk(tab, e.code)).forEach(e=>{ const k=keys(e.code); if(!k.size) n['-']++; k.forEach(x=>{ if(n[x]!==undefined) n[x]++; }); });
+    counts=n;
+  }
+  return teFilterRowHtml({grp:teTabFilt[tab].grp, setGrp:`teTfSetter('${tab}','grp')`, shift:teTabFilt[tab].shift, setShift:`teTfSetter('${tab}','shift')`,
+    shiftCounts:counts, shiftTitle:opts.shiftTitle||'', clear:`teTfClear.bind(null,'${tab}')`, noShift:!!opts.noShift,
+    shown, all:activeEmployeesForTE(scope).length});
 }
 
 /* ---------------- Employee Leave (this module's own leave log — separate from any
@@ -421,24 +447,26 @@ function teDeleteLeave(dt, code){
   teEditTouch(); render('timeentry');
 }
 function printTELeaveDay(dt){
-  const list=(db.timeLeaves||[]).filter(l=>l.date===dt && teCodeInFilter(l.empCode));
-  if(!list.length){ alert('No leave records for this date.'); return; }
+  const list=(db.timeLeaves||[]).filter(l=>l.date===dt && teTfCodeIn('leave', l.empCode, l.date));
+  const ft=teTfFilterText('leave');
+  if(!list.length){ alert('No leave records for this date'+(ft?' for '+ft:'')+'.'); return; }
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   const rows=list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)',department:''};
     return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${emp.department||'-'}</td><td>${l.type==='NOPL'?'Loss of Pay':l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td></tr>`; }).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Leave Type</th><th>Remarks</th></tr></thead><tbody>${rows}</tbody></table>`;
-  openPrintWindow(`Employee Leave — ${fmtDate(dt)}${teFilterText()?' — '+teFilterText():''}`, html);
+  openPrintWindow(`Employee Leave — ${fmtDate(dt)}${ft?' — '+ft:''}`, html);
 }
 function renderTELeaveTab(){
-  const emps=teFilteredEmployees(teLeaveDate);
+  const emps=teTfEmployees('leave', teLeaveDate);
   const allowed=hasPerm('timeentry','add')||hasPerm('timeentry','edit');
   const canEdit=allowed && teEditActive('leave');
   const canDel=canEdit && hasPerm('timeentry','delete');
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
   if(teLeaveEmp && !emps.some(e=>e.code===teLeaveEmp)) teLeaveEmp='';
-  const leaves=(db.timeLeaves||[]).filter(l=>teCodeInFilter(l.empCode));
+  const leaves=(db.timeLeaves||[]).filter(l=>teTfCodeIn('leave', l.empCode, l.date));
   const dates=[...new Set(leaves.map(l=>l.date))].sort().reverse().slice(0,20);
-  return `${teEditBarHtml('leave', allowed, 'Click Edit to add or remove leave.', 'Editing — add or remove leave below, then Save. Attendance and Payroll use it only after Save.')}
+  const filt=teTfRowHtml('leave', teLeaveDate, emps.length, {shiftTitle:'Shift planned on '+fmtDate(teLeaveDate)+' (the leave list below: on each leave\'s date)'});
+  return `${teEditBarHtml('leave', allowed, 'Click Edit to add or remove leave.', 'Editing — add or remove leave below, then Save. Attendance and Payroll use it only after Save.', filt)}
   <div class="panel">
     <h3>${ico('palm')} Record Employee Leave</h3>
     <p class="syncNote">Select the employee and enter their leave details for the chosen date. A Loss of Pay or Half Day recorded here counts in Attendance and Payroll for that day, unless a different status is marked on the Attendance screen.</p>
@@ -459,7 +487,7 @@ function renderTELeaveTab(){
       <div class="full"><button class="btn" ${canEdit?'':'disabled'} onclick="teSaveLeave()">${ico('plus')} Add to list</button></div>
     </div>
   </div>
-  ${!dates.length?`<div class="panel"><div class="empty">No leave records yet.</div></div>`:dates.map(dt=>{
+  ${!dates.length?`<div class="panel"><div class="empty">${teTfFilterText('leave')?'No leave records for these filters.':'No leave records yet.'}</div></div>`:dates.map(dt=>{
     const list=leaves.filter(l=>l.date===dt);
     return `<div class="panel teDayGroup">
       <div class="panelHead"><h4 style="margin:0;">${ico('palm')} ${fmtDate(dt)}</h4><button class="btn secondary" onclick="printTELeaveDay('${dt}')">${ico('printer')} Print</button></div>

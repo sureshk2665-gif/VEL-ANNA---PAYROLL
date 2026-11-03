@@ -193,3 +193,7 @@
    so the frozen headings (and shift bars / month total) stay on screen. */
 .teEwWrap.teFit{max-height:var(--teBoxH,70vh);}
 }
+@media screen {
+/* Leave Entry: the filter row sits under the Edit bar's note and buttons, full width */
+.teSmEditBar.teHasFilt .teFiltRow{flex-basis:100%;margin-top:2px;}
+}
