@@ -481,6 +481,54 @@ function teDwRefreshFoldAll(){
   b.classList.toggle('folded', all); b.setAttribute('aria-expanded', String(!all));
   b.title=all?'Show every shift\'s employees':'Fold every shift — only the shift bars stay';
 }
+/* ---- Keep the frozen headings in sight ----
+   The grid scrolls inside its own box; its column headings and shift bars freeze at the top of that
+   box. The page around it scrolls too, so the two are kept in step:
+     - the box is as tall as the room left under the toolbar (at least 360px, at most the window),
+       so the whole grid — headings included — is on screen;
+     - scrolling down over the grid first moves the page just enough to show the whole box, then
+       the rows scroll under the frozen headings;
+     - whenever the rows scroll while the top of the box is above the window (the page was scrolled
+       further), the page brings it back down. */
+const TE_DW_GAP=8;
+function teDwOuter(box){
+  for(let q=box.parentElement; q; q=q.parentElement){ const o=getComputedStyle(q).overflowY; if((o==='auto'||o==='scroll') && q.scrollHeight>q.clientHeight+1) return q; }
+  return document.scrollingElement || document.documentElement;
+}
+// The page scroller and the visible part of it (top / bottom on screen).
+function teDwView(box){
+  const outer=teDwOuter(box), win=outer===document.scrollingElement || outer===document.documentElement;
+  const r=win ? {top:0, bottom:window.innerHeight} : outer.getBoundingClientRect();
+  return {outer, top:r.top, bottom:r.bottom};
+}
+function teDwFitBox(){
+  const g=document.getElementById('teDwGrid'), box=g && g.closest('.teEwWrap'); if(!box) return;
+  const v=teDwView(box), viewH=v.bottom-v.top;
+  const topInPage=box.getBoundingClientRect().top - v.top + v.outer.scrollTop; // where the box starts with the page at the top
+  const room=viewH - topInPage - TE_DW_GAP;
+  box.style.setProperty('--teDwBoxH', Math.round(Math.min(viewH-2*TE_DW_GAP, Math.max(360, room)))+'px');
+  if(!box.dataset.fit){
+    box.dataset.fit='1';
+    box.addEventListener('wheel', teDwBoxWheel, {passive:false});
+    box.addEventListener('scroll', teDwBoxScroll, {passive:true});
+  }
+}
+function teDwBoxWheel(ev){
+  if(ev.deltaY<=0 || ev.ctrlKey || ev.shiftKey) return;
+  const box=ev.currentTarget;
+  if(box.scrollTop+box.clientHeight >= box.scrollHeight-1) return; // rows at the end: the page scrolls on as usual
+  const v=teDwView(box), below=box.getBoundingClientRect().bottom - (v.bottom-TE_DW_GAP);
+  if(below<=1) return; // the whole box is on screen: the rows scroll
+  ev.preventDefault();
+  const px=ev.deltaY*(ev.deltaMode===1 ? 16 : ev.deltaMode===2 ? v.bottom-v.top : 1);
+  v.outer.scrollTop+=Math.min(below, px);
+}
+function teDwBoxScroll(ev){
+  const box=ev.currentTarget; if(box.scrollTop<=0) return;
+  const v=teDwView(box), above=box.getBoundingClientRect().top - (v.top+TE_DW_GAP);
+  if(above < -1) v.outer.scrollTop+=above; // the headings went above the window: bring them back
+}
+window.addEventListener('resize', ()=>{ if(document.getElementById('teDwGrid')) teDwFitBox(); });
 // The frozen shift bar sits just under the column headings: tell it their height.
 function teDwSetHeadHeight(){
   const g=document.getElementById('teDwGrid'), h=g && g.tHead; if(h) g.style.setProperty('--teDwHeadH', h.offsetHeight+'px');
@@ -522,7 +570,7 @@ function renderTEDateGrid(){
   const quick=teShiftPresets().map(p=>({p, n:emps.filter(e=>{ if(teEmpShiftKey(e.code,dt)!==p.key) return false; const md=teEwRowModel(e.code,dt); return !md.hasIn&&!md.onLeave; }).length, all:emps.filter(e=>teEmpShiftKey(e.code,dt)===p.key).length})).filter(q=>q.all);
   if(teDwFocus) setTimeout(teDwRestoreFocus,0);
   if(unlocked) setTimeout(teDwRefreshSel,0); // tick boxes (page and shift headings) match the kept selection
-  setTimeout(()=>{ teDwSetHeadHeight(); teDwRefreshFoldAll(); },0);
+  setTimeout(()=>{ teDwSetHeadHeight(); teDwRefreshFoldAll(); teDwFitBox(); },0);
   return `<div class="panel teDwPanel">
     <div class="teDwTop teBar">
       <div class="teDwGroup">

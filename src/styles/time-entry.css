@@ -188,3 +188,8 @@
 .tePrintHead svg{width:13px;height:13px;}
 .tePrintHead:not(:first-child){margin-top:4px;border-top:1px solid var(--rule);padding-top:10px;}
 }
+@media screen {
+/* Date-wise grid box: as tall as the room under the toolbar (set by teDwFitBox), so the frozen
+   headings and shift bars stay on screen. */
+.teDwPanel .teEwWrap{max-height:var(--teDwBoxH,70vh);}
+}
