@@ -135,6 +135,34 @@ export default function LoginShowcase() {
     };
   }, []);
 
+  // Keep the whole login screen inside the window: when the left side (brand, headline, cards and
+  // chips) is taller than the space above the footer, shrink it to fit. Measured, so it works at
+  // any screen size, browser zoom and Windows scaling, with or without the company logo.
+  useEffect(() => {
+    const fit = () => {
+      const screen = document.getElementById('loginScreen');
+      const intro = document.querySelector('#loginScreen .loginIntro');
+      const layout = document.querySelector('#loginScreen .loginLayout');
+      if (!screen || !intro || !layout || screen.style.display === 'none') return;
+      intro.style.zoom = '';
+      if (getComputedStyle(intro).display === 'none') return; // narrow screens show the card only
+      const cs = getComputedStyle(layout);
+      const footer = document.querySelector('#loginScreen .loginFooter');
+      const avail = window.innerHeight - (footer ? footer.offsetHeight : 0) - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      const need = intro.scrollHeight;
+      const z = Math.max(0.55, Math.min(1, avail / need));
+      if (z < 0.995) intro.style.zoom = String(Math.floor(z * 100) / 100);
+    };
+    fit();
+    const timers = [300, 1200, 3000].map((ms) => setTimeout(fit, ms)); // after fonts and the logo load
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+    window.addEventListener('resize', fit);
+    const screen = document.getElementById('loginScreen');
+    const obs = screen && 'MutationObserver' in window ? new MutationObserver(fit) : null;
+    if (obs) obs.observe(screen, { attributes: true, attributeFilter: ['style'] }); // shown again after Logout
+    return () => { timers.forEach(clearTimeout); window.removeEventListener('resize', fit); obs && obs.disconnect(); };
+  }, []);
+
   // The cards lean towards the mouse (CSS variables only — no re-render).
   const onMove = (e) => {
     const el = sceneRef.current;
