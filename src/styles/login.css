@@ -189,3 +189,9 @@
 }
 
 }
+@media screen and (max-height:820px){
+  /* Short windows: less empty space above and below, so more of the screen is content
+     (the left side is also shrunk to fit — LoginShowcase.jsx). */
+  .loginLayout{padding-top:20px !important;padding-bottom:16px !important;}
+  .loginFooter{padding-top:10px !important;padding-bottom:10px !important;}
+}
