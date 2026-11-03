@@ -1,6 +1,7 @@
-import { ArrowRight, CalendarCheck, Eye, EyeOff, FileText, Lock, User, Wallet } from 'lucide-react';
+import { ArrowRight, Eye, EyeOff, Lock, User } from 'lucide-react';
 import { APP_NAME } from '../config/brand.js';
 import { callLegacy } from '../legacyBridge.js';
+import LoginShowcase from './LoginShowcase.jsx';
 
 // Username + Password sign-in, checked by Supabase Auth. The Enter-key handlers and status
 // messages are handled by the legacy auth code (public/legacy/04-auth-theme.js) using the element
@@ -16,12 +17,6 @@ const togglePassword = (btn) => {
   input.focus();
 };
 
-const FEATURES = [
-  { icon: CalendarCheck, title: 'Attendance', sub: 'Daily & monthly' },
-  { icon: Wallet, title: 'Payroll', sub: 'Slips in a click' },
-  { icon: FileText, title: 'Reports', sub: 'PF, ESI & more' },
-];
-
 export default function LoginScreen() {
   return (
     <div id="loginScreen">
@@ -35,15 +30,9 @@ export default function LoginScreen() {
           </div>
           <h2 className="loginHeadline">Payroll,<br />made simple<br />and accurate.</h2>
           <p className="loginLead">Attendance, salaries and statutory reports — for every unit and contractor, in one place.</p>
-          <ul className="loginFeatures">
-            {FEATURES.map((f) => (
-              <li key={f.title}>
-                <span className="lfIcon"><f.icon size={20} strokeWidth={1.8} /></span>
-                <b>{f.title}</b>
-                <small>{f.sub}</small>
-              </li>
-            ))}
-          </ul>
+          {/* Illustration, live clock and the Attendance / Payroll / Reports chips — moving and
+              reacting (its own component: this screen itself never re-renders). */}
+          <LoginShowcase />
         </section>
 
         <div className="loginBox">

@@ -77,3 +77,115 @@
 }
 
 } /* @media screen */
+
+/* =====================================================================================
+   LOGIN SHOWCASE — the illustration and reacting chips on the left (LoginShowcase.jsx).
+   Cards float gently and lean towards the mouse; the chip in focus (pointed at, or moving on
+   its own every few seconds) lifts its card and plays its icon. Still for reduced motion.
+   ===================================================================================== */
+@media screen {
+
+.loginHeadline{margin-top:28px;font-size:clamp(28px,2.6vw,38px);}
+.loginLead{margin-top:12px;}
+.lsWrap{margin-top:22px;}
+
+/* Live clock + greeting */
+.lsLive{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px 0 10px;border:1px solid var(--border,var(--line));border-radius:999px;background:var(--surface,var(--card));font-size:12.5px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.lsLive b{color:var(--text,var(--ink));font-weight:600;}
+.lsDot{width:8px;height:8px;border-radius:50%;background:var(--positive,#16a34a);box-shadow:0 0 0 0 color-mix(in srgb, var(--positive,#16a34a) 45%, transparent);animation:lsPulse 2s ease-out infinite;}
+@keyframes lsPulse{0%{box-shadow:0 0 0 0 color-mix(in srgb, var(--positive,#16a34a) 45%, transparent);}100%{box-shadow:0 0 0 8px transparent;}}
+
+/* The scene: three cards in a loose stack */
+.lsScene{--mx:0;--my:0;position:relative;height:276px;margin-top:14px;}
+/* a soft glow of the company colour behind the cards */
+.lsScene::before{content:'';position:absolute;left:18%;top:8%;width:70%;height:84%;border-radius:50%;background:radial-gradient(closest-side, color-mix(in srgb, var(--accent) 13%, transparent), transparent);filter:blur(6px);translate:calc(var(--mx)*-10px) calc(var(--my)*-8px);transition:translate .4s ease;pointer-events:none;}
+.lsCard{position:absolute;box-sizing:border-box;padding:12px 14px;border:1px solid var(--border,var(--line));border-radius:12px;background:var(--surface,var(--card));
+  box-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+  translate:calc(var(--mx)*var(--px,12px)) calc(var(--my)*var(--py,8px));
+  transition:translate .35s cubic-bezier(.22,.61,.36,1),scale .35s ease,border-color .3s ease,box-shadow .3s ease;
+  animation:lsFloat 7s ease-in-out infinite;}
+@keyframes lsFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
+.lsPay{left:0;top:34px;width:250px;z-index:3;--px:10px;--py:7px;animation-delay:-2s;}
+.lsAtt{left:47%;top:0;width:220px;z-index:2;--px:18px;--py:12px;animation-delay:-4.5s;}
+.lsRep{left:52%;top:158px;width:205px;z-index:4;--px:24px;--py:14px;animation-delay:-1s;}
+.lsScene.on-att .lsAtt,.lsScene.on-pay .lsPay,.lsScene.on-rep .lsRep{z-index:5;scale:1.04;border-color:color-mix(in srgb, var(--accent) 55%, var(--border,var(--line)));
+  box-shadow:0 2px 4px rgba(16,24,40,.06),0 14px 34px color-mix(in srgb, var(--accent) 16%, transparent);}
+
+.lsCardHead{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;font-size:12px;font-weight:600;color:var(--text,var(--ink));}
+.lsCardHead em{font-style:normal;font-weight:500;color:var(--muted);font-size:11.5px;}
+.lsMuted{font-size:11.5px;color:var(--muted);}
+.lsBig{font-size:20px;font-weight:700;line-height:1.1;color:var(--text,var(--ink));font-variant-numeric:tabular-nums;}
+.lsBig small{font-size:12px;font-weight:500;color:var(--muted);}
+
+/* Attendance card: ring + the week ticking in */
+.lsAttBody{display:flex;align-items:center;gap:12px;}
+.lsRing{position:relative;width:46px;height:46px;flex-shrink:0;}
+.lsRing svg{width:100%;height:100%;transform:rotate(-90deg);}
+.lsRing circle{fill:none;stroke-width:4;}
+.lsRingBg{stroke:var(--raised,#eef1f5);}
+.lsRingFg{stroke:var(--accent);stroke-linecap:round;stroke-dasharray:96 100;}
+.lsRing b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text,var(--ink));}
+.lsWeek{display:flex;gap:6px;margin-top:10px;}
+.lsDay{display:flex;flex-direction:column;align-items:center;gap:3px;flex:1;}
+.lsDay i{font-style:normal;font-size:10px;font-weight:600;color:var(--muted);}
+.lsDay svg{width:18px;height:18px;padding:2px;box-sizing:border-box;border-radius:6px;background:var(--st-present-bg,#dff5e7);}
+.lsDay path{fill:none;stroke:var(--st-present-text,#0f5132);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:0;}
+.on-att .lsRingFg{animation:lsRing 1.2s cubic-bezier(.22,.61,.36,1) both;}
+@keyframes lsRing{from{stroke-dasharray:0 100;}to{stroke-dasharray:96 100;}}
+.on-att .lsDay path{animation:lsDraw .45s ease-out both;animation-delay:calc(var(--i)*.14s + .2s);}
+@keyframes lsDraw{from{stroke-dashoffset:1;}to{stroke-dashoffset:0;}}
+
+/* Pay slip card: greets the typed username; net pay counts up */
+.lsHello{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-bottom:8px;min-height:18px;}
+.lsHello b{color:var(--text,var(--ink));max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lsSecure{margin-left:auto;font-size:10.5px;font-weight:600;color:var(--positive,#16a34a);animation:lsFade .3s ease both;}
+@keyframes lsFade{from{opacity:0;transform:translateY(2px);}to{opacity:1;transform:none;}}
+.lsRows{display:flex;flex-direction:column;gap:6px;}
+.lsRows div{display:grid;grid-template-columns:38px 1fr;align-items:center;gap:8px;font-size:11px;color:var(--muted);}
+.lsRows i{display:block;height:6px;border-radius:999px;background:linear-gradient(90deg, color-mix(in srgb, var(--accent) 70%, transparent) var(--w), var(--raised,#eef1f5) var(--w));}
+.on-pay .lsRows i{animation:lsGrowW .8s cubic-bezier(.22,.61,.36,1) both;}
+.on-pay .lsRows div:nth-child(2) i{animation-delay:.1s;}
+.on-pay .lsRows div:nth-child(3) i{animation-delay:.2s;}
+@keyframes lsGrowW{from{clip-path:inset(0 100% 0 0 round 999px);}to{clip-path:inset(0 0 0 0 round 999px);}}
+.lsNet{display:flex;align-items:baseline;justify-content:space-between;margin-top:10px;padding-top:8px;border-top:1px dashed var(--border,var(--line));font-size:11.5px;color:var(--muted);}
+.lsNet b{font-size:18px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;}
+
+/* Reports card: bars grow */
+.lsBars{display:flex;align-items:flex-end;gap:7px;height:52px;padding:0 2px;}
+.lsBars i{flex:1;height:var(--h);border-radius:4px 4px 2px 2px;background:color-mix(in srgb, var(--accent) 22%, var(--raised,#eef1f5));transform-origin:bottom;}
+.lsBars i:nth-child(4){background:var(--accent);}
+.on-rep .lsBars i{animation:lsGrowH .7s cubic-bezier(.22,.61,.36,1) both;animation-delay:calc(var(--i)*.07s);}
+@keyframes lsGrowH{from{transform:scaleY(.05);}to{transform:scaleY(1);}}
+.lsTags{display:flex;gap:5px;margin-top:8px;}
+.lsTags span{padding:1px 7px;border-radius:999px;background:var(--raised,#eef1f5);font-size:10.5px;font-weight:600;color:var(--muted);}
+
+/* Feature chips: the one in focus is outlined in the company colour and plays its icon */
+.lsChips{margin-top:14px !important;}
+.lsChip{cursor:default;transition:border-color .25s ease,box-shadow .25s ease,background-color .25s ease;}
+.lsChip.on{border-color:color-mix(in srgb, var(--accent) 55%, var(--border,var(--line))) !important;box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);}
+.lsChip .lfIcon{transition:background-color .25s ease,color .25s ease;}
+.lsChip.on .lfIcon{background:color-mix(in srgb, var(--accent) 12%, var(--surface,#fff));color:var(--accent);}
+.lfIcon svg{overflow:visible;}
+.lsChip.on .icCheck{stroke-dasharray:1;animation:lsDraw .55s ease-out both;}
+.lsChip.on .icCoin{animation:lsCoin .7s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes lsCoin{0%{transform:translateY(-7px);opacity:0;}60%{opacity:1;}100%{transform:none;opacity:1;}}
+.icBar{transform-box:fill-box;transform-origin:bottom;}
+.lsChip.on .icBar{animation:lsGrowH .5s cubic-bezier(.22,.61,.36,1) both;}
+.lsChip.on .icBar.b2{animation-delay:.08s;}
+.lsChip.on .icBar.b3{animation-delay:.16s;}
+
+/* Sign-in refused: the card shakes once */
+#loginScreen .loginBox.loginShake{animation:lsShake .42s cubic-bezier(.36,.07,.19,.97) both;}
+@keyframes lsShake{10%,90%{transform:translateX(-1px);}20%,80%{transform:translateX(2px);}30%,50%,70%{transform:translateX(-5px);}40%,60%{transform:translateX(5px);}}
+
+@media (max-width:1100px){
+  .lsScene{height:256px;transform:scale(.92);transform-origin:left top;}
+}
+@media (prefers-reduced-motion:reduce){
+  .lsCard,.lsDot{animation:none !important;}
+  .lsCard{transition:none;translate:none;}
+  .lsScene *,.lsChip *{animation:none !important;}
+  #loginScreen .loginBox.loginShake{animation:none;}
+}
+
+}
