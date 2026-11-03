@@ -574,15 +574,14 @@ function teEwExcelDayColumns(){
     {header:'Attendance', key:'attendance', width:30},
   ];
 }
-function teEwExcelDayRows(code, ym){
-  const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  return teEwMonthDates(ym).map(dt=>{
-    const md=teEwRowModel(code, dt), cc=teEwComputedCells(md), blank=!md.hasIn||md.onLeave;
-    return {date:fmtDate(dt), day:dayNames[md.dow], inTime:md.onLeave?'':md.inTxt, outTime:md.onLeave?'':md.outTxt, shift:cc.shift==='–'?'':cc.shift,
-      working:blank?'':teEwHrs(md.c.working), late:blank?'':(md.c.late||0), ot:blank?'':teEwHrs(md.c.ot), total:blank?'':teEwHrs(md.total),
-      present:md.onLeave?'':md.leave?0.5:md.hasIn?1:'', leave:md.onLeave?1:md.leave?0.5:'', attendance:teEwAttText(md, dt)==='-'?'':teEwAttText(md, dt)};
-  });
+// One employee on one date, for Excel (Employee-wise and Date-wise use the same row).
+function teExcelDayRow(code, dt){
+  const md=teEwRowModel(code, dt), cc=teEwComputedCells(md), blank=!md.hasIn||md.onLeave, att=teEwAttText(md, dt);
+  return {date:fmtDate(dt), day:['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][md.dow], inTime:md.onLeave?'':md.inTxt, outTime:md.onLeave?'':md.outTxt, shift:cc.shift==='–'?'':cc.shift,
+    working:blank?'':teEwHrs(md.c.working), late:blank?'':(md.c.late||0), ot:blank?'':teEwHrs(md.c.ot), total:blank?'':teEwHrs(md.total),
+    present:md.onLeave?'':md.leave?0.5:md.hasIn?1:'', leave:md.onLeave?1:md.leave?0.5:'', attendance:att==='-'?'':att};
 }
+function teEwExcelDayRows(code, ym){ return teEwMonthDates(ym).map(dt=>teExcelDayRow(code, dt)); }
 function teEwEmpLine(e){ const g=teEmpGroup(e.code); return [`${e.code} — ${e.name}`, e.department, e.unit?unitLabel(e.unit):'', g?teGroupLabel(g):''].filter(Boolean).join(' · '); }
 function excelTEEmployee(){
   if(!teEwEmp) return;
@@ -614,38 +613,52 @@ function excelTEEmployeesAll(){
     ] });
 }
 // The Print / Excel button's choices.
-function teEwPrintToggle(){
-  const pop=document.getElementById('teEwPrintPop'), btn=document.getElementById('teEwPrintBtn'); if(!pop) return;
-  if(!pop.hidden){ teEwPrintClose(true); return; }
-  pop.hidden=false; btn.setAttribute('aria-expanded','true');
-  const first=pop.querySelector('[role=menuitem]:not(:disabled)'); if(first) first.focus();
-  document.addEventListener('mousedown', teEwPrintOutside, true);
+/* ---- Print / Excel menu (Date-wise and Employee-wise): a button with a short list of choices.
+   Elements: <id>Pick (wrap), <id>Btn (button), <id>Pop (the list). ---- */
+let teMenuOpenId='';
+function teMenuEls(id){ return {wrap:document.getElementById(id+'Pick'), pop:document.getElementById(id+'Pop'), btn:document.getElementById(id+'Btn')}; }
+function teMenuToggle(id){
+  const el=teMenuEls(id); if(!el.pop) return;
+  if(!el.pop.hidden){ teMenuClose(true); return; }
+  teMenuClose(false);
+  el.pop.hidden=false; el.btn.setAttribute('aria-expanded','true'); teMenuOpenId=id;
+  const first=el.pop.querySelector('[role=menuitem]:not(:disabled)'); if(first) first.focus();
+  document.addEventListener('mousedown', teMenuOutside, true);
 }
-function teEwPrintClose(focusBtn){
-  document.removeEventListener('mousedown', teEwPrintOutside, true);
-  const pop=document.getElementById('teEwPrintPop'), btn=document.getElementById('teEwPrintBtn'); if(!pop || pop.hidden) return;
-  pop.hidden=true; btn.setAttribute('aria-expanded','false'); if(focusBtn) btn.focus();
+function teMenuClose(focusBtn){
+  document.removeEventListener('mousedown', teMenuOutside, true);
+  const id=teMenuOpenId; teMenuOpenId=''; if(!id) return;
+  const el=teMenuEls(id); if(!el.pop || el.pop.hidden) return;
+  el.pop.hidden=true; el.btn.setAttribute('aria-expanded','false'); if(focusBtn) el.btn.focus();
 }
-function teEwPrintOutside(ev){ const w=document.getElementById('teEwPrintPick'); if(!w || !w.contains(ev.target)) teEwPrintClose(false); }
-function teEwPrintKey(ev){
-  const items=[...document.querySelectorAll('#teEwPrintPop [role=menuitem]:not(:disabled)')], i=items.indexOf(document.activeElement);
-  if(ev.key==='Escape'){ ev.preventDefault(); teEwPrintClose(true); }
+function teMenuOutside(ev){ const el=teMenuEls(teMenuOpenId); if(!el.wrap || !el.wrap.contains(ev.target)) teMenuClose(false); }
+function teMenuKey(ev){
+  const items=[...ev.currentTarget.querySelectorAll('[role=menuitem]:not(:disabled)')], i=items.indexOf(document.activeElement);
+  if(ev.key==='Escape'){ ev.preventDefault(); teMenuClose(true); }
   else if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){ ev.preventDefault(); if(items.length) items[(i+(ev.key==='ArrowDown'?1:-1)+items.length)%items.length].focus(); }
-  else if(ev.key==='Tab') teEwPrintClose(false);
+  else if(ev.key==='Tab') teMenuClose(false);
 }
-function teEwPrintHtml(emps, emp){
-  const ft=teEwFilterText(), xl=teEwExcelAllowed();
-  return `<div class="tePrintPick" id="teEwPrintPick">
-    <button type="button" class="btn secondary" id="teEwPrintBtn" ${emps.length?'':'disabled'} aria-haspopup="menu" aria-expanded="false" onclick="teEwPrintToggle()">${ico('printer')} Print / Excel ${ico('chevron-down')}</button>
-    <div class="tePrintPop" id="teEwPrintPop" role="menu" aria-label="Print or download Excel" hidden onkeydown="teEwPrintKey(event)">
-      <div class="tePrintHead">${ico('printer')} Print</div>
-      <button type="button" role="menuitem" ${emp?'':'disabled'} onclick="teEwPrintClose(false);printTEEmployee()">${ico('user')}<span><b>This employee</b><small>${emp?teEsc(emp.code+' — '+emp.name):'Choose an employee first'}</small></span></button>
-      <button type="button" role="menuitem" onclick="teEwPrintClose(false);printTEEmployeesAll()">${ico('users')}<span><b>All ${emps.length} employee${emps.length===1?'':'s'} shown</b><small>${ft?teEsc(ft):'No filters — everyone on the roll'} · one page each</small></span></button>
-      <div class="tePrintHead">${ico('file-spreadsheet')} Excel download</div>
-      <button type="button" role="menuitem" ${emp&&xl?'':'disabled'} ${xl?'':'title="You do not have permission to export"'} onclick="teEwPrintClose(false);excelTEEmployee()">${ico('user')}<span><b>This employee</b><small>${emp?teEsc(emp.code+' — '+emp.name)+' · every date':'Choose an employee first'}</small></span></button>
-      <button type="button" role="menuitem" ${xl?'':'disabled title="You do not have permission to export"'} onclick="teEwPrintClose(false);excelTEEmployeesAll()">${ico('users')}<span><b>All ${emps.length} employee${emps.length===1?'':'s'} shown</b><small>Summary sheet + every date</small></span></button>
-    </div>
+// label / note are HTML already (escaped by the caller); action is the call to run.
+function teMenuItemHtml(icon, label, note, action, off, title){
+  return `<button type="button" role="menuitem" ${off?'disabled':''} ${title?`title="${teEsc(title)}"`:''} onclick="teMenuClose(false);${action}">${ico(icon)}<span><b>${label}</b><small>${note}</small></span></button>`;
+}
+function teMenuHtml(id, btnOff, body){
+  return `<div class="tePrintPick" id="${id}Pick">
+    <button type="button" class="btn secondary" id="${id}Btn" ${btnOff?'disabled':''} aria-haspopup="menu" aria-expanded="false" onclick="teMenuToggle('${id}')">${ico('printer')} Print / Excel ${ico('chevron-down')}</button>
+    <div class="tePrintPop" id="${id}Pop" role="menu" aria-label="Print or download Excel" hidden onkeydown="teMenuKey(event)">${body}</div>
   </div>`;
+}
+const TE_NO_EXPORT='You do not have permission to export';
+function teEwPrintHtml(emps, emp){
+  const ft=teEwFilterText(), xl=teEwExcelAllowed(), who=emp?teEsc(emp.code+' — '+emp.name):'Choose an employee first';
+  const all=`All ${emps.length} employee${emps.length===1?'':'s'} shown`;
+  return teMenuHtml('teEwPrint', !emps.length, `
+    <div class="tePrintHead">${ico('printer')} Print</div>
+    ${teMenuItemHtml('user', 'This employee', who, 'printTEEmployee()', !emp)}
+    ${teMenuItemHtml('users', all, (ft?teEsc(ft):'No filters — everyone on the roll')+' · one page each', 'printTEEmployeesAll()')}
+    <div class="tePrintHead">${ico('file-spreadsheet')} Excel download</div>
+    ${teMenuItemHtml('user', 'This employee', emp?who+' · every date':who, 'excelTEEmployee()', !emp||!xl, xl?'':TE_NO_EXPORT)}
+    ${teMenuItemHtml('users', all, 'Summary sheet + every date', 'excelTEEmployeesAll()', !xl, xl?'':TE_NO_EXPORT)}`);
 }
 
 function renderTEEmpWiseTab(){
@@ -842,9 +855,7 @@ function renderTEShiftBox(shiftName, list, dt){
 // in the same order (by the shift planned that day, then employee code).
 function printTEDay(dt){
   const rows=db.timeEntries[dt]||{};
-  const order=k=>{ const i=teShiftPresets().findIndex(p=>p.key===k); return i<0?99:i; };
-  const codes=Object.keys(rows).filter(code=>teDwCodeInFilter(code, dt))
-    .sort((a,b)=>order(teEmpShiftKey(a,dt))-order(teEmpShiftKey(b,dt)) || a.localeCompare(b,undefined,{numeric:true}));
+  const codes=teDwDayCodes(dt);
   const ft=teDwFilterText();
   if(!codes.length){ alert('No time entries for this date'+(ft?' for '+ft:'')+'.'); return; }
   const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
@@ -865,6 +876,25 @@ function printTEDay(dt){
   }).join('');
   const html=`<table class="repTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Dept</th><th>Shift</th><th>In Time</th><th>Out Time</th><th>Working</th><th>Late</th><th>OT</th></tr></thead><tbody>${tableRows}</tbody></table>`;
   openPrintWindow(`Employee Time Entry — ${fmtDate(dt)}${ft?' — '+ft:''}`, html);
+}
+// Excel for the day: the same employees, order and filters as Print — one row per employee, with
+// group and planned shift, hours as numbers and a TOTAL row (Present / Leave add up to the day's count).
+function excelTEDay(dt){
+  if(!hasPerm('timeentry','export')){ alert(TE_NO_EXPORT+'.'); return; }
+  const codes=teDwDayCodes(dt), ft=teDwFilterText();
+  if(!codes.length){ alert('No time entries for this date'+(ft?' for '+ft:'')+'.'); return; }
+  const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
+  const rows=codes.map(code=>{
+    const e=empMap[code]||{code, name:'(removed employee)'}, g=teEmpGroup(code), plan=teEmpShift(code, dt);
+    return {code, name:e.name, department:e.department||'', unit:e.unit?unitLabel(e.unit):'', contractor:contractorName(e)||'', group:g?teGroupLabel(g):'', planned:plan?plan.label:'', ...teExcelDayRow(code, dt)};
+  });
+  const dayName=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
+  window.downloadExcel({ fileName:`${companyFilePrefix()}-Time-Entry-${fmtDate(dt)}.xlsx`,
+    sheets:[{ name:fmtDate(dt), title:`${db.companyName||''} — Employee Time Entry — ${fmtDate(dt)} (${dayName})`,
+      subtitle:`${ft||'All units · All contractors'} · ${codes.length} employee${codes.length===1?'':'s'}`, freezeCols:2, totals:true, rows,
+      columns:[{header:'Emp Code', key:'code', width:10}, {header:'Employee', key:'name', width:24}, {header:'Department', key:'department', width:14},
+        {header:'Unit', key:'unit', width:12}, {header:'Contractor', key:'contractor', width:18}, {header:'Group', key:'group', width:15}, {header:'Planned Shift', key:'planned', width:18},
+        ...teEwExcelDayColumns().filter(c=>c.key!=='date' && c.key!=='day')] }] });
 }
 
 /* ---------------- Holiday Calendar tab — every holiday in one month calendar:
