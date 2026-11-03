@@ -40,6 +40,20 @@ function teDwShiftCounts(){
   teShiftPresets().forEach(p=>{ if(n[p.key]===undefined) n[p.key]=0; });
   return n;
 }
+// One employee on a date against all four Date-wise filters (Unit, Contractor, Group, Shift planned
+// that day) — for Print and the day cards under the grid, so they show what the grid shows.
+function teDwCodeInFilter(code, dt){
+  if(!teCodeInFilter(code)) return false;
+  if(teDwGrpFilter && (teDwGrpFilter==='-' ? !!teEmpGroup(code) : teEmpGroup(code)!==teDwGrpFilter)) return false;
+  if(teDwShiftFilter){ const k=teEmpShiftKey(code, dt); if(teDwShiftFilter==='-' ? !!k : k!==teDwShiftFilter) return false; }
+  return true;
+}
+// "MF UNIT 1 · Shift A Group · Second Shift" — the filters in use, for print titles.
+function teDwFilterText(){
+  const grp=teDwGrpFilter ? (teDwGrpFilter==='-' ? 'No group' : teGroupLabel(teDwGrpFilter)) : '';
+  const sh=teDwShiftFilter ? (teDwShiftFilter==='-' ? 'No shift planned' : (teShiftByKey(teDwShiftFilter)||{}).label||'') : '';
+  return [teFilterText(), grp, sh].filter(Boolean).join(' · ');
+}
 function teDwSetGrpFilter(v){ teDwGrpFilter=v||''; teDwSel.clear(); render('timeentry'); }
 function teDwSetShiftFilter(v){ teDwShiftFilter=v||''; teDwSel.clear(); render('timeentry'); }
 function teDwClearFilters(){ teDwGrpFilter=''; teDwShiftFilter=''; teUnitFilter=''; teSetContractorFilter(''); }
