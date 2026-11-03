@@ -517,24 +517,74 @@ function teEwLock(){
 function teOpenEmpWise(code, dt){ teEwEmp=code; if(dt) teEwMonth=monthKey(dt); teTab='empwise'; render('timeentry'); }
 function teOpenDateWise(dt){ teGridDate=dt; teGridEditMode=false; teTab='entry'; ensureTimeEntriesForDate(dt); render('timeentry'); }
 
-function printTEEmployee(){
-  if(!teEwEmp) return;
-  const emp=(db.employees||[]).find(e=>e.code===teEwEmp)||{name:'',department:''};
+/* ---- Print: this employee's month, or the month of every employee the filters show (one page each) ---- */
+function teEwMonthName(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
+// "MF Unit-1 · Shift B Group · Second Shift" — the Employee-wise filters in use, for print titles.
+function teEwFilterText(){
+  const grp=teEwGrpFilter ? (teEwGrpFilter==='-' ? 'No group' : teGroupLabel(teEwGrpFilter)) : '';
+  const sh=teEwShiftFilter ? (teEwShiftFilter==='-' ? 'No shift planned' : (teShiftByKey(teEwShiftFilter)||{}).label||'') : '';
+  return [teFilterText(), grp, sh].filter(Boolean).join(' · ');
+}
+// Dates and times on one line (only Attendance wraps), so a month fits one A4 page.
+const TE_EW_PRINT_CSS='<style>table.teEwPrintTbl th,table.teEwPrintTbl td{padding:2px 5px;}table.teEwPrintTbl td:not(:last-child){white-space:nowrap;}</style>';
+// One employee's month: the name line, every date, and the month total.
+function teEwPrintSectionHtml(code, ym){
+  const emp=(db.employees||[]).find(e=>e.code===code)||{name:'',department:''};
   const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
-  const rows=teEwMonthDates(teEwMonth).map((dt,i)=>{
-    const md=teEwRowModel(teEwEmp, dt), cc=teEwComputedCells(md);
+  const rows=teEwMonthDates(ym).map((dt,i)=>{
+    const md=teEwRowModel(code, dt), cc=teEwComputedCells(md);
     const att = md.onLeave ? `On Leave — ${md.leave.type}${md.leave.remarks?' ('+teEsc(md.leave.remarks)+')':''}`
       : md.leave ? 'Half Day' : md.hasIn ? (teIsHolidayDate(dt)?'Holiday OT':'Present') : md.dow===0?'Sunday':md.hol?(md.hol.name||md.hol.label):'-';
     return `<tr><td>${i+1}</td><td>${fmtDate(dt)}</td><td>${dayNames[md.dow]}</td><td>${md.onLeave?'-':md.inTxt||'-'}</td><td>${md.onLeave?'-':md.outTxt||'-'}</td>
       <td>${cc.shift}</td><td>${cc.working}</td><td>${cc.late}</td><td>${cc.ot}</td><td>${cc.total}</td><td>${att}</td></tr>`;
   }).join('');
-  const t=teEwTotals(teEwEmp, teEwMonth);
-  const [y,m]=teEwMonth.split('-').map(Number);
-  const monthName=new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'});
-  const html=`<p style="margin:0 0 8px;"><b>${teEsc(emp.code||teEwEmp)} — ${teEsc(emp.name)}</b>${emp.department?' · '+teEsc(emp.department):''}</p>
-  <table class="repTable"><thead><tr><th>Sl No</th><th>Date</th><th>Day</th><th>In Time</th><th>Out Time</th><th>Shift</th><th>Working</th><th>Late</th><th>OT</th><th>Total</th><th>Attendance</th></tr></thead>
+  const t=teEwTotals(code, ym), grp=teEmpGroup(code);
+  return `<p style="margin:0 0 8px;"><b>${teEsc(emp.code||code)} — ${teEsc(emp.name)}</b>${emp.department?' · '+teEsc(emp.department):''}${emp.unit?' · '+teEsc(unitLabel(emp.unit)):''}${grp?' · '+teEsc(teGroupLabel(grp)):''}</p>
+  <table class="repTable teEwPrintTbl"><thead><tr><th>Sl No</th><th>Date</th><th>Day</th><th>In Time</th><th>Out Time</th><th>Shift</th><th>Working</th><th>Late</th><th>OT</th><th>Total</th><th>Attendance</th></tr></thead>
   <tbody>${rows}<tr style="font-weight:700;"><td colspan="6" style="text-align:right;">Month total</td><td>${teFmtHM(t.working)}</td><td>${teFmtHM(t.late)}</td><td>${teFmtHM(t.ot)}</td><td>${teFmtHM(t.total)}</td><td>${t.present} present · ${t.leave} leave</td></tr></tbody></table>`;
-  openPrintWindow(`Employee Time Entry — ${emp.name||teEwEmp} — ${monthName}`, html);
+}
+function printTEEmployee(){
+  if(!teEwEmp) return;
+  const emp=(db.employees||[]).find(e=>e.code===teEwEmp)||{};
+  openPrintWindow(`Employee Time Entry — ${emp.name||teEwEmp} — ${teEwMonthName(teEwMonth)}`, TE_EW_PRINT_CSS+teEwPrintSectionHtml(teEwEmp, teEwMonth));
+}
+// Every employee in the picker list (Unit, Contractor, Group and Shift filters), in list order,
+// each starting on a new page.
+function printTEEmployeesAll(){
+  const emps=teEwEmployees(), ft=teEwFilterText();
+  if(!emps.length){ alert('No employees'+(ft?' for '+ft:'')+' in '+teEwMonthName(teEwMonth)+'.'); return; }
+  const html=TE_EW_PRINT_CSS+emps.map((e,i)=>`<div style="${i?'break-before:page;page-break-before:always;':''}">${teEwPrintSectionHtml(e.code, teEwMonth)}</div>`).join('');
+  openPrintWindow(`Employee Time Entry — ${teEwMonthName(teEwMonth)}${ft?' — '+ft:''} — ${emps.length} employee${emps.length===1?'':'s'}`, html);
+}
+// The Print button's two choices.
+function teEwPrintToggle(){
+  const pop=document.getElementById('teEwPrintPop'), btn=document.getElementById('teEwPrintBtn'); if(!pop) return;
+  if(!pop.hidden){ teEwPrintClose(true); return; }
+  pop.hidden=false; btn.setAttribute('aria-expanded','true');
+  const first=pop.querySelector('[role=menuitem]:not(:disabled)'); if(first) first.focus();
+  document.addEventListener('mousedown', teEwPrintOutside, true);
+}
+function teEwPrintClose(focusBtn){
+  document.removeEventListener('mousedown', teEwPrintOutside, true);
+  const pop=document.getElementById('teEwPrintPop'), btn=document.getElementById('teEwPrintBtn'); if(!pop || pop.hidden) return;
+  pop.hidden=true; btn.setAttribute('aria-expanded','false'); if(focusBtn) btn.focus();
+}
+function teEwPrintOutside(ev){ const w=document.getElementById('teEwPrintPick'); if(!w || !w.contains(ev.target)) teEwPrintClose(false); }
+function teEwPrintKey(ev){
+  const items=[...document.querySelectorAll('#teEwPrintPop [role=menuitem]:not(:disabled)')], i=items.indexOf(document.activeElement);
+  if(ev.key==='Escape'){ ev.preventDefault(); teEwPrintClose(true); }
+  else if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){ ev.preventDefault(); if(items.length) items[(i+(ev.key==='ArrowDown'?1:-1)+items.length)%items.length].focus(); }
+  else if(ev.key==='Tab') teEwPrintClose(false);
+}
+function teEwPrintHtml(emps, emp){
+  const ft=teEwFilterText();
+  return `<div class="tePrintPick" id="teEwPrintPick">
+    <button type="button" class="btn secondary" id="teEwPrintBtn" ${emps.length?'':'disabled'} aria-haspopup="menu" aria-expanded="false" onclick="teEwPrintToggle()">${ico('printer')} Print ${ico('chevron-down')}</button>
+    <div class="tePrintPop" id="teEwPrintPop" role="menu" aria-label="Print" hidden onkeydown="teEwPrintKey(event)">
+      <button type="button" role="menuitem" ${emp?'':'disabled'} onclick="teEwPrintClose(false);printTEEmployee()">${ico('user')}<span><b>This employee</b><small>${emp?teEsc(emp.code+' — '+emp.name):'Choose an employee first'}</small></span></button>
+      <button type="button" role="menuitem" onclick="teEwPrintClose(false);printTEEmployeesAll()">${ico('users')}<span><b>All ${emps.length} employee${emps.length===1?'':'s'} shown</b><small>${ft?teEsc(ft):'No filters — everyone on the roll'} · one page each</small></span></button>
+    </div>
+  </div>`;
 }
 
 function renderTEEmpWiseTab(){
@@ -562,7 +612,7 @@ function renderTEEmpWiseTab(){
         ${!unlocked
           ? `<button class="btn btnEditAtt" ${canEdit?'':'disabled'} onclick="teEwUnlock()">${ico('pencil')} Edit</button>`
           : `<button class="btn secondary" onclick="teEditCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="teEwLock()">${ico('save')} Save</button>`}
-        <button class="btn secondary" ${emp?'':'disabled'} onclick="printTEEmployee()">${ico('printer')} Print</button>
+        ${teEwPrintHtml(emps, emp)}
       </div>
     </div>
     ${teFilterRowHtml({grp:teEwGrpFilter, setGrp:'teEwSetGrpFilter', shift:teEwShiftFilter, setShift:'teEwSetShiftFilter',

@@ -168,3 +168,18 @@
 .teDwFoldAll:hover{border-color:var(--hl);background:var(--surface);}
 .teDwFoldAll svg{width:15px;height:15px;transition:transform .15s ease;}
 }
+@media screen {
+/* Employee-wise Print: a small menu — this employee, or everyone the filters show */
+.tePrintPick{position:relative;}
+.tePrintPick > .btn svg:last-child{width:14px;height:14px;margin-left:2px;opacity:.7;}
+.tePrintPop{position:absolute;z-index:40;top:calc(100% + 4px);right:0;width:300px;padding:4px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--surface);box-shadow:0 14px 34px rgba(0,0,0,.16);}
+.tePrintPop[hidden]{display:none;}
+.tePrintPop [role=menuitem]{display:flex;align-items:flex-start;gap:10px;width:100%;padding:8px 10px;border:0;border-radius:var(--radius-control);background:none;color:var(--text);font:inherit;text-align:left;cursor:pointer;}
+.tePrintPop [role=menuitem] > svg{width:16px;height:16px;margin-top:2px;flex-shrink:0;color:var(--muted);}
+.tePrintPop [role=menuitem] span{display:flex;flex-direction:column;gap:2px;min-width:0;}
+.tePrintPop [role=menuitem] b{font-size:13px;font-weight:600;}
+.tePrintPop [role=menuitem] small{font-size:11.5px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tePrintPop [role=menuitem]:hover:not(:disabled),.tePrintPop [role=menuitem]:focus-visible{outline:none;background:var(--hl-soft);color:var(--hl-ink);box-shadow:inset 0 0 0 1px var(--hl);}
+.tePrintPop [role=menuitem]:hover:not(:disabled) svg,.tePrintPop [role=menuitem]:focus-visible svg{color:var(--hl-ink);}
+.tePrintPop [role=menuitem]:disabled{opacity:.5;cursor:not-allowed;}
+}
