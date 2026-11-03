@@ -314,6 +314,29 @@ function renderTEFilterBar(){
     ${(teUnitFilter||teContractorFilter)?`<button type="button" class="teFilterClear" onclick="teClearFilter()">${ico('x')} Clear</button>`:''}
   </div>`;
 }
+/* ---- One filter row for Date-wise and Employee-wise: Unit, Contractor, Group and Shift side by side
+   as plain drop-downs, how many employees are shown, and Clear. A drop-down in use is tinted, so it
+   is plain which filters are on. Unit and Contractor are the same filter as the other tabs' bar.
+     o = {grp, setGrp, shift, setShift, shiftCounts:{key:n,'-':n}, shiftTitle, clear, shown, all} ---- */
+function teFilterRowHtml(o){
+  const sel=(on, fn, label, title, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="${fn}(this.value)" aria-label="${label}" title="${teEsc(title)}">${opts}</select>`;
+  const opt=(v, cur, text)=>`<option value="${teEsc(v)}" ${cur===v?'selected':''}>${teEsc(text)}</option>`;
+  const cnt=k=>o.shiftCounts && o.shiftCounts[k]!==undefined ? ` (${o.shiftCounts[k]})` : '';
+  const any=!!(teUnitFilter||teContractorFilter||o.grp||o.shift);
+  return `<div class="teFiltRow">
+    <span class="teFiltLbl">${ico('filter')} Filter</span>
+    ${sel(teUnitFilter, 'teSetUnitFilter', 'Unit', 'Working unit',
+      opt('', teUnitFilter, 'All Units')+getUnits().map(u=>opt(u.code, teUnitFilter, unitTabLabel(u))).join(''))}
+    ${sel(teContractorFilter, 'teSetContractorFilter', 'Contractor', 'Contractor', contractorFilterOptionsHtml(teContractorFilter))}
+    ${sel(o.grp, o.setGrp, 'Group', 'Shift group (Shift Groups tab)',
+      opt('', o.grp, 'All Groups')+teGroups().map(g=>opt(g.key, o.grp, g.label)).join('')+opt('-', o.grp, 'No group'))}
+    ${sel(o.shift, o.setShift, 'Shift', o.shiftTitle,
+      opt('', o.shift, 'All Shifts')+teShiftPresets().map(p=>opt(p.key, o.shift, p.label+cnt(p.key))).join('')+opt('-', o.shift, 'No shift planned'+cnt('-')))}
+    <span class="teFiltCount">${o.shown===o.all?`${o.all} employees`:`<b>${o.shown}</b> of ${o.all} employees`}</span>
+    ${any?`<button type="button" class="teFiltClear" onclick="${o.clear}()" title="Show everyone">${ico('filter-x')} Clear filters</button>`:''}
+  </div>`;
+}
+
 /* ---------------- Employee Leave (this module's own leave log — separate from any
    Payroll leave logic; purely a record of who is on leave and why). ---------------- */
 function teSetLeaveField(field,val){
