@@ -15,7 +15,6 @@ let teDwFocus=null;           // {r,c} to re-focus after a full render (e.g. dat
 let teDwGrpFilter='';         // '' = all groups, a group key, or '-' = employees with no group
 let teDwShiftFilter='';       // '' = all shifts, a shift key, or '-' = no shift planned that day
 let teDwBulkOT='';            // hours typed in the bulk OT box
-let teDwOpen=new Set();       // shift sections showing their rows (shift key, '-' = no shift planned); empty = all folded — view only
 
 function teDwCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
 function teDwUnlocked(){ return teDwCanEdit() && teGridEditMode; }
@@ -74,7 +73,7 @@ function teDwFilterText(){
 }
 function teDwSetGrpFilter(v){ teDwGrpFilter=v||''; teDwSel.clear(); render('timeentry'); }
 // Choosing one shift also opens that shift's rows (it is the only section left).
-function teDwSetShiftFilter(v){ teDwShiftFilter=v||''; if(teDwShiftFilter) teDwOpen=new Set([teDwShiftFilter]); teDwSel.clear(); render('timeentry'); }
+function teDwSetShiftFilter(v){ teDwShiftFilter=v||''; if(teDwShiftFilter) teOpenSecs.teDwGrid=new Set([teDwShiftFilter]); teDwSel.clear(); render('timeentry'); }
 function teDwClearFilters(){ teDwGrpFilter=''; teDwShiftFilter=''; teUnitFilter=''; teSetContractorFilter(''); }
 // OT box value in hours ('' when there is no time).
 function teDwOTValue(md){ if(!md.hasIn||md.onLeave) return ''; const h=Math.round((md.c.ot||0)/60*100)/100; return String(h); }
@@ -298,7 +297,7 @@ function teDwMove(r,c,dr,dc){
     const el=teDwCell(rr,c);
     if(el && !el.disabled){
       // Past the end of the open shift: open the next one (the one before folds) and carry on there.
-      const tb=el.closest('tbody.teDwSec'); if(tb && tb.classList.contains('folded')) teDwOpenOnly(tb, false);
+      teSecReveal(el);
       el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); return;
     }
     rr+=dr;
@@ -334,7 +333,7 @@ function teDwRestoreFocus(){
   const f=teDwFocus; teDwFocus=null;
   let el=teDwCell(f.r,f.c);
   // Nothing open yet (e.g. just after Edit): open the shift of that row so the cursor has somewhere to go.
-  if(el && !el.disabled && el.closest('tbody.folded') && !document.querySelector('#teDwGrid tbody.teDwSec:not(.folded)')) teDwOpenOnly(el.closest('tbody.teDwSec'), false);
+  if(el && !el.disabled && el.closest('tbody.folded') && !document.querySelector('#teDwGrid tbody.teSec:not(.folded)')) teSecReveal(el);
   if(!teDwCanFocus(el)){ const n=teDwRowCount(); for(let k=0;k<n;k++){ const x=teDwCell(k,f.c); if(teDwCanFocus(x)){ el=x; break; } } }
   if(teDwCanFocus(el)){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
 }
@@ -423,7 +422,7 @@ function teDwJump(v){
   if(i===undefined){ if(box){ box.classList.add('bad'); box.title='No employee matches that.'; } return; }
   if(box){ box.classList.remove('bad'); box.title=''; }
   const tr=document.querySelector(`#teDwGrid tr.teDwRow[data-r="${i}"]`); if(!tr) return;
-  const sec=tr.closest('tbody.teDwSec'); if(sec && sec.classList.contains('folded')) teDwOpenOnly(sec, false);
+  teSecReveal(tr);
   tr.scrollIntoView({block:'center'});
   tr.classList.remove('teDwFlash'); void tr.offsetWidth; tr.classList.add('teDwFlash');
   const inp=teDwCell(i,0); if(inp && !inp.disabled) inp.focus();
@@ -470,49 +469,8 @@ function teDwApplyShift(){
   const note=document.getElementById('teDwBulkNote'); if(note){ note.textContent=`${s.label} applied to ${codes.length} employee(s). Untick anyone absent, then Save — unticked employees are marked Loss of Pay.`; note.classList.add('ok'); }
 }
 
-/* ---- Shift sections: one open at a time (accordion) ----
-   Every shift starts folded — only its bar shows. Click a bar to open that shift; opening another
-   folds the one before; click the open bar again to fold it. The arrow by Sl No opens every shift (to
-   see the whole day) or folds them all. Folding only hides rows on screen: ticks, Quick Fill and Save
-   still cover the whole shift. */
-function teDwApplyFolds(){
-  document.querySelectorAll('#teDwGrid tbody.teDwSec').forEach(tb=>{
-    const open=teDwOpen.has(tb.dataset.sec);
-    tb.classList.toggle('folded', !open);
-    const b=tb.querySelector('.teDwFold'); if(b){ b.setAttribute('aria-expanded', String(open)); b.title=open?'Fold this shift':'Click to expand this shift'; }
-    const a=document.activeElement; if(!open && a && tb.contains(a) && a.closest('tr.teDwRow')) a.blur();
-  });
-  teDwRefreshFoldAll();
-}
-// Open only this shift (the others fold); with toTop, bring its bar to the top of the grid.
-function teDwOpenOnly(tb, toTop){
-  teDwOpen=new Set([tb.dataset.sec]); teDwApplyFolds();
-  if(toTop){
-    const box=tb.closest('.teEwWrap'), head=document.querySelector('#teDwGrid thead');
-    if(box) box.scrollTop+=tb.getBoundingClientRect().top - box.getBoundingClientRect().top - (head?head.offsetHeight:0);
-  }
-}
-function teDwFold(btn){
-  const tb=btn.closest('tbody.teDwSec'); if(!tb) return;
-  if(teDwOpen.size===1 && teDwOpen.has(tb.dataset.sec)){ teDwOpen.clear(); teDwApplyFolds(); } // the open one: fold it
-  else teDwOpenOnly(tb, true);
-}
-// The corner button: fold every shift, or (when all are folded) open them all.
-function teDwFoldAll(){
-  const secs=[...document.querySelectorAll('#teDwGrid tbody.teDwSec')];
-  if(secs.some(tb=>!tb.classList.contains('folded'))) teDwOpen.clear(); else teDwOpen=new Set(secs.map(tb=>tb.dataset.sec));
-  teDwApplyFolds();
-}
-function teDwRefreshFoldAll(){
-  const b=document.getElementById('teDwFoldAll'); if(!b) return;
-  const secs=[...document.querySelectorAll('#teDwGrid tbody.teDwSec')], all=!!secs.length && secs.every(tb=>tb.classList.contains('folded'));
-  b.classList.toggle('folded', all); b.setAttribute('aria-expanded', String(!all));
-  b.title=all?'Expand every shift (see the whole day)':'Fold every shift — only the shift bars stay';
-}
-// The frozen shift bar sits just under the column headings: tell it their height.
-function teDwSetHeadHeight(){
-  const g=document.getElementById('teDwGrid'), h=g && g.tHead; if(h) g.style.setProperty('--teDwHeadH', h.offsetHeight+'px');
-}
+/* ---- Shift sections fold, one open at a time — see teSecApply (13-time-entry.js). Choosing a shift
+   in the Shift filter opens it; Find employee and the keyboard open the shift they move into. ---- */
 
 /* ---- The tab ---- */
 // One <tbody> per shift: a bar ("General Shift · 4 employees · 9:00 AM – 5:30 PM") that stays at the
@@ -526,10 +484,10 @@ function teDwBodyHtml(emps, dt, unlocked){
     sec.rows.push(teDwRowHtml(e,i,dt,unlocked));
   });
   return secs.map(({k, rows})=>{
-    const p=teShiftByKey(k), id=k||'-', lbl=p?teEsc(p.label):'No shift planned', n=rows.length, folded=!teDwOpen.has(id);
-    return `<tbody class="teDwSec ${folded?'folded':''}" data-sec="${teEsc(id)}">
-      <tr class="teGrpHead teDwShiftHead">${unlocked?`<td class="teDwChk"><input type="checkbox" class="teDwShiftAll" data-shift="${teEsc(k)}" title="Select everyone on ${lbl}" aria-label="Select everyone on ${lbl}" onchange="teDwToggleShift(this.dataset.shift,this.checked)"></td>`:''}<td colspan="15">
-        <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this shift':'Fold this shift'}" onclick="teDwFold(this)">${ico('chevron-down')}<span class="teShiftBadge">${lbl}</span><span>${n} employee${n===1?'':'s'}</span>${p?`<span>${tePresetTimes(p)}</span>`:''}<span class="teDwFoldNote">Click to expand</span></button></td></tr>
+    const p=teShiftByKey(k), id=k||'-', lbl=p?teEsc(p.label):'No shift planned', n=rows.length, folded=!teOpenSecs.teDwGrid.has(id);
+    return `<tbody class="teSec teDwSec ${folded?'folded':''}" data-sec="${teEsc(id)}">
+      <tr class="teGrpHead teDwShiftHead teSecHead">${unlocked?`<td class="teDwChk"><input type="checkbox" class="teDwShiftAll" data-shift="${teEsc(k)}" title="Select everyone on ${lbl}" aria-label="Select everyone on ${lbl}" onchange="teDwToggleShift(this.dataset.shift,this.checked)"></td>`:''}<td colspan="15">
+        <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this shift':'Fold this shift'}" onclick="teSecFold(this)">${ico('chevron-down')}<span class="teShiftBadge">${lbl}</span><span>${n} employee${n===1?'':'s'}</span>${p?`<span>${tePresetTimes(p)}</span>`:''}<span class="teDwFoldNote">Click to expand</span></button></td></tr>
       ${rows.join('')}
     </tbody>`;
   }).join('');
@@ -550,7 +508,7 @@ function renderTEDateGrid(){
   const quick=teShiftPresets().map(p=>({p, n:emps.filter(e=>{ if(teEmpShiftKey(e.code,dt)!==p.key) return false; const md=teEwRowModel(e.code,dt); return !md.hasIn&&!md.onLeave; }).length, all:emps.filter(e=>teEmpShiftKey(e.code,dt)===p.key).length})).filter(q=>q.all);
   if(teDwFocus) setTimeout(teDwRestoreFocus,0);
   if(unlocked) setTimeout(teDwRefreshSel,0); // tick boxes (page and shift headings) match the kept selection
-  setTimeout(()=>{ teDwSetHeadHeight(); teDwRefreshFoldAll(); teFitGridBox('teDwGrid'); },0);
+  setTimeout(()=>{ teSetHeadHeight('teDwGrid'); teSecRefreshAll('teDwGrid'); teFitGridBox('teDwGrid'); },0);
   return `<div class="panel teDwPanel">
     <div class="teDwTop teBar">
       <div class="teDwGroup">
@@ -601,7 +559,7 @@ function renderTEDateGrid(){
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid teDwGrid" id="teDwGrid">
       <thead><tr>
         ${unlocked?`<th class="teDwChk"><input type="checkbox" id="teDwAll" title="Select all" onchange="teDwToggleAll(this.checked)"></th>`:''}
-        <th class="teDwSlTh"><button type="button" id="teDwFoldAll" class="teDwFoldAll" tabindex="-1" aria-expanded="true" title="Fold every shift — only the shift bars stay" onclick="teDwFoldAll()">${ico('chevron-down')}</button>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Group · Shift</th>
+        <th class="teDwSlTh"><button type="button" id="teDwGridFoldAll" class="teDwFoldAll" tabindex="-1" aria-expanded="true" title="Fold every shift — only the bars stay" onclick="teSecFoldAll('teDwGrid')">${ico('chevron-down')}</button>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th><th>Group · Shift</th>
         <th class="teEwInHead">${ico('log-in')} In Time</th><th class="teEwOutHead">${ico('log-out')} Out Time</th>
         <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>${unlocked?'OT hrs':'OT'}</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>

@@ -185,6 +185,39 @@ function teEwRefreshTotals(){
   const t=teEwTotals(teEwEmp, teEwMonth);
   const s=document.getElementById('teEwStats'); if(s) s.innerHTML=teEwStatsHtml(t);
   const f=document.getElementById('teEwFoot'); if(f) f.innerHTML=teEwFootHtml(t);
+  // each week bar's figures
+  teEwWeeks(teEwMonthDates(teEwMonth)).forEach(w=>{ const el=document.querySelector(`#teEwGrid .teEwWeekSum[data-week="${w.ws}"]`); if(el) el.textContent=teEwWeekSum(teEwEmp, w.dates); });
+}
+
+/* ---- Weeks: the month's dates in Monday – Sunday sections that fold, one open at a time (teSecApply).
+   Each bar: Week n · the dates · the group's shift that week · present / leave / need entry / OT. ---- */
+function teEwWeekSum(code, dates){
+  let present=0, leave=0, missing=0, ot=0; const today=todayStr();
+  dates.forEach(dt=>{
+    const md=teEwRowModel(code, dt);
+    if(md.onLeave){ leave++; return; }
+    if(md.leave){ leave+=0.5; present+=0.5; } else if(md.hasIn) present++;
+    if(md.hasIn){ ot+=md.c.ot; if(!md.hasOut) missing++; }
+    else if(!md.leave && md.dow!==0 && !md.hol && dt<=today) missing++;
+  });
+  return [`${present} present`, leave?`${leave} leave`:'', missing?`${missing} need entry`:'', ot?`OT ${teFmtHM(ot)}`:''].filter(Boolean).join(' · ');
+}
+function teEwWeeks(dates){
+  const out=[]; dates.forEach((dt,i)=>{ const ws=teWeekStart(dt); let w=out[out.length-1]; if(!w || w.ws!==ws){ w={ws, dates:[], idx:[]}; out.push(w); } w.dates.push(dt); w.idx.push(i); });
+  return out;
+}
+function teEwWeekSectionsHtml(code, dates, rowHtml){
+  const f=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
+  const g=teEmpGroup(code), thisWk=teWeekStart(todayStr()), open=teOpenSecs.teEwGrid;
+  return teEwWeeks(dates).map((w,n)=>{
+    const folded=!open.has(w.ws), a=w.dates[0], b=w.dates[w.dates.length-1];
+    const k=g ? teGroupWeekShift(w.ws, g).key : '', plan=k ? teShiftByKey(k) : null;
+    return `<tbody class="teSec teEwSec ${folded?'folded':''}" data-sec="${w.ws}">
+      <tr class="teGrpHead teDwShiftHead teSecHead"><td colspan="13">
+        <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this week':'Fold this week'}" onclick="teSecFold(this)">${ico('chevron-down')}<span class="teShiftBadge">Week ${n+1}</span><span>${a===b?f(a):`${f(a)} – ${f(b)}`}</span>${plan?`<span>${teEsc(plan.label)}</span>`:''}<span class="teEwWeekSum" data-week="${w.ws}">${teEwWeekSum(code, w.dates)}</span>${w.ws===thisWk?'<span class="teEwThisWk">This week</span>':''}<span class="teDwFoldNote">Click to expand</span></button></td></tr>
+      ${w.idx.map(i=>rowHtml[i]).join('')}
+    </tbody>`;
+  }).join('');
 }
 
 /* ---- In-place row update (no full render → focus and caret are never lost) ---- */
@@ -291,7 +324,8 @@ function teEwMove(r,c,dr,dc){
   const n=teEwRowCount();
   if(dc){ let cc=c+dc; while(cc>=0&&cc<=2){ const el=teEwCell(r,cc); if(el&&!el.disabled){ el.focus(); return; } cc+=dc; } return; }
   let rr=r+dr;
-  while(rr>=0&&rr<n){ const el=teEwCell(rr,c); if(el&&!el.disabled){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); return; } rr+=dr; }
+  // Past the end of the open week: open the next one (the one before folds) and carry on there.
+  while(rr>=0&&rr<n){ const el=teEwCell(rr,c); if(el&&!el.disabled){ teSecReveal(el); el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); return; } rr+=dr; }
 }
 function teEwKey(ev, el){
   const r=+el.dataset.r, c=+el.dataset.c, isSel=el.tagName==='SELECT';
@@ -327,7 +361,8 @@ function teEwRestoreFocus(){
   const f=teEwFocus; teEwFocus=null;
   let el=teEwCell(f.r,f.c);
   if(!el||el.disabled){ const n=teEwRowCount(); for(let k=0;k<n;k++){ const x=teEwCell(k,f.c); if(x&&!x.disabled){ el=x; break; } } }
-  if(el&&!el.disabled){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
+  // The day the cursor goes to (e.g. the first one that needs entry, after Edit): open its week.
+  if(el&&!el.disabled){ teSecReveal(el); el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
 }
 // Employees in the picker: on the roll that month, narrowed by Unit / Contractor, Group and Shift.
 function teEwEmployees(){
@@ -703,7 +738,7 @@ function renderTEEmpWiseTab(){
   const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   const dates=teEwMonthDates(teEwMonth);
   const t=teEwTotals(teEwEmp, teEwMonth);
-  const rowsHtml=dates.map((dt,i)=>{
+  const rowHtml=dates.map((dt,i)=>{
     const md=teEwRowModel(teEwEmp, dt), cc=teEwComputedCells(md);
     const dis=(!unlocked||md.onLeave)?'disabled':'';
     const plan=teIsHolidayDate(dt)?null:teEmpShift(teEwEmp, dt), ov=teOverrideShift(dt, teEwEmp);
@@ -728,9 +763,11 @@ function renderTEEmpWiseTab(){
       </select></td>
       <td>${unlocked?`<button type="button" tabindex="-1" class="teEwClear" title="Clear In/Out time for this date" onclick="teEwClearRow(${i})">${ico('x')}</button>`:''}</td>
     </tr>`;
-  }).join('');
+  });
+  const rowsHtml=teEwWeekSectionsHtml(teEwEmp, dates, rowHtml);
   if(teEwFocus) setTimeout(teEwRestoreFocus,0);
-  setTimeout(()=>teFitGridBox('teEwGrid'),0); // headings and month total stay on screen while the dates scroll
+  // headings, week bars and month total stay on screen while the dates scroll
+  setTimeout(()=>{ teSetHeadHeight('teEwGrid'); teSecRefreshAll('teEwGrid'); teFitGridBox('teEwGrid'); },0);
   return `<div class="panel">
     ${picker}
     <div class="teEwEmpCard">
@@ -762,15 +799,15 @@ function renderTEEmpWiseTab(){
     </div></details>`:''}
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid" id="teEwGrid" data-emp="${teEsc(teEwEmp)}">
       <thead><tr>
-        <th>Date</th><th>Day</th><th title="Shift from the group's weekly rotation (* = changed for that day)">Planned shift</th>
+        <th class="teDwSlTh"><button type="button" id="teEwGridFoldAll" class="teDwFoldAll" tabindex="-1" aria-expanded="true" title="Fold every week — only the bars stay" onclick="teSecFoldAll('teEwGrid')">${ico('chevron-down')}</button>Date</th><th>Day</th><th title="Shift from the group's weekly rotation (* = changed for that day)">Planned shift</th>
         <th class="teEwInHead">${ico('log-in')} In Time</th><th class="teEwOutHead">${ico('log-out')} Out Time</th>
         <th>Shift</th><th title="Standard working hours (max 8:00 after the 30-minute break)">Working</th><th>Late</th><th>OT</th><th title="Working + OT">Total</th>
         <th>Status</th><th>Attendance</th><th></th>
       </tr></thead>
-      <tbody>${rowsHtml}</tbody>
+      ${rowsHtml}
       <tfoot><tr id="teEwFoot">${teEwFootHtml(t)}</tr></tfoot>
     </table></div>
-    <p class="syncNote">This view edits the same records as <b>Date-wise Time Entry</b>, <b>Employee Leave</b> and the <b>Attendance &amp; OT Summary</b> — a change here shows up there straight away, and the other way round. Shift, Working, Late and OT use the same rules as the Date-wise grid (Sundays and booked holidays count as full-day OT). Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave for that date; set it back to <b>Auto</b> to remove it. Click a date to open that day in the Date-wise view.</p>
+    <p class="syncNote">This view edits the same records as <b>Date-wise Time Entry</b>, <b>Employee Leave</b> and the <b>Attendance &amp; OT Summary</b> — a change here shows up there straight away, and the other way round. Shift, Working, Late and OT use the same rules as the Date-wise grid (Sundays and booked holidays count as full-day OT). Setting <b>Attendance</b> to Loss of Pay or Half Day records an Employee Leave for that date; set it back to <b>Auto</b> to remove it. Click a date to open that day in the Date-wise view. The month is split into weeks (Monday – Sunday): every week starts folded — click a week's bar to expand it (the week open before folds), click it again to fold it; the arrow by Date expands every week or folds them all.</p>
   </div>`;
 }
 

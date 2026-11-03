@@ -350,6 +350,56 @@ function teFitBoxScroll(ev){
 }
 window.addEventListener('resize', ()=>{ ['teDwGrid','teEwGrid'].forEach(id=>{ if(document.getElementById(id)) teFitGridBox(id); }); });
 
+/* ---- Folding sections of a grid, one open at a time (Date-wise shifts, Employee-wise weeks) ----
+   A section is <tbody class="teSec" data-sec="id"> whose first row is its bar (tr.teSecHead, with a
+   .teDwFold button). Every section starts folded — only its bar shows. Click a bar to open it;
+   opening another folds the one before; click the open bar again to fold it. The corner button
+   (<gridId>FoldAll) opens every section or folds them all. The bar stays at the top of the grid
+   (under the column headings) while its rows scroll. Folding only changes what is shown. */
+const teOpenSecs={teDwGrid:new Set(), teEwGrid:new Set()};
+const TE_SEC_WORD={teDwGrid:'shift', teEwGrid:'week'};
+function teSecGridId(el){ const t=el && el.closest('table'); return t ? t.id : ''; }
+function teSecApply(gridId){
+  const open=teOpenSecs[gridId], word=TE_SEC_WORD[gridId]||'section';
+  document.querySelectorAll(`#${gridId} tbody.teSec`).forEach(tb=>{
+    const on=open.has(tb.dataset.sec);
+    tb.classList.toggle('folded', !on);
+    const b=tb.querySelector('.teDwFold'); if(b){ b.setAttribute('aria-expanded', String(on)); b.title=on?`Fold this ${word}`:`Click to expand this ${word}`; }
+    const a=document.activeElement; if(!on && a && tb.contains(a) && !a.closest('tr.teSecHead')) a.blur();
+  });
+  teSecRefreshAll(gridId);
+}
+// Open only this section (the others fold); with toTop, bring its bar to the top of the grid.
+function teSecOpenOnly(tb, toTop){
+  const gridId=teSecGridId(tb); if(!teOpenSecs[gridId]) return;
+  teOpenSecs[gridId]=new Set([tb.dataset.sec]); teSecApply(gridId);
+  if(toTop){
+    const box=tb.closest('.teEwWrap'), head=document.querySelector(`#${gridId} thead`);
+    if(box) box.scrollTop+=tb.getBoundingClientRect().top - box.getBoundingClientRect().top - (head?head.offsetHeight:0);
+  }
+}
+function teSecFold(btn){
+  const tb=btn.closest('tbody.teSec'), gridId=teSecGridId(tb); if(!tb || !teOpenSecs[gridId]) return;
+  const open=teOpenSecs[gridId];
+  if(open.size===1 && open.has(tb.dataset.sec)){ open.clear(); teSecApply(gridId); } // the open one: fold it
+  else teSecOpenOnly(tb, true);
+}
+// A cell in a folded section (keyboard move / jump): open that section, the others fold.
+function teSecReveal(el){ const tb=el && el.closest('tbody.teSec'); if(tb && tb.classList.contains('folded')) teSecOpenOnly(tb, false); }
+function teSecFoldAll(gridId){
+  const secs=[...document.querySelectorAll(`#${gridId} tbody.teSec`)];
+  teOpenSecs[gridId] = secs.some(tb=>!tb.classList.contains('folded')) ? new Set() : new Set(secs.map(tb=>tb.dataset.sec));
+  teSecApply(gridId);
+}
+function teSecRefreshAll(gridId){
+  const b=document.getElementById(gridId+'FoldAll'); if(!b) return;
+  const word=TE_SEC_WORD[gridId]||'section', secs=[...document.querySelectorAll(`#${gridId} tbody.teSec`)], all=!!secs.length && secs.every(tb=>tb.classList.contains('folded'));
+  b.classList.toggle('folded', all); b.setAttribute('aria-expanded', String(!all));
+  b.title=all?`Expand every ${word}`:`Fold every ${word} — only the bars stay`;
+}
+// The frozen bars sit just under the column headings: tell them their height.
+function teSetHeadHeight(gridId){ const g=document.getElementById(gridId), h=g && g.tHead; if(h) g.style.setProperty('--teHeadH', h.offsetHeight+'px'); }
+
 /* ---- One filter row for Date-wise and Employee-wise: Unit, Contractor, Group and Shift side by side
    as plain drop-downs, how many employees are shown, and Clear. A drop-down in use is tinted, so it
    is plain which filters are on. Unit and Contractor are the same filter as the other tabs' bar.
