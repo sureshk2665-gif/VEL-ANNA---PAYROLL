@@ -7,8 +7,9 @@ import { useEffect, useRef, useState } from 'react';
 //   - The cards float gently and lean towards the mouse.
 //   - Pointing at a chip (Attendance / Payroll / Reports) lifts its card and plays its icon;
 //     with no mouse over them, the highlight moves from one to the next on its own.
-//   - The pay slip greets the username as it is typed, and shows "Secured" while the password
-//     box is in use. A live clock and greeting run at the top.
+//   - The pay slip says "Welcome back" once a username is being typed (it never shows what is
+//     typed — no account name appears on this screen) and "Secured" while the password box is
+//     in use. A live clock and greeting run at the top.
 // Everything here is illustration only (aria-hidden); the figures are samples, not real data.
 // People who ask for reduced motion get the still version.
 
@@ -62,7 +63,7 @@ export default function LoginShowcase() {
   const [now, setNow] = useState(() => new Date());
   const [hover, setHover] = useState(null); // chip under the mouse
   const [auto, setAuto] = useState('att'); // chip highlighted on its own
-  const [who, setWho] = useState('');
+  const [typing, setTyping] = useState(false); // a username is in the box (never shown)
   const [secure, setSecure] = useState(false);
   const [pay, setPay] = useState(NET_PAY);
   const sceneRef = useRef(null);
@@ -99,14 +100,15 @@ export default function LoginShowcase() {
     return () => cancelAnimationFrame(raf);
   }, [active]);
 
-  // React to the sign-in boxes: greet the username, show "Secured" while the password is typed,
+  // React to the sign-in boxes: "Welcome back" once a username is typed (its text is never shown),
+  // "Secured" while the password is typed,
   // and shake the card when the sign-in is refused.
   useEffect(() => {
     const user = document.getElementById('loginUser');
     const pass = document.getElementById('loginPass');
     const err = document.getElementById('loginErr');
     const box = document.querySelector('#loginScreen .loginBox');
-    const onUser = () => setWho((user && user.value.trim()) || '');
+    const onUser = () => setTyping(!!(user && user.value.trim()));
     const onPassFocus = () => setSecure(true);
     const onPassBlur = () => setSecure(!!(pass && pass.value));
     user && user.addEventListener('input', onUser);
@@ -180,7 +182,7 @@ export default function LoginShowcase() {
         {/* Pay slip */}
         <div className="lsCard lsPay">
           <div className="lsCardHead"><span>Pay slip</span><em>{month}</em></div>
-          <div className="lsHello">Hello, <b>{who || 'there'}</b>{secure ? <span className="lsSecure">● Secured</span> : null}</div>
+          <div className="lsHello">{typing ? <b>Welcome back</b> : <>Hello, <b>there</b></>}{secure ? <span className="lsSecure">● Secured</span> : null}</div>
           <div className="lsRows">
             <div><span>Basic</span><i style={{ '--w': '78%' }} /></div>
             <div><span>HRA</span><i style={{ '--w': '52%' }} /></div>
