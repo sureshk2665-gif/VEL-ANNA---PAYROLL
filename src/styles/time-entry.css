@@ -153,16 +153,16 @@
 @media screen {
 /* Date-wise: each shift's bar is frozen under the column headings while its rows scroll (like
    Excel's Freeze Panes), and folds / unfolds its rows (like Excel's grouping). */
-#teDwGrid tr.teDwShiftHead td{position:sticky;top:var(--teDwHeadH,36px);z-index:1;background:var(--raised);box-shadow:inset 0 -1px 0 var(--border);}
-#teDwGrid tr.teDwShiftHead td[colspan]{padding:0;}
+tr.teSecHead td{position:sticky;top:var(--teHeadH,36px);z-index:1;background:var(--raised);box-shadow:inset 0 -1px 0 var(--border);}
+tr.teSecHead td[colspan]{padding:0;}
 .teDwFold{display:flex;align-items:center;width:100%;padding:6px 12px;border:0;background:none;color:inherit;font:inherit;font-size:12.5px;text-align:left;cursor:pointer;}
 .teDwFold:hover{background:color-mix(in srgb, var(--hl) 6%, var(--raised));}
 .teDwFold:hover .teShiftBadge{border-color:var(--hl);}
 .teDwFold > svg{width:15px;height:15px;margin-right:8px;flex-shrink:0;color:var(--muted);transition:transform .15s ease;}
-.teDwSec.folded .teDwFold > svg,.teDwFoldAll.folded svg{transform:rotate(-90deg);}
+.teSec.folded .teDwFold > svg,.teDwFoldAll.folded svg{transform:rotate(-90deg);}
 .teDwFoldNote{display:none;margin-left:14px !important;font-size:12px;color:var(--muted) !important;}
-.teDwSec.folded .teDwFoldNote{display:inline;}
-.teDwSec.folded tr.teDwRow{display:none;}
+.teSec.folded .teDwFoldNote{display:inline;}
+.teSec.folded > tr:not(.teSecHead){display:none;}
 .teDwSlTh{white-space:nowrap;}
 .teDwFoldAll{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin:0 4px 0 0;padding:0;border:1px solid transparent;border-radius:6px;background:none;color:inherit;vertical-align:middle;cursor:pointer;}
 .teDwFoldAll:hover{border-color:var(--hl);background:var(--surface);}
@@ -196,4 +196,9 @@
 @media screen {
 /* Leave Entry: the filter row sits under the Edit bar's note and buttons, full width */
 .teSmEditBar.teHasFilt .teFiltRow{flex-basis:100%;margin-top:2px;}
+}
+@media screen {
+/* Employee-wise week bars: the week's figures, and a "This week" tag */
+.teEwWeekSum{color:var(--text) !important;}
+.teEwThisWk{display:inline-block;margin-left:10px !important;padding:1px 7px;border-radius:999px;background:var(--hl-soft);color:var(--hl-ink) !important;font-size:11px;font-weight:600;}
 }
