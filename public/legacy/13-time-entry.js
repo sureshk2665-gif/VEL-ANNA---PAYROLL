@@ -262,12 +262,6 @@ function teSaveGridChanges(){
   teGridEditMode=false;
   render('timeentry');
 }
-function teDeleteEntry(dateStr2, code){
-  if(!hasPerm('timeentry','delete')){ alert('You do not have permission to delete time entries.'); return; }
-  if(!confirm('Remove this time entry?')) return;
-  if(db.timeEntries[dateStr2]){ delete db.timeEntries[dateStr2][code]; }
-  saveDB(db); render('timeentry');
-}
 // Employees Time Entry lists: those on the roll on a date ('YYYY-MM-DD') or in a month ('YYYY-MM'),
 // the same rule payroll uses — so someone who resigned mid-month can still have that month's days
 // entered and corrected. With no date: everyone not resigned.
@@ -374,8 +368,9 @@ function teSecOpenOnly(tb, toTop){
   const gridId=teSecGridId(tb); if(!teOpenSecs[gridId]) return;
   teOpenSecs[gridId]=new Set([tb.dataset.sec]); teSecApply(gridId);
   if(toTop){
-    const box=tb.closest('.teEwWrap'), head=document.querySelector(`#${gridId} thead`);
-    if(box) box.scrollTop+=tb.getBoundingClientRect().top - box.getBoundingClientRect().top - (head?head.offsetHeight:0);
+    const box=tb.closest('.teEwWrap'), head=document.querySelector(`#${gridId} thead`), bar=tb.querySelector('tr.teSecHead td');
+    const stick=bar ? parseFloat(getComputedStyle(bar).top) : NaN; // where its bar freezes
+    if(box) box.scrollTop+=tb.getBoundingClientRect().top - box.getBoundingClientRect().top - (isFinite(stick) ? stick : (head?head.offsetHeight:0));
   }
 }
 function teSecFold(btn){
@@ -384,6 +379,26 @@ function teSecFold(btn){
   if(open.size===1 && open.has(tb.dataset.sec)){ open.clear(); teSecApply(gridId); } // the open one: fold it
   else teSecOpenOnly(tb, true);
 }
+// Scroll a grid's box just enough to show this row clear of what is frozen over it: the column
+// headings, its own bar (and the bars stacked above it), the next bar (and the bars stacked below
+// it) and a frozen total row. scrollIntoView does not know about those and leaves rows under them.
+function teSecKeepInView(tr){
+  const box=tr && tr.closest('.teEwWrap'), table=tr && tr.closest('table'); if(!box || !table) return;
+  const rect=el=>el ? el.getBoundingClientRect() : null, b=rect(box);
+  let top=b.top+box.clientTop, bottom=top+box.clientHeight;
+  const th=table.tHead && table.tHead.rows[0] && table.tHead.rows[0].cells[0]; if(th) top=Math.max(top, rect(th).bottom);
+  const tb=tr.closest('tbody.teSec');
+  if(tb){
+    const own=tb.querySelector('tr.teSecHead td:last-child'); if(own) top=Math.max(top, rect(own).bottom);
+    let nx=tb.nextElementSibling; while(nx && !(nx.tagName==='TBODY' && nx.classList.contains('teSec'))) nx=nx.nextElementSibling;
+    const next=nx && nx.querySelector('tr.teSecHead td:last-child'); if(next) bottom=Math.min(bottom, rect(next).top);
+  }
+  const ft=table.tFoot && table.tFoot.rows[0] && table.tFoot.rows[0].cells[0]; if(ft) bottom=Math.min(bottom, rect(ft).top);
+  const r=rect(tr);
+  if(r.top<top) box.scrollTop-=top-r.top; else if(r.bottom>bottom) box.scrollTop+=r.bottom-bottom;
+}
+// Focus a cell and keep its row in sight (see teSecKeepInView).
+function teSecFocus(el){ el.focus({preventScroll:true}); teSecKeepInView(el.closest('tr')); }
 // A cell in a folded section (keyboard move / jump): open that section, the others fold.
 function teSecReveal(el){ const tb=el && el.closest('tbody.teSec'); if(tb && tb.classList.contains('folded')) teSecOpenOnly(tb, false); }
 function teSecFoldAll(gridId){
@@ -398,7 +413,11 @@ function teSecRefreshAll(gridId){
   b.title=all?`Expand every ${word}`:`Fold every ${word} — only the bars stay`;
 }
 // The frozen bars sit just under the column headings: tell them their height.
-function teSetHeadHeight(gridId){ const g=document.getElementById(gridId), h=g && g.tHead; if(h) g.style.setProperty('--teHeadH', h.offsetHeight+'px'); }
+// Exact (fractional) heights, half a pixel under, so frozen bars sit flush with no sliver of rows between.
+function teSetHeadHeight(gridId){
+  const g=document.getElementById(gridId), h=g && g.tHead && g.tHead.rows[0]; if(h) g.style.setProperty('--teHeadH', (h.getBoundingClientRect().height-0.5)+'px');
+  const bar=g && g.querySelector('tr.teSecHead'); if(bar) g.style.setProperty('--teBarH', (bar.getBoundingClientRect().height-0.5)+'px'); // one bar's height (Date-wise stacks them)
+}
 
 /* ---- One filter row for Date-wise and Employee-wise: Unit, Contractor, Group and Shift side by side
    as plain drop-downs, how many employees are shown, and Clear. A drop-down in use is tinted, so it
