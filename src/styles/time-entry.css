@@ -208,3 +208,14 @@ tr.teSecHead td[colspan]{padding:0;}
 .teLvPrint{height:28px !important;padding:0 10px !important;font-size:12px;}
 .teLvPrint svg{width:14px;height:14px;}
 }
+@media screen {
+/* Date-wise: every shift's bar always on screen — bars above the open shift stack at the top of the
+   grid (under the headings), bars below it stack at the bottom; the open shift's rows scroll between
+   (the keyboard keeps the cursor's row clear of them: teSecKeepInView). */
+#teDwGrid tr.teSecHead td{top:calc(var(--teHeadH,36px) + var(--secTop,0) * var(--teBarH,35px));bottom:calc(var(--secBot,0) * var(--teBarH,35px));}
+}
+@media screen {
+/* Frozen bars and headings paint their own border lines: with collapsed borders a frozen cell's
+   shared line let the rows scrolling underneath show through as a hairline. */
+table.teEwGrid{border-collapse:separate;border-spacing:0;}
+}

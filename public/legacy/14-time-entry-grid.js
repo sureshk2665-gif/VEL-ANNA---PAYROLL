@@ -325,7 +325,7 @@ function teEwMove(r,c,dr,dc){
   if(dc){ let cc=c+dc; while(cc>=0&&cc<=2){ const el=teEwCell(r,cc); if(el&&!el.disabled){ el.focus(); return; } cc+=dc; } return; }
   let rr=r+dr;
   // Past the end of the open week: open the next one (the one before folds) and carry on there.
-  while(rr>=0&&rr<n){ const el=teEwCell(rr,c); if(el&&!el.disabled){ teSecReveal(el); el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); return; } rr+=dr; }
+  while(rr>=0&&rr<n){ const el=teEwCell(rr,c); if(el&&!el.disabled){ teSecReveal(el); teSecFocus(el); return; } rr+=dr; }
 }
 function teEwKey(ev, el){
   const r=+el.dataset.r, c=+el.dataset.c, isSel=el.tagName==='SELECT';
@@ -362,7 +362,7 @@ function teEwRestoreFocus(){
   let el=teEwCell(f.r,f.c);
   if(!el||el.disabled){ const n=teEwRowCount(); for(let k=0;k<n;k++){ const x=teEwCell(k,f.c); if(x&&!x.disabled){ el=x; break; } } }
   // The day the cursor goes to (e.g. the first one that needs entry, after Edit): open its week.
-  if(el&&!el.disabled){ teSecReveal(el); el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
+  if(el&&!el.disabled){ teSecReveal(el); teSecFocus(el); }
 }
 // Employees in the picker: on the roll that month, narrowed by Unit / Contractor, Group and Shift.
 function teEwEmployees(){
@@ -826,68 +826,9 @@ function renderTimeEntry(){
 
 function renderTEEntryTab(){
   ensureTimeEntriesForDate(teGridDate);
-  return `
-  ${renderTEDateGrid()}
-  ${renderTEDayList()}`;
+  return renderTEDateGrid();
 }
 
-function renderTEDayList(){
-  const dates=Object.keys(db.timeEntries).sort().reverse().slice(0,14); // most recent 14 days with any entries
-  if(!dates.length) return `<div class="panel"><div class="empty">No time entries recorded yet.</div></div>`;
-  return dates.map(dt=>{
-    const rows=db.timeEntries[dt]||{};
-    const codes=Object.keys(rows).filter(code=>teDwCodeInFilter(code, dt));
-    if(!codes.length) return '';
-    const empMap={}; (db.employees||[]).forEach(e=>empMap[e.code]=e);
-    const byShift={'First Shift':[],'General Shift':[],'Second Shift':[]};
-    const onLeave=[];
-    codes.forEach(code=>{
-      const leave=teGetLeave(dt, code);
-      const emp=empMap[code]||{name:'(removed employee)',department:''};
-      if(leave && leave.type!=='Half Day'){ onLeave.push({code,emp,leave}); return; }
-      const entry=rows[code];
-      if(!entry || entry.inH==='' || entry.inH===undefined){ if(!leave) return; } // nothing entered yet
-      const c=teHalfDayCap(teCompute(entry, dt, code), !!leave);
-      const shiftName=c.shift?c.shift.name:'General Shift';
-      (byShift[shiftName]||byShift['General Shift']).push({code,emp,entry,c,leave});
-    });
-    if(!onLeave.length && Object.values(byShift).every(l=>!l.length)) return ''; // nothing entered on this date yet
-    const holidayTag = teIsHolidayDate(dt) ? ` <span class="tag HalfDay" style="padding:1px 8px;font-size:11px;">Holiday · Full-day OT</span>` : '';
-    return `<div class="panel teDayGroup">
-      <div class="panelHead"><h4 style="margin:0;">${ico('calendar')} ${fmtDate(dt)}${holidayTag}</h4>
-        ${teDwPrintHtml(dt, 'teDayPrint'+dt.replace(/-/g,''))}</div>
-      ${renderTELeaveGroupBox(onLeave)}
-      <div class="teShiftGrid">
-        ${Object.keys(byShift).map(sn=>renderTEShiftBox(sn,byShift[sn],dt)).join('')}
-      </div>
-    </div>`;
-  }).join('');
-}
-function renderTELeaveGroupBox(list){
-  if(!list.length) return '';
-  return `<div class="teShiftBox" style="margin-bottom:14px;">
-    <h5>${ico('palm')} On Leave</h5>
-    <table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th></tr></thead>
-    <tbody>${list.map((r,idx)=>`<tr>
-      <td>${idx+1}</td><td>${r.code}</td><td style="text-align:left;">${r.emp.name}</td><td>${r.leave.type}</td><td style="text-align:left;">${r.leave.remarks||'-'}</td>
-    </tr>`).join('')}</tbody></table>
-  </div>`;
-}
-function renderTEShiftBox(shiftName, list, dt){
-  if(!list.length) return '';
-  const canDel=hasPerm('timeentry','delete');
-  return `<div class="teShiftBox">
-    <h5>${shiftName==='First Shift'?ico('sunrise'):shiftName==='Second Shift'?ico('moon'):ico('sun')} ${shiftName}</h5>
-    <table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>In</th><th>Out</th><th>Working</th><th>Late</th><th>OT</th>${canDel?'<th></th>':''}</tr></thead>
-    <tbody>${list.map((r,idx)=>`<tr>
-      <td>${idx+1}</td><td>${r.code}</td><td style="text-align:left;">${r.emp.name}${r.leave&&r.leave.type==='Half Day'?` <span class="tag HalfDay" style="padding:1px 7px;font-size:10px;">${ico('contrast')} Half Day</span>`:''}</td>
-      <td>${r.entry.inH?String(r.entry.inH).padStart(2,'0')+':'+String(r.entry.inM).padStart(2,'0')+' '+r.entry.inAP:'-'}</td>
-      <td>${r.entry.outH?String(r.entry.outH).padStart(2,'0')+':'+String(r.entry.outM).padStart(2,'0')+' '+r.entry.outAP:'-'}</td>
-      <td>${teFmtHM(r.c.working)}</td><td>${r.c.late>0?teFmtHM(r.c.late):'On time'}</td><td>${teFmtHM(r.c.ot)}</td>
-      ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteEntry('${dt}','${r.code}')">${ico('x')}</button></td>`:''}
-    </tr>`).join('')}</tbody></table>
-  </div>`;
-}
 // Prints the day as the Date-wise screen shows it: the same Unit, Contractor, Group and Shift filters,
 // in the same order (by the shift planned that day, then employee code).
 function printTEDay(dt){

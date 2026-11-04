@@ -54,8 +54,7 @@ function teDwDayCodes(dt){
   return Object.keys(db.timeEntries[dt]||{}).filter(code=>teDwCodeInFilter(code, dt))
     .sort((a,b)=>order(teEmpShiftKey(a,dt))-order(teEmpShiftKey(b,dt)) || a.localeCompare(b,undefined,{numeric:true}));
 }
-// The Print / Excel menu for a date — in the Date-wise toolbar, and on each day card under the grid
-// (id keeps each card's menu apart).
+// The Print / Excel menu for a date, in the Date-wise toolbar (id keeps menus apart).
 function teDwPrintHtml(dt, id){
   const n=teDwDayCodes(dt).length, ft=teDwFilterText(), xl=hasPerm('timeentry','export');
   const note=`${fmtDate(dt)} · ${n} employee${n===1?'':'s'}${ft?' · '+teEsc(ft):''}`;
@@ -298,7 +297,7 @@ function teDwMove(r,c,dr,dc){
     if(el && !el.disabled){
       // Past the end of the open shift: open the next one (the one before folds) and carry on there.
       teSecReveal(el);
-      el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); return;
+      teSecFocus(el); return;
     }
     rr+=dr;
   }
@@ -335,7 +334,7 @@ function teDwRestoreFocus(){
   // Nothing open yet (e.g. just after Edit): open the shift of that row so the cursor has somewhere to go.
   if(el && !el.disabled && el.closest('tbody.folded') && !document.querySelector('#teDwGrid tbody.teSec:not(.folded)')) teSecReveal(el);
   if(!teDwCanFocus(el)){ const n=teDwRowCount(); for(let k=0;k<n;k++){ const x=teDwCell(k,f.c); if(teDwCanFocus(x)){ el=x; break; } } }
-  if(teDwCanFocus(el)){ el.focus(); el.closest('tr').scrollIntoView({block:'nearest'}); }
+  if(teDwCanFocus(el)) teSecFocus(el);
 }
 // First row with no In Time yet (not on leave) — where entry usually continues.
 function teDwFirstEmptyRow(){
@@ -483,9 +482,11 @@ function teDwBodyHtml(emps, dt, unlocked){
     if(!sec || sec.k!==k){ sec={k, rows:[]}; secs.push(sec); }
     sec.rows.push(teDwRowHtml(e,i,dt,unlocked));
   });
-  return secs.map(({k, rows})=>{
+  // --secTop / --secBot: how many bars come before / after this one, so every shift's bar stays on
+  // screen — the ones above the open shift stacked at the top of the grid, the ones below at the bottom.
+  return secs.map(({k, rows}, si)=>{
     const p=teShiftByKey(k), id=k||'-', lbl=p?teEsc(p.label):'No shift planned', n=rows.length, folded=!teOpenSecs.teDwGrid.has(id);
-    return `<tbody class="teSec teDwSec ${folded?'folded':''}" data-sec="${teEsc(id)}">
+    return `<tbody class="teSec teDwSec ${folded?'folded':''}" data-sec="${teEsc(id)}" style="--secTop:${si};--secBot:${secs.length-1-si}">
       <tr class="teGrpHead teDwShiftHead teSecHead">${unlocked?`<td class="teDwChk"><input type="checkbox" class="teDwShiftAll" data-shift="${teEsc(k)}" title="Select everyone on ${lbl}" aria-label="Select everyone on ${lbl}" onchange="teDwToggleShift(this.dataset.shift,this.checked)"></td>`:''}<td colspan="15">
         <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this shift':'Fold this shift'}" onclick="teSecFold(this)">${ico('chevron-down')}<span class="teShiftBadge">${lbl}</span><span>${n} employee${n===1?'':'s'}</span>${p?`<span>${tePresetTimes(p)}</span>`:''}<span class="teDwFoldNote">Click to expand</span></button></td></tr>
       ${rows.join('')}
