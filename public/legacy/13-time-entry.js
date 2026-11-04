@@ -356,8 +356,8 @@ window.addEventListener('resize', ()=>{ ['teDwGrid','teEwGrid'].forEach(id=>{ if
    opening another folds the one before; click the open bar again to fold it. The corner button
    (<gridId>FoldAll) opens every section or folds them all. The bar stays at the top of the grid
    (under the column headings) while its rows scroll. Folding only changes what is shown. */
-const teOpenSecs={teDwGrid:new Set(), teEwGrid:new Set()};
-const TE_SEC_WORD={teDwGrid:'shift', teEwGrid:'week'};
+const teOpenSecs={teDwGrid:new Set(), teEwGrid:new Set(), teLvGrid:new Set()};
+const TE_SEC_WORD={teDwGrid:'shift', teEwGrid:'week', teLvGrid:'date'};
 function teSecGridId(el){ const t=el && el.closest('table'); return t ? t.id : ''; }
 function teSecApply(gridId){
   const open=teOpenSecs[gridId], word=TE_SEC_WORD[gridId]||'section';
@@ -486,6 +486,7 @@ function teSaveLeave(){
   if(!db.timeEntries[teLeaveDate]) db.timeEntries[teLeaveDate]={};
   if(!db.timeEntries[teLeaveDate][teLeaveEmp]) db.timeEntries[teLeaveDate][teLeaveEmp]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
   teEditTouch();
+  teOpenSecs.teLvGrid=new Set([teLeaveDate]); // show the date just added to
   teLeaveEmp=''; teLeaveRemarks=''; teLeaveType=TE_LEAVE_TYPES[0];
   render('timeentry');
 }
@@ -537,15 +538,33 @@ function renderTELeaveTab(){
       <div class="full"><button class="btn" ${canEdit?'':'disabled'} onclick="teSaveLeave()">${ico('plus')} Add to list</button></div>
     </div>
   </div>
-  ${!dates.length?`<div class="panel"><div class="empty">${teTfFilterText('leave')?'No leave records for these filters.':'No leave records yet.'}</div></div>`:dates.map(dt=>{
-    const list=leaves.filter(l=>l.date===dt);
-    return `<div class="panel teDayGroup">
-      <div class="panelHead"><h4 style="margin:0;">${ico('palm')} ${fmtDate(dt)}</h4><button class="btn secondary" onclick="printTELeaveDay('${dt}')">${ico('printer')} Print</button></div>
-      <div class="teShiftBox"><table><thead><tr><th>Sl No</th><th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th>${canDel?'<th></th>':''}</tr></thead>
-      <tbody>${list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)'};
-        return `<tr><td>${idx+1}</td><td>${l.empCode}</td><td style="text-align:left;">${emp.name}</td><td>${l.type==='NOPL'?'Loss of Pay':l.type}</td><td style="text-align:left;">${l.remarks||'-'}</td>
-        ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteLeave('${dt}','${l.empCode}')">${ico('x')}</button></td>`:''}</tr>`; }).join('')}</tbody></table></div>
-    </div>`;
-  }).join('')}`;
+  ${!dates.length?`<div class="panel"><div class="empty">${teTfFilterText('leave')?'No leave records for these filters.':'No leave records yet.'}</div></div>`:teLeaveListHtml(dates, leaves, empMap, canDel)}`;
+}
+/* ---- The leave list: one bar per date (the latest 20), folding like the Date-wise shifts — every date
+   starts folded, one open at a time (teSecApply). Each bar: the date, the day, how many are on leave and
+   of which type, and that date's Print. The date a leave was just added to opens. ---- */
+function teLeaveListHtml(dates, leaves, empMap, canDel){
+  const cols=canDel?6:5, open=teOpenSecs.teLvGrid, today=todayStr(), anyOpen=dates.some(d=>open.has(d));
+  const type=l=>l.type==='NOPL'?'Loss of Pay':l.type;
+  return `<div class="panel">
+    <div class="teCalHead"><div><h3 style="margin:0;">${ico('palm')} Leave records</h3><p class="teSmSub">The latest ${dates.length} date${dates.length===1?'':'s'} with leave — click a date to expand it.</p></div></div>
+    <div class="teShiftBox"><table class="teLvGrid" id="teLvGrid">
+      <thead><tr><th class="teDwSlTh"><button type="button" id="teLvGridFoldAll" class="teDwFoldAll ${anyOpen?'':'folded'}" tabindex="-1" aria-expanded="${anyOpen}" title="${anyOpen?'Fold every date — only the bars stay':'Expand every date'}" onclick="teSecFoldAll('teLvGrid')">${ico('chevron-down')}</button>Sl No</th>
+        <th>Emp Code</th><th>Employee</th><th>Leave Type</th><th>Remarks</th>${canDel?'<th></th>':''}</tr></thead>
+      ${dates.map(dt=>{
+        const list=leaves.filter(l=>l.date===dt), folded=!open.has(dt);
+        const byType={}; list.forEach(l=>{ byType[type(l)]=(byType[type(l)]||0)+1; });
+        const day=new Date(dt+'T00:00:00').toLocaleDateString('en-US',{weekday:'long'});
+        return `<tbody class="teSec teLvSec ${folded?'folded':''}" data-sec="${dt}">
+          <tr class="teGrpHead teDwShiftHead teSecHead"><td colspan="${cols-1}">
+            <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this date':'Fold this date'}" onclick="teSecFold(this)">${ico('chevron-down')}<span class="teShiftBadge">${fmtDate(dt)}</span><span>${day}</span><span class="teEwWeekSum">${list.length} on leave</span><span>${Object.entries(byType).map(([t,n])=>`${n} ${teEsc(t)}`).join(' · ')}</span>${dt===today?'<span class="teEwThisWk">Today</span>':''}<span class="teDwFoldNote">Click to expand</span></button></td>
+            <td class="teLvPrintCell"><button class="btn secondary teLvPrint" onclick="printTELeaveDay('${dt}')" title="Print the leave for ${fmtDate(dt)}">${ico('printer')} Print</button></td></tr>
+          ${list.map((l,idx)=>{ const emp=empMap[l.empCode]||{name:'(removed employee)'};
+            return `<tr><td>${idx+1}</td><td>${teEsc(l.empCode)}</td><td style="text-align:left;">${teEsc(emp.name)}</td><td>${teEsc(type(l))}</td><td style="text-align:left;">${teEsc(l.remarks||'-')}</td>
+            ${canDel?`<td><button class="btn danger" style="padding:3px 8px;font-size:11px;" onclick="teDeleteLeave('${dt}','${teEsc(l.empCode)}')">${ico('x')}</button></td>`:''}</tr>`; }).join('')}
+        </tbody>`;
+      }).join('')}
+    </table></div>
+  </div>`;
 }
 

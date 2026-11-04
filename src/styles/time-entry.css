@@ -202,3 +202,9 @@ tr.teSecHead td[colspan]{padding:0;}
 .teEwWeekSum{color:var(--text) !important;}
 .teEwThisWk{display:inline-block;margin-left:10px !important;padding:1px 7px;border-radius:999px;background:var(--hl-soft);color:var(--hl-ink) !important;font-size:11px;font-weight:600;}
 }
+@media screen {
+/* Leave Entry list: each date's bar folds; its Print sits at the right end of the bar */
+.teLvGrid tr.teSecHead td.teLvPrintCell{width:1%;white-space:nowrap;text-align:right !important;padding:4px 10px !important;}
+.teLvPrint{height:28px !important;padding:0 10px !important;font-size:12px;}
+.teLvPrint svg{width:14px;height:14px;}
+}
