@@ -209,10 +209,13 @@ function teEwWeeks(dates){
 function teEwWeekSectionsHtml(code, dates, rowHtml){
   const f=d=>new Date(d+'T00:00:00').toLocaleDateString('en-GB',{day:'2-digit',month:'short'});
   const g=teEmpGroup(code), thisWk=teWeekStart(todayStr()), open=teOpenSecs.teEwGrid;
-  return teEwWeeks(dates).map((w,n)=>{
+  // --secTop / --secBot: weeks before / after this one, so every week's bar stays on screen — the ones
+  // above the open week stacked at the top, the ones below it stacked at the bottom (over the month total).
+  const weeks=teEwWeeks(dates);
+  return weeks.map((w,n)=>{
     const folded=!open.has(w.ws), a=w.dates[0], b=w.dates[w.dates.length-1];
     const k=g ? teGroupWeekShift(w.ws, g).key : '', plan=k ? teShiftByKey(k) : null;
-    return `<tbody class="teSec teEwSec ${folded?'folded':''}" data-sec="${w.ws}">
+    return `<tbody class="teSec teEwSec ${folded?'folded':''}" data-sec="${w.ws}" style="--secTop:${n};--secBot:${weeks.length-1-n}">
       <tr class="teGrpHead teDwShiftHead teSecHead"><td colspan="13">
         <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this week':'Fold this week'}" onclick="teSecFold(this)">${ico('chevron-down')}<span class="teShiftBadge">Week ${n+1}</span><span>${a===b?f(a):`${f(a)} – ${f(b)}`}</span>${plan?`<span>${teEsc(plan.label)}</span>`:''}<span class="teEwWeekSum" data-week="${w.ws}">${teEwWeekSum(code, w.dates)}</span>${w.ws===thisWk?'<span class="teEwThisWk">This week</span>':''}<span class="teDwFoldNote">Click to expand</span></button></td></tr>
       ${w.idx.map(i=>rowHtml[i]).join('')}
