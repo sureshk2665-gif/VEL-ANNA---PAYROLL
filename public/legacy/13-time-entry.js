@@ -416,7 +416,8 @@ function teSecRefreshAll(gridId){
 // Exact (fractional) heights, half a pixel under, so frozen bars sit flush with no sliver of rows between.
 function teSetHeadHeight(gridId){
   const g=document.getElementById(gridId), h=g && g.tHead && g.tHead.rows[0]; if(h) g.style.setProperty('--teHeadH', (h.getBoundingClientRect().height-0.5)+'px');
-  const bar=g && g.querySelector('tr.teSecHead'); if(bar) g.style.setProperty('--teBarH', (bar.getBoundingClientRect().height-0.5)+'px'); // one bar's height (Date-wise stacks them)
+  const bar=g && g.querySelector('tr.teSecHead'); if(bar) g.style.setProperty('--teBarH', (bar.getBoundingClientRect().height-0.5)+'px'); // one bar's height (the bars stack)
+  const ft=g && g.tFoot && g.tFoot.rows[0]; if(ft) g.style.setProperty('--teFootH', (ft.getBoundingClientRect().height-0.5)+'px'); // the frozen total row under the bottom stack
 }
 
 /* ---- One filter row for Date-wise and Employee-wise: Unit, Contractor, Group and Shift side by side
