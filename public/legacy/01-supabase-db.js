@@ -65,8 +65,8 @@ function defaultDB(){
     autoBackup:{enabled:false, frequency:'daily', time:'20:00', weekday:1, dayOfMonth:1, lastRun:null, nextRun:null},
     backupHistory:[],
     holidays:[], // Holiday Calendar — array of {date:'YYYY-MM-DD', type:'NOPH'}, deducted from NOWD like Sundays
-    // ---- Employee Time Entry ----
-    // Payroll reads these: a day not marked on the Attendance screen takes its status from here
+    // ---- Former Employee Time Entry (day by day; months before monthly attendance) ----
+    // Payroll reads these for those months: a day not marked on the Attendance screen takes its status from here
     // (getAttStatus), and the month's OT hours / Late minutes come from here (otHoursFor / lateMinutesFor).
     timeEntries:{}, // {date: {empCode: {inH,inM,inAP,outH,outM,outAP}}}
     timeHolidays:[], // [{date:'YYYY-MM-DD', remarks:''}] — booked dates: time worked is full-day OT (not NOWD/NOPH)
@@ -113,7 +113,7 @@ async function saveDB(dbToSave){
   // (e.g. restoreData()) can tell the user the truth instead of showing a false
   // "success" message when the write was actually rejected by Supabase (e.g. by
   // a missing/incorrect RLS policy).
-  // While an Edit session is open (Employee Time Entry / Attendance), the edited stores are written
+  // While an Edit session is open (Attendance), the edited stores are written
   // as they were before Edit — only Save puts the changes in the database (teDraftSafe).
   if(typeof teDraftSafe==='function') dbToSave=teDraftSafe(dbToSave);
   try{

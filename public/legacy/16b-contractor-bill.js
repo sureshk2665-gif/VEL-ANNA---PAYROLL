@@ -147,13 +147,13 @@ function renderContractorBill(){
     <div class="teStatBox ${company?'':'cbKey'}"><b>${fmt(sum('commission'))}</b><span>Service charge</span></div>
     ${company?`<div class="teStatBox cbKey"><b>${fmt(sum('total'))}</b><span>Total payable</span></div>`:''}
   </div>
-  ${company && !generated?`<div class="payWarn">${ico('alert')} Payroll for ${monthLabel(cbMonth)} is not generated yet — salary shown is worked out from the current attendance and Time Entry.</div>`:''}
+  ${company && !generated?`<div class="payWarn">${ico('alert')} Payroll for ${monthLabel(cbMonth)} is not generated yet — salary shown is worked out from the current attendance.</div>`:''}
   <div class="panel cbPanel">
     ${mainTable}
     ${saveBar}
     <p class="syncNote">${company
       ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge. Net Pay pays Present days and <b>NOPH</b> days (paid holidays in the Holiday Calendar), so it is not ₹0 when a month has a paid holiday even with 0 present days. The service charge counts full Present days only.`
-      : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Employee Time Entry / Attendance.`}
+      : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Attendance (working days − LOP − Half Days).`}
       ${allowed?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''} Click a contractor to see its employees.</p>
   </div>`;
 }

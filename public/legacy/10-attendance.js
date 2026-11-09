@@ -9,13 +9,13 @@
    — so Payroll, salary slips, reports and the Contractors Bill all show these figures.
    The table is grouped by contractor (every employee is under one; LOP differs contractor by
    contractor): one contractor open at a time, every contractor's bar always on screen (teSecApply,
-   13-time-entry.js). Made for filling a whole month fast: Enter / arrows move between boxes, a column
+   13-screen-tools.js). Made for filling a whole month fast: Enter / arrows move between boxes, a column
    pasted from Excel fills down, and each contractor's bar shows its totals.
    Months before the cut-over were entered day by day: they are shown here read-only (the figures
    Payroll worked out from the days), and one button switches such a month to monthly entry.
    The second tab is the Holiday Calendar (NOPH and holidays without pay). */
 
-/* ---- Date and holiday helpers (used by Payroll, Reports, the Dashboard and Time Entry) ---- */
+/* ---- Date and holiday helpers (used by Payroll, Reports and the Dashboard) ---- */
 function daysInMonth(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); }
 // Sundays in the month — the weekly off.
 function sundaysInMonth(ym){
@@ -44,7 +44,7 @@ function isSunday(ym, day){ const [y,m]=ym.split('-').map(Number); return new Da
 /* ---- One day's status — for the months entered day by day (before the cut-over) ----
      1. a Holiday Calendar date counts as 'NOPH' for every employee;
      2. a mark made on the old daily Attendance screen;
-     3. otherwise Employee Time Entry — see timeEntryAttStatus(). */
+     3. otherwise the former Employee Time Entry (In / Out times, leave) — see timeEntryAttStatus(). */
 function getAttStatus(date, code){
   const t=getHolidayType(date);
   if(t) return t;
@@ -112,8 +112,6 @@ let attTab='entry';          // 'entry' (monthly attendance) | 'holidays' (Holid
 let attUnitFilter='';        // '' = all units, or a unit code
 let attContractorFilter='';  // '' = all, or a contractor code
 let attEditMode=false;       // boxes are locked until Edit (an Edit session — Save / Cancel)
-let attEditSnapshot=null;    // kept for the Edit session code (13-time-entry.js)
-let attEmpCode='';           // kept for renameEmployeeCode (08-employees.js)
 let attFocusFirst=false;     // after Edit: put the cursor in the first row still to be entered
 
 // The boxes, in order (data-c). Stored in db.payrollAdjustments[ym][code].
@@ -252,7 +250,7 @@ function renderAttEntry(){
     ? (editable
       ? `Type each employee's LOP days, Half Days, Late minutes, OT hours and canteen tokens — everything else is calculated. <b>Enter</b> / <b>↓</b> next employee, <b>←</b> <b>→</b> next box; paste a column copied from Excel to fill down. Save when done.`
       : `Each employee's month: LOP days, Half Days, Late minutes, OT hours and canteen tokens. Present = working days − LOP − Half Days; Payroll, slips, reports and the Contractors Bill use these figures.${canEdit?' Click <b>Edit</b> to enter them.':''}`)
-    : `<b>${attMonthName(ym)}</b> was entered day by day (old Attendance / Employee Time Entry) — shown here read-only, as Payroll worked it out.${canEdit&&db.monthlyAttFrom?` <button type="button" class="btn secondary attSwitchBtn" onclick="attSwitchToMonthly('${ym}')">Enter ${attEsc(attMonthName(ym))} here instead</button>`:''}`;
+    : `<b>${attMonthName(ym)}</b> was entered day by day (before monthly attendance began) — shown here read-only, as Payroll worked it out.${canEdit&&db.monthlyAttFrom?` <button type="button" class="btn secondary attSwitchBtn" onclick="attSwitchToMonthly('${ym}')">Enter ${attEsc(attMonthName(ym))} here instead</button>`:''}`;
   if(attFocusFirst){ attFocusFirst=false; setTimeout(attFocusFirstOpen, 0); }
   setTimeout(()=>{ teSetHeadHeight('attGrid'); teSecRefreshAll('attGrid'); teFitGridBox('attGrid'); }, 0);
   return `<div class="panel attPanel">

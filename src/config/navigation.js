@@ -1,6 +1,6 @@
 import {
   CalendarDays, DoorOpen, Folder, Landmark, LayoutDashboard, Receipt, Settings, ShieldCheck,
-  Tag, Timer, Users, Wallet,
+  Tag, Users, Wallet,
 } from 'lucide-react';
 
 // Sidebar menu. `page` must match the keys handled by render() in public/legacy/05-navigation.js
@@ -12,8 +12,6 @@ export const NAV_ITEMS = [
   { page: 'resigned', icon: DoorOpen, label: 'Resigned Employees' },
   { page: 'departments', icon: Tag, label: 'Departments' },
   { page: 'attendance', icon: CalendarDays, label: 'Attendance' },
-  { section: 'Time Tracking' },
-  { page: 'timeentry', icon: Timer, label: 'Employee Time Entry' },
   { section: 'Payroll' },
   { page: 'payroll', icon: Wallet, label: 'Payroll' },
   { page: 'salaryadvance', icon: Landmark, label: 'Salary Advance' },
