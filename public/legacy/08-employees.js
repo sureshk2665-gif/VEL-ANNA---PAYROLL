@@ -190,9 +190,49 @@ function confirmRejoin(code){
   closeModal();
   render('resigned');
 }
-function nextEmpCode(){
-  const n=db.nextEmpNum; db.nextEmpNum++; saveDB(db);
+/* ---- Employee codes ----
+   New employees get the next free code (EMP001, EMP002 …): db.nextEmpNum, skipping any code already
+   in use (a code can be typed or changed by hand). A code may be changed later on Edit; it must stay
+   unique, and every record kept under the old code moves to the new one (renameEmployeeCode). */
+function empCodeNorm(v){ return String(v==null?'':v).trim().toUpperCase(); }
+function empCodeInUse(code, exceptCode){
+  const c=empCodeNorm(code);
+  return (db.employees||[]).find(e=>empCodeNorm(e.code)===c && e.code!==exceptCode) || null;
+}
+function peekNextEmpCode(){
+  let n=Math.max(1, +db.nextEmpNum||1);
+  while(empCodeInUse('EMP'+String(n).padStart(3,'0'))) n++;
   return 'EMP'+String(n).padStart(3,'0');
+}
+// Takes the suggested code: the counter moves past it. A code typed by hand leaves the counter alone
+// (no gap in the numbering) — the suggestion simply skips it when it comes round.
+function takeNextEmpCode(){ const c=peekNextEmpCode(); db.nextEmpNum=+c.slice(3)+1; return c; }
+// Letters, digits and - _ / . only (codes are used in links and file names), up to 20 characters.
+function empCodeProblem(code, exceptCode){
+  const c=empCodeNorm(code);
+  if(!c) return 'Please enter the Employee Code.';
+  if(exceptCode && c===empCodeNorm(exceptCode)) return ''; // an existing employee keeping their code
+  if(!/^[A-Z0-9][A-Z0-9_\-\/.]{0,19}$/.test(c)) return 'The Employee Code can use letters, numbers and - _ / . only (up to 20 characters).';
+  const other=empCodeInUse(c, exceptCode);
+  if(other) return `Employee Code ${c} is already allocated to ${other.name||other.code}${other.status==='Resigned'?' (resigned)':''}. Please use a different code.`;
+  return '';
+}
+// While typing: the browser shows the problem on Save (and the box is marked).
+function empCodeCheck(inp){
+  const editing=inp.form && inp.form.dataset.code || '';
+  inp.setCustomValidity(empCodeProblem(inp.value, editing));
+}
+// Moves everything kept under an employee's code to a new code (Edit → Employee Code changed).
+function renameEmployeeCode(oldCode, newCode){
+  const move=obj=>{ if(obj && typeof obj==='object' && Object.prototype.hasOwnProperty.call(obj, oldCode)){ obj[newCode]=obj[oldCode]; delete obj[oldCode]; } };
+  ['attendance','timeEntries','shiftOverrides','payrollAdjustments'].forEach(k=>Object.values(db[k]||{}).forEach(move));
+  Object.values(db.payroll||{}).forEach(m=>{ move(m); if(m && m[newCode] && m[newCode].code===oldCode) m[newCode]={...m[newCode], code:newCode}; });
+  move(db.groupMap);
+  ['timeLeaves','salaryAdvances','increments'].forEach(k=>(db[k]||[]).forEach(r=>{ if(r && r.empCode===oldCode) r.empCode=newCode; }));
+  // Screens that had this employee open keep it open.
+  if(typeof attEmpCode!=='undefined' && attEmpCode===oldCode) attEmpCode=newCode;
+  if(typeof teEwEmp!=='undefined' && teEwEmp===oldCode) teEwEmp=newCode;
+  if(typeof teLeaveEmp!=='undefined' && teLeaveEmp===oldCode) teLeaveEmp=newCode;
 }
 /* ---- Bulk Import (Excel) — Software Admin only ----
    Opened from Software Admin → Bulk Import Employees. The dialog is a React component
@@ -213,7 +253,7 @@ function employeeImportContext(){
     departments: (db.departments||[]).slice(),
     designations: designationList().slice(),
     fields: employeeSheetFields(),
-    employees: (db.employees||[]).map(e=>({code:e.code, name:e.name, aadhaar:e.aadhaar||'', pan:e.pan||'', accNo:e.accNo||''}))
+    employees: (db.employees||[]).map(e=>({code:e.code, name:e.name, aadhaar:e.aadhaar||'', pan:e.pan||''}))
   };
 }
 // Adds already-validated NEW employees (fields as produced by the import) exactly like saving the
@@ -224,8 +264,7 @@ async function importEmployees(list){
   const codes=[];
   const now=new Date().toISOString();
   list.forEach(f=>{
-    const code='EMP'+String(db.nextEmpNum).padStart(3,'0');
-    db.nextEmpNum++;
+    const code=takeNextEmpCode();
     db.employees.push({
       // Same fields as the Add Employee form (employeeRecordFromSheet in 07b-employee-fields.js).
       ...employeeRecordFromSheet(f),
@@ -273,7 +312,7 @@ function openEmployeeModal(code){
     <div class="teTabs empFormTabs" role="tablist">
       ${employeeFieldSections().map((sec,i)=>`<div class="teTab ${i?'':'active'}" role="tab" tabindex="0" data-sec="${sec.key}" onclick="empFormTab('${sec.key}')" onkeydown="if(event.key==='Enter')empFormTab('${sec.key}')">${sec.title}</div>`).join('')}
     </div>
-    <form id="empForm" class="empFormTabbed">
+    <form id="empForm" class="empFormTabbed" data-code="${editing?empAttr(editing.code):''}">
     ${employeeFormHtml(e)}
 
     <div class="modalActions empFormActions">
@@ -289,7 +328,7 @@ function openEmployeeModal(code){
   empFormTab(employeeFieldSections()[0].key);
   showModal();
 }
-// The form shows one section at a time (Basic / Bank & Statutory / Salary); every field stays in
+// The form shows one section at a time (Basic / Statutory / Salary); every field stays in
 // the form, so saving reads them all as before.
 function empFormTab(key){
   document.querySelectorAll('#empForm fieldset[data-sec]').forEach(f=>{ f.hidden=f.dataset.sec!==key; });
@@ -317,6 +356,16 @@ function saveEmployee(existingCode){
   const f=readEmployeeFormFields();
   const name=f.name;
   if(!name){ alert('Name is required'); return; }
+  let code=empCodeNorm(f.code);
+  if(existingCode && code===empCodeNorm(existingCode)) code=existingCode; // unchanged (kept exactly as stored)
+  const tookSuggested=!existingCode && code===peekNextEmpCode();
+  const codeProblem=empCodeProblem(code, existingCode);
+  if(codeProblem){ alert(codeProblem); return; }
+  if(!f.contractor){ alert('Please choose the Contractor — every employee must be under a contractor.'); return; }
+  if(existingCode && code!==existingCode){
+    if(typeof teEditActive==='function' && teEditActive()){ alert('Save or cancel the edit open in Employee Time Entry / Attendance first, then change the code.'); return; }
+    if(!confirm(`Change the Employee Code from ${existingCode} to ${code}?\n\nTheir attendance, time entries, payroll, salary advances and other records move to the new code.`)) return;
+  }
   const status=f.status;
   let resignationDate = f.resignationDate||'';
   let resignReason = f.resignReason||'';
@@ -331,9 +380,12 @@ function saveEmployee(existingCode){
   if(wageChange===false) return; // cancelled
   if(wageChange) wageHistory.push(wageChange);
   const joiningVal=f.joining||'';
+  // Values that are no longer on the form (bank details, usual canteen tokens, payment mode, e-mail,
+  // employment type) are kept as they were, so saving never drops stored data — or changes payroll.
   const data={
+    ...(prior||{}),
     ...f,
-    code: existingCode || nextEmpCode(),
+    code,
     name,
     status,
     resignationDate,
@@ -346,7 +398,9 @@ function saveEmployee(existingCode){
     rejoinDate: prior ? (prior.rejoinDate||'') : '',
     createdAt: existingCode ? (db.employees.find(e=>e.code===existingCode).createdAt) : new Date().toISOString()
   };
-  const idx=db.employees.findIndex(e=>e.code===data.code);
+  if(existingCode && code!==existingCode) renameEmployeeCode(existingCode, code);
+  if(tookSuggested) takeNextEmpCode();
+  const idx=db.employees.findIndex(e=>e.code===(existingCode||code));
   if(idx>-1) db.employees[idx]=data; else db.employees.push(data);
   saveDB(db);
   closeModal();

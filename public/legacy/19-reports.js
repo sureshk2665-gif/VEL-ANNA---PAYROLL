@@ -19,11 +19,10 @@ const REPORTS_LIST = [
   {key:'employee',   icon:'user', title:'Employee Report',              desc:'All active employees with department, designation, unit and daily wage.', needsMonth:false, category:'general'},
   {key:'resignedEmp',icon:'door-open', title:'Resigned Employees Report',    desc:'All resigned employees with joining date, resignation date and reason.', needsMonth:false, category:'general'},
   {key:'department', icon:'tag', title:'Department Report',            desc:'Headcount grouped by department (active employees).', needsMonth:false, category:'general'},
-  {key:'unit',       icon:'factory', title:'Unit-wise Report',              desc:'Payroll summary split by working unit, with mode-of-payment totals.', needsMonth:true, category:'monthly'},
+  {key:'unit',       icon:'factory', title:'Unit-wise Report',              desc:'Payroll summary split by working unit.', needsMonth:true, category:'monthly'},
   {key:'acquittance',icon:'pen-line', title:'Unit-wise Salary Acquittance Register', desc:'A4 landscape register for employee signatures — max 15 employees per page, header repeated on every page, page totals and unit grand total.', needsMonth:true, needsUnitFilter:true, category:'monthly'},
-  {key:'contractor', icon:'users', title:'Contractor-wise Report',        desc:'Payroll summary split by contractor (any unit), with mode-of-payment totals.', needsMonth:true, category:'monthly'},
+  {key:'contractor', icon:'users', title:'Contractor-wise Report',        desc:'Payroll summary split by contractor (any unit), with each contractor\'s service charge.', needsMonth:true, category:'monthly'},
   {key:'acquittanceContractor',icon:'pen-line', title:'Contractor-wise Salary Acquittance Register', desc:'Same A4 signature register, one section per contractor — optionally for one unit only (e.g. a contractor\'s employees in Unit-2).', needsMonth:true, needsContractorFilter:true, category:'monthly'},
-  {key:'mode',       icon:'credit-card', title:'Mode of Payment-wise Report',   desc:'Payroll summary split by mode of payment (NEFT, Cash, Cheque, etc.).', needsMonth:true, category:'monthly'},
   {key:'attendanceRegister', icon:'calendar-days', title:'Attendance & OT Register (Monthly)', desc:'Per employee: NOWD, Present, Half Day, LOP, NOPH, Not Marked, Paid Days, OT hours & amount, late minutes & deduction, canteen tokens and advance — with a totals row.', needsMonth:true, needsAttRegFilters:true, category:'monthly'},
   {key:'print',      icon:'printer', title:'Print Report',                  desc:'Full payroll listing for the selected month, ready to print.', needsMonth:true, category:'monthly'},
   {key:'pfMonthly',  icon:'landmark', title:'PF Report (Monthly)',           desc:'Month-wise, employee-wise PF contribution summary — Employee, Employer and Total PF.', needsMonth:true, category:'monthly'},
@@ -179,8 +178,8 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">No payroll generated for this month yet.</div>'; hasData=false; }
     else{
       const rows=payrollReportRows(payMonth);
-      const groups=key==='unit'?new Set(rows.map(r=>r.UnitCode)).size:key==='contractor'?new Set(rows.map(r=>r.ContractorCode||'-')).size:key==='mode'?new Set(rows.map(r=>r.PaymentMode||'-')).size:0;
-      figs=[...(groups?[[groups, key==='unit'?'Units':key==='contractor'?'Contractors':'Payment modes']]:[]),[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'PaidDays'),'Paid days'],[fmt(sumK(rows,'Earnings')),'Earnings'],[fmt(sumK(rows,'Deductions')),'Deductions'],[fmt(sumK(rows,'NetSalary')),'Net pay',1]];
+      const groups=key==='unit'?new Set(rows.map(r=>r.UnitCode)).size:key==='contractor'?new Set(rows.map(r=>r.ContractorCode||'-')).size:0;
+      figs=[...(groups?[[groups, key==='unit'?'Units':'Contractors']]:[]),[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'PaidDays'),'Paid days'],[fmt(sumK(rows,'Earnings')),'Earnings'],[fmt(sumK(rows,'Deductions')),'Deductions'],[fmt(sumK(rows,'NetSalary')),'Net pay',1]];
       if(key==='contractor' && rows.length){
         const svc=repContractorSummary(payMonth);
         figs.splice(figs.length-1, 0, [fmt(N(svc.reduce((t,r)=>t+r.ServiceCharge,0))),'Service charge']);
@@ -311,7 +310,6 @@ function downloadReportPDF(key){
   if(key==='unit') return printPayrollReport('unit');
   if(key==='contractor') return printPayrollReport('contractor');
   if(key==='acquittance' || key==='acquittanceContractor') return printAcquittanceReport(key);
-  if(key==='mode') return printModeWiseReport();
   if(key==='print') return printGeneralPayrollReport();
   if(key==='attendanceRegister'){
     if(!payrollGenerated(payMonth)){ alert('Generate payroll first.'); return; }
@@ -387,7 +385,7 @@ function reportRowsExcelSpec(title, rows, opts){
   };
 }
 // Payroll register sheets for the payroll-type reports: one sheet with everyone, plus one sheet per
-// unit / contractor / payment mode (same grouping as the PDF). Unit / contractor / mode come from
+// unit / contractor (same grouping as the PDF). Unit / contractor come from
 // the current employee record.
 function payrollReportExcelSpec(key){
   const recs=payrollMonthRecords(payMonth)||[];
@@ -397,7 +395,7 @@ function payrollReportExcelSpec(key){
   const ml=monthLabel(payMonth);
   const sheet=(name, list, subtitle)=>({name, title:`${db.companyName||''} — Payroll Register — ${ml}`, subtitle, columns:cols, rows:list, totals:true});
   const sheets=[sheet('All Employees', rows, 'All units · All contractors')];
-  const empOf=r=>db.employees.find(x=>x.code===r.code)||{unit:r.unit, contractor:r.contractor, mode:r.mode};
+  const empOf=r=>db.employees.find(x=>x.code===r.code)||{unit:r.unit, contractor:r.contractor};
   let label='Payroll-Report';
   if(key==='unit'){
     label='Unit-wise-Payroll';
@@ -413,10 +411,6 @@ function payrollReportExcelSpec(key){
     getContractors().forEach(c=>{ const list=rows.filter(r=>contractorFilterMatches(empOf(r), c.code)); if(list.length) sheets.push(sheet(c.name||c.code, list, 'Contractor: '+(c.name||c.code))); });
     const none=rows.filter(r=>!getContractors().some(c=>c.code===(empOf(r).contractor||'')));
     if(none.length) sheets.push(sheet('Contractor not set', none, 'Contractor not set'));
-  } else if(key==='mode'){
-    label='Mode-wise-Payroll';
-    const modeOf=r=>r.mode||'-';
-    reportModesOf(rows.map(r=>({PaymentMode:modeOf(r)}))).forEach(m=>{ const list=rows.filter(r=>modeOf(r)===m); sheets.push(sheet(reportModeLabel(m), list, 'Mode of Payment: '+reportModeLabel(m))); });
   }
   return {fileName:`${companyFilePrefix()}-${label}-${ml}.xlsx`, sheets};
 }
@@ -433,7 +427,7 @@ function downloadReportExcel(key){
   };
   let spec=null;
   if(meta.needsMonth && !payrollGenerated(payMonth)){ alert('Generate payroll first.'); return; }
-  if(key==='unit' || key==='contractor' || key==='mode' || key==='print') spec=payrollReportExcelSpec(key);
+  if(key==='unit' || key==='contractor' || key==='print') spec=payrollReportExcelSpec(key);
   else if(key==='acquittance' || key==='acquittanceContractor'){
     if(typeof window.acquittanceExcel==='function') return window.acquittanceExcel(key);
     spec=call('acquittanceExcelSpec', key); if(spec===undefined) return;

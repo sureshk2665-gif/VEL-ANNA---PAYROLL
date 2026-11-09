@@ -55,7 +55,7 @@ function experienceReportRows(fy, dept, desig, status){
     .sort((a,b)=>a.Code.localeCompare(b.Code,undefined,{numeric:true}));
 }
 // Payroll rows for the report hub — LIVE (payrollMonthRecords): every employee on the roll that
-// month, sorted by code. Identity (name, unit, contractor, payment mode) comes from the current
+// month, sorted by code. Identity (name, unit, contractor) comes from the current
 // employee record, falling back to the payroll record. Legacy months may lack newer fields (-> 0).
 function payrollReportRows(ym){
   const list=payrollMonthRecords(ym||payMonth)||[];
@@ -64,7 +64,7 @@ function payrollReportRows(ym){
     const e=db.employees.find(x=>x.code===r.code);
     const unit=e?e.unit:r.unit;
     const contractor=e?(e.contractor||''):(r.contractor||'');
-    const row={Code:r.code,Name:(e&&e.name)||r.name||'-',WorkingUnit:unitLabel(unit),Contractor:contractorName(contractor)||'-',PaymentMode:(e&&e.mode)||r.mode||'-',
+    const row={Code:r.code,Name:(e&&e.name)||r.name||'-',WorkingUnit:unitLabel(unit),Contractor:contractorName(contractor)||'-',
       Present:payPresentDays(r),WeekOff:payWeekOff(r, ym||payMonth),NOPH:n(r.holidayDays),HalfDay:n(r.halfDayCount),LOP:n(r.lopDays),PaidDays:n(r.daysWorking),OTHrs:n(r.otHours),LateMin:n(r.lateMinutes),
       Gross:n(r.grossSalary),Earnings:n(r.earningsTotal),PF:n(r.pf),ESI:n(r.esi),Canteen:n(r.canteen),Late:n(r.lateDeduction),Advance:n(r.advance),OtherDed:n(r.otherDed)+n(r.tax),
       Deductions:n(r.deductionsTotal),NetSalary:n(r.netSalary)};

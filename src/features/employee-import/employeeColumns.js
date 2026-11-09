@@ -90,7 +90,9 @@ export function validateRow(raw, columns) {
       if (d === null) { errors.push(`${label} is not a valid date (use DD-MM-YYYY)`); out[col.key] = ''; }
       else out[col.key] = d;
     } else if (col.type === 'list') {
-      // An empty cell stays empty (not given) — only Status falls back to its default (Active).
+      // An empty cell stays empty (not given) — only Status falls back to its default (Active). A
+      // required list (Contractor: every employee must be under one) cannot be left empty.
+      if (blank && col.required && !col.blankDefault) { errors.push(`${label} is required`); out[col.key] = ''; continue; }
       if (blank && !col.blankDefault) { out[col.key] = ''; continue; }
       let chosen = blank ? col.default : String(v);
       if (!blank && !col.accepts.some((o) => String(o).toLowerCase() === chosen.toLowerCase())) {
@@ -103,11 +105,11 @@ export function validateRow(raw, columns) {
   return { employee: out, errors };
 }
 
-// Validates all rows and flags duplicates (same Aadhaar / PAN / account number) against existing
+// Validates all rows and flags duplicates (same Aadhaar / PAN) against existing
 // employees and against earlier rows in the same file.
 export function validateRows(rows, columns, existingEmployees = []) {
-  const seen = { aadhaar: new Map(), pan: new Map(), accNo: new Map() };
-  const labels = { aadhaar: 'Aadhaar Number', pan: 'PAN Number', accNo: 'Account Number' };
+  const seen = { aadhaar: new Map(), pan: new Map() };
+  const labels = { aadhaar: 'Aadhaar Number', pan: 'PAN Number' };
   const norm = (s) => String(s || '').replace(/\s+/g, '').toUpperCase();
   for (const e of existingEmployees) {
     for (const k of Object.keys(seen)) if (norm(e[k])) seen[k].set(norm(e[k]), `existing employee ${e.code} (${e.name})`);
