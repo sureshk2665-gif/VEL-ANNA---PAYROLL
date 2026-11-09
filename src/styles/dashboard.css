@@ -77,7 +77,7 @@ body.dark .logoutBtn:hover{background:#e5e7eb !important;border-color:#e5e7eb !i
 .nav-item:hover{transform:translateX(2px);}
 .nav-item.active:hover{transform:none;}
 
-/* ---------- Dashboard: today, the last two weeks, by unit / contractor, this month ---------- */
+/* ---------- Dashboard: this month's attendance, by contractor, payroll ---------- */
 .dashToday .dashTodayHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px 20px;flex-wrap:wrap;}
 .dashToday h3{margin:0;font-size:16px;font-weight:600;}
 .dashFinding{margin:4px 0 0;font-size:14px;color:var(--muted);}
@@ -96,13 +96,6 @@ body.dark .logoutBtn:hover{background:#e5e7eb !important;border-color:#e5e7eb !i
 .dashRow.even{grid-template-columns:repeat(2,minmax(0,1fr));}
 .dashRow>.panel{margin-bottom:0;}
 .dashMeta{font-size:13px;color:var(--muted);}
-.dashChart{display:block;width:100%;height:auto;}
-.dashChart line.grid{stroke:var(--rule,#eef0f2);stroke-width:1;}
-.dashChart line.base{stroke:var(--line);stroke-width:1.5;}
-.dashChart text.tick{font-size:11px;fill:var(--muted);font-family:inherit;}
-.dashChart text.tick.strong{fill:var(--ink);font-weight:600;}
-.dashChart rect.bar{fill:color-mix(in srgb,var(--ink) 22%,transparent);}
-.dashChart rect.today{fill:var(--accent);}
 .dashList2 ul{list-style:none;margin:0;padding:0;}
 .dashList2 li{display:flex;align-items:center;gap:10px;padding:8px 0;}
 .dashList2 li+li{border-top:1px solid var(--rule,var(--line));}

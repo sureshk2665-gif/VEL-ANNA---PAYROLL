@@ -1,8 +1,7 @@
 /* ================= EMPLOYEES ================= */
-let empFilter={search:'',dept:'',status:'',unit:'',contractor:'',group:''};
+let empFilter={search:'',dept:'',status:'',unit:'',contractor:''};
 // Search keeps the cursor in the box while the list redraws.
 function empSetSearch(el){ const pos=el.selectionStart; empFilter.search=el.value; render('employees'); const i=document.getElementById('empSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
-function empGroupOf(e){ return typeof teEmpGroup==='function' ? (teEmpGroup(e.code)||'') : ''; }
 // An employee with at least one empty form field (same rule as Software Admin → Download All
 // Employee Details).
 function empHasMissing(e){
@@ -16,17 +15,16 @@ function renderEmployees(){
   // deleted (their history is kept); mark them Inactive or Resigned instead.
   const activeEmps=db.employees.filter(e=>e.status!=='Resigned');
   const activeCount=activeEmps.filter(e=>e.status!=='Inactive').length;
-  const groups=typeof teGroups==='function' ? teGroups() : [];
   let list=activeEmps.filter(e=>{
     if(empFilter.status && (e.status||'Active')!==empFilter.status) return false;
     if(empFilter.search && !(`${e.name} ${e.code}`.toLowerCase().includes(empFilter.search.toLowerCase()))) return false;
     if(empFilter.dept && e.department!==empFilter.dept) return false;
     if(empFilter.unit && unitCodeOf(e.unit)!==empFilter.unit) return false;
     if(empFilter.contractor && (e.contractor||'')!==(empFilter.contractor==='-'?'':empFilter.contractor)) return false;
-    if(empFilter.group && (empGroupOf(e)||'-')!==empFilter.group) return false;
     return true;
   });
-  const noGroup=list.filter(e=>!empGroupOf(e)).length;
+  // Every employee must be under a contractor (Attendance and the Contractors Bill work by contractor).
+  const noCon=list.filter(e=>!getContractors().some(c=>c.code===e.contractor)).length;
   const missing=list.filter(empHasMissing).length;
   const unitTab=(code,label)=>`<button type="button" role="tab" class="attUnitTab ${empFilter.unit===code?'active':''}" aria-selected="${empFilter.unit===code}" onclick="empFilter.unit='${code}';render('employees')">${label}</button>`;
   return `
@@ -43,11 +41,7 @@ function renderEmployees(){
       <select onchange="empFilter.contractor=this.value;render('employees')" aria-label="Contractor">
         <option value="">All Contractors</option>
         ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-      </select>
-      <select onchange="empFilter.group=this.value;render('employees')" aria-label="Shift group">
-        <option value="">All Groups</option>
-        ${groups.map(g=>`<option value="${g.key}" ${empFilter.group===g.key?'selected':''}>${g.label}</option>`).join('')}
-        <option value="-" ${empFilter.group==='-'?'selected':''}>No group</option>
+        <option value="-" ${empFilter.contractor==='-'?'selected':''}>Contractor not set</option>
       </select>
       <select onchange="empFilter.status=this.value;render('employees')" aria-label="Status">
         <option value="">Active &amp; Inactive</option>
@@ -60,17 +54,17 @@ function renderEmployees(){
     <div class="teStatBox"><b>${list.length}</b><span>Shown${list.length!==activeEmps.length?' of '+activeEmps.length:''}</span></div>
     <div class="teStatBox ok"><b>${activeCount}</b><span>Active</span></div>
     <div class="teStatBox"><b>${activeEmps.length-activeCount}</b><span>Inactive</span></div>
-    <div class="teStatBox ${noGroup?'warn':''}" title="Set groups in Employee Time Entry → Shift Groups"><b>${noGroup}</b><span>No shift group</span></div>
+    <div class="teStatBox ${noCon?'warn':''}" title="Every employee must be under a contractor — choose it in Edit (filter: Contractor not set)"><b>${noCon}</b><span>No contractor</span></div>
     <div class="teStatBox ${missing?'warn':''}" title="Employees with at least one empty field in the employee form"><b>${missing}</b><span>Details missing</span></div>
   </div>
   <div class="panel empPanel">
     ${list.length? `<div class="tableScrollWrap empScroll"><table class="empTable"><thead><tr>
-      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th title="Shift group (Employee Time Entry → Shift Groups)">Group</th><th class="num">Daily Wage</th><th>Status</th><th></th>
+      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th class="num">Daily Wage</th><th>Status</th><th></th>
     </tr></thead><tbody>
       ${list.map(e=>`<tr>
         <td class="empCode">${e.code}</td><td class="empNameCell"><b>${e.name}</b></td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
-        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'-'}</td>
-        <td>${empGroupCell(e)}</td><td class="num"><b>${fmt(e.dailyWage||0)}</b></td>
+        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'<span class="empNoCon">Not set</span>'}</td>
+        <td class="num"><b>${fmt(e.dailyWage||0)}</b></td>
         <td>${(e.status||'Active')==='Active' ? '<span class="empActive">Active</span>' : `<span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<span class="empSince">from ${fmtDate(e.inactiveFrom)}</span>`:''}`}</td>
         <td class="rowActions">
           ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
@@ -229,10 +223,6 @@ function renameEmployeeCode(oldCode, newCode){
   Object.values(db.payroll||{}).forEach(m=>{ move(m); if(m && m[newCode] && m[newCode].code===oldCode) m[newCode]={...m[newCode], code:newCode}; });
   move(db.groupMap);
   ['timeLeaves','salaryAdvances','increments'].forEach(k=>(db[k]||[]).forEach(r=>{ if(r && r.empCode===oldCode) r.empCode=newCode; }));
-  // Screens that had this employee open keep it open.
-  if(typeof attEmpCode!=='undefined' && attEmpCode===oldCode) attEmpCode=newCode;
-  if(typeof teEwEmp!=='undefined' && teEwEmp===oldCode) teEwEmp=newCode;
-  if(typeof teLeaveEmp!=='undefined' && teLeaveEmp===oldCode) teLeaveEmp=newCode;
 }
 /* ---- Bulk Import (Excel) — Software Admin only ----
    Opened from Software Admin → Bulk Import Employees. The dialog is a React component
@@ -363,8 +353,8 @@ function saveEmployee(existingCode){
   if(codeProblem){ alert(codeProblem); return; }
   if(!f.contractor){ alert('Please choose the Contractor — every employee must be under a contractor.'); return; }
   if(existingCode && code!==existingCode){
-    if(typeof teEditActive==='function' && teEditActive()){ alert('Save or cancel the edit open in Employee Time Entry / Attendance first, then change the code.'); return; }
-    if(!confirm(`Change the Employee Code from ${existingCode} to ${code}?\n\nTheir attendance, time entries, payroll, salary advances and other records move to the new code.`)) return;
+    if(typeof teEditActive==='function' && teEditActive()){ alert('Save or cancel the edit open on Attendance first, then change the code.'); return; }
+    if(!confirm(`Change the Employee Code from ${existingCode} to ${code}?\n\nTheir attendance, payroll, salary advances and other records move to the new code.`)) return;
   }
   const status=f.status;
   let resignationDate = f.resignationDate||'';
@@ -405,9 +395,4 @@ function saveEmployee(existingCode){
   saveDB(db);
   closeModal();
   render(data.status==='Resigned' ? 'resigned' : 'employees');
-}
-// Shift group shown on the Employees list (set in Employee Time Entry → Shift Groups).
-function empGroupCell(e){
-  const g=typeof teEmpGroup==='function' ? teEmpGroup(e.code) : '';
-  return g ? teGroupBadge(g) : '<span style="color:var(--muted);">No group</span>';
 }

@@ -53,7 +53,7 @@ function renderPayroll(){
   </div>
   ${generated ? `<div class="teStatRow payStrip">
     <div class="teStatBox"><b>${rows.length}</b><span>Employees${filtered?' · '+selText:''}</span></div>
-    <div class="teStatBox" title="Total Days − Sundays − Holidays for ${monthLabel(payMonth)}. Holidays are set in Employee Time Entry → Holidays."><b>${computeWorkingDays(payMonth)}</b><span>Working days (NOWD)</span></div>
+    <div class="teStatBox" title="Total Days − Sundays − Holidays for ${monthLabel(payMonth)}. Holidays are set in Attendance → Holidays."><b>${computeWorkingDays(payMonth)}</b><span>Working days (NOWD)</span></div>
     <div class="teStatBox" title="Present (Half Day = ½) + NOPH, all employees shown"><b>${sum('daysWorking')}</b><span>Paid days</span></div>
     <div class="teStatBox" title="Canteen tokens × each unit's token price"><b>${fmt(sum('canteen'))}</b><span>Canteen</span></div>
     <div class="teStatBox"><b>${fmt(totalEarnings)}</b><span>Total earnings</span></div>
@@ -77,7 +77,7 @@ function renderPayroll(){
       <span>${active.length?`${active.length} employee${active.length>1?'s':''} on the roll. Generate it once — after that it keeps itself up to date as attendance and time entries change.`:'Add employees first.'}</span>
       ${active.length && canGenerate ? `<button class="btn" onclick="generatePayroll()">${ico('settings')} Generate Payroll</button>` : ''}
     </div>`}
-    <p class="syncNote">Working days, holidays, half-days and LOP come from Attendance for ${monthLabel(payMonth)} (days entered in Employee Time Entry count there), and OT hours and Late minutes from Employee Time Entry. ${generated?`Every figure here, on the salary slips and in the reports updates by itself when attendance or time entries change. Rates for this month: PF ${+(rates.pfRate*100).toFixed(2)}% of Basic, ESI ${+(rates.esiRate*100).toFixed(2)}% of Total Earnings, canteen token price by unit (Regenerate to apply changed rates); late waiver ${lateGraceMinutes(payMonth)} min a month (Admin → Late Waiver, applies straight away). Click a row to open the salary slip.`:'Generate payroll once for the month; after that it keeps itself up to date.'}</p>
+    <p class="syncNote">LOP days, Half Days, Late minutes, OT hours and canteen tokens come from Attendance for ${monthLabel(payMonth)}, and holidays from Attendance → Holidays. ${generated?`Every figure here, on the salary slips and in the reports updates by itself when attendance changes. Rates for this month: PF ${+(rates.pfRate*100).toFixed(2)}% of Basic, ESI ${+(rates.esiRate*100).toFixed(2)}% of Total Earnings, canteen token price by unit (Regenerate to apply changed rates); late waiver ${lateGraceMinutes(payMonth)} min a month (Admin → Late Waiver, applies straight away). Click a row to open the salary slip.`:'Generate payroll once for the month; after that it keeps itself up to date.'}</p>
   </div>`;
 }
 // Payroll register (Excel): every figure on the salary slip, one row per employee — the same

@@ -6,7 +6,6 @@ const PERMISSION_MODULES=[
   {key:'resigned',label:'Resigned Employees'},
   {key:'departments',label:'Departments'},
   {key:'attendance',label:'Attendance'},
-  {key:'timeentry',label:'Employee Time Entry'},
   {key:'payroll',label:'Payroll'},
   {key:'salaryadvance',label:'Salary Advance'},
   {key:'contractorbill',label:'Contractors Bill'},
@@ -48,9 +47,17 @@ function ensureUserPermissions(u){
   if(!u.permissions || typeof u.permissions!=='object') u.permissions=defaultPermsForRole(u.role||'Viewer');
   // Annual Increment and Payroll Process have been removed from the site.
   delete u.permissions.increment; delete u.permissions.payrollprocess;
+  // Employee Time Entry has been removed: attendance is entered on Attendance now, so whatever a
+  // user could do in Time Entry they can do there (rights are added, never taken away).
+  const te=u.permissions.timeentry;
+  if(te && typeof te==='object'){
+    if(u.permissions.attendance) PERMISSION_ACTIONS.forEach(a=>{ if(te[a.key]===true) u.permissions.attendance[a.key]=true; });
+    else u.permissions.attendance={...blankModulePerms(), ...te};
+  }
+  delete u.permissions.timeentry;
   PERMISSION_MODULES.forEach(m=>{
     // Missing module entirely (e.g. this user's saved permissions pre-date a newly added
-    // module such as Employee Time Entry) → backfill with that role's sensible defaults
+    // module) → backfill with that role's sensible defaults
     // instead of blank/all-false, so newly added modules aren't silently hidden for
     // existing users. Modules the user already has (even if blank) are left untouched.
     if(!u.permissions[m.key]) u.permissions[m.key]=(defaultPermsForRole(u.role||'Viewer')[m.key])||blankModulePerms();

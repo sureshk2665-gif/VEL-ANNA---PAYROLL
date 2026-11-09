@@ -52,3 +52,6 @@ table.empTable.resTable td.rowActions button + button{margin-left:4px;}
 /* A short rule under a form box (e.g. how ESI is worked out) */
 .empFieldHint{display:block;margin-top:4px;font-size:11.5px;line-height:1.35;color:var(--muted);}
 }
+
+/* Employees list: an employee with no contractor yet (every employee must be under one). */
+.empNoCon{color:var(--negative,#c4242a);font-weight:600;}

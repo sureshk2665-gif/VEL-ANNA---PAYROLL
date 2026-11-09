@@ -189,7 +189,7 @@ function renderSoftwareAdmin(){
   else if(saTab==='logins') body=renderLoginLogsPanel();
   else if(saTab==='danger') body=`
   <div class="panel saDanger"><h3>${ico('alert')} Danger Zone</h3>
-    <p style="font-size:13px;color:var(--muted);"><b>Delete All Attendance Data</b> is for clearing test entries before go-live: it removes attendance, In / Out times, leave entries and OT / late figures, and keeps employees, holidays, shift groups and settings. It downloads a backup file first and asks you to type DELETE.</p>
+    <p style="font-size:13px;color:var(--muted);"><b>Delete All Attendance Data</b> is for clearing test entries before go-live: it removes the LOP, Half Day, Late and OT figures (and any old day-by-day entries), and keeps employees, holidays, tokens and settings. It downloads a backup file first and asks you to type DELETE.</p>
     <p style="font-size:13px;color:var(--muted);"><b>Reset All Data</b> erases all data except the user accounts — company details, units, contractors, employees, attendance, payroll and settings. It downloads a backup file first and asks you to type RESET.</p>
     <div class="modalActions" style="justify-content:flex-start;gap:10px;flex-wrap:wrap;">
       <button class="btn danger" onclick="deleteAllAttendanceData()">${ico('trash')} Delete All Attendance Data</button>
@@ -296,19 +296,23 @@ function downloadAllEmployeeDetails(){
 }
 
 /* ---- Delete All Attendance Data — Software Admin ----
-   For clearing test entries before the software is handed over. Removes: attendance marked on the
-   Attendance screen, Employee Time Entry In / Out times, leave entries (Loss of Pay / Half Day),
-   per-day shift changes, and the OT hours / late minutes / LOP typed on the Attendance screen.
-   Keeps: employees, holidays, shift groups and the weekly rotation, canteen tokens, allowances,
-   deductions, salary advances, payroll rates and users. A backup file is downloaded first; if
-   that fails nothing is deleted. */
+   For clearing test entries before the software is handed over. Removes: the monthly attendance
+   figures (LOP days, Half Days, Late minutes, OT hours) and the old day-by-day entries (attendance
+   marks, In / Out times, leave entries, day shift changes). Keeps: employees, holidays, canteen
+   tokens, allowances, deductions, salary advances, payroll rates and users. A backup file is
+   downloaded first; if that fails nothing is deleted. */
+const ATT_DELETE_KEYS=['lopDays','halfDays','lateMinutes','attEntered'];
 async function deleteAllAttendanceData(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete attendance data.'); return; }
-  const days=new Set([...Object.keys(db.attendance||{}), ...Object.keys(db.timeEntries||{}), ...(db.timeLeaves||[]).map(l=>l.date)]);
-  if(!days.size){ alert('There is no attendance data to delete.'); return; }
-  const typed=prompt(`Delete ALL attendance data (${days.size} day(s))?\n\n`
-    +`Removes: attendance, In / Out times, leave entries, day shift changes, and OT / late / LOP figures typed on the Attendance screen.\n`
-    +`Keeps: employees, holidays, shift groups, tokens, allowances, deductions, advances, rates and users.\n\n`
+  const days=[...Object.keys(db.attendance||{}), ...Object.keys(db.timeEntries||{}), ...(db.timeLeaves||[]).map(l=>l.date)];
+  const months=new Set(days.map(d=>String(d).slice(0,7)));
+  Object.entries(db.payrollAdjustments||{}).forEach(([ym, month])=>{
+    if(Object.values(month||{}).some(a=>a && (+a.otHours || a.lopOverride!=null || ATT_DELETE_KEYS.some(k=>a[k]!==undefined && a[k]!==false && a[k]!==0)))) months.add(ym);
+  });
+  if(!months.size){ alert('There is no attendance data to delete.'); return; }
+  const typed=prompt(`Delete ALL attendance data (${months.size} month(s))?\n\n`
+    +`Removes: LOP days, Half Days, Late minutes and OT hours, and the old day-by-day entries (attendance, In / Out times, leave entries, day shift changes).\n`
+    +`Keeps: employees, holidays, tokens, allowances, deductions, advances, rates and users.\n\n`
     +`A backup file is downloaded first. This cannot be undone except by restoring that backup.\n\nType DELETE to continue.`);
   if(typed===null) return;
   if(typed.trim()!=='DELETE'){ alert('Nothing was deleted. Type DELETE in capital letters to confirm.'); return; }
@@ -318,9 +322,9 @@ async function deleteAllAttendanceData(){
   db.timeLeaves=[];
   db.shiftOverrides={};
   Object.values(db.payrollAdjustments||{}).forEach(month=>Object.values(month||{}).forEach(a=>{
-    a.otTyped=false; a.otHours=0; a.lopOverride=null; delete a.lateMinutes;
+    a.otTyped=false; a.otHours=0; a.lopOverride=null; ATT_DELETE_KEYS.forEach(k=>{ delete a[k]; });
   }));
   await saveDB(db);
   render('softwareadmin');
-  alert(`All attendance data (${days.size} day(s)) was deleted. A backup file was downloaded first.`);
+  alert(`All attendance data (${months.size} month(s)) was deleted. A backup file was downloaded first.`);
 }

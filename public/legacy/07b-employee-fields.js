@@ -101,7 +101,7 @@ function employeeFields(){
       title:'OT pay per hour = Daily Wage ÷ 8 × OT Factor', formValue:e=>String(otFactorOf(e)),
       readValue:v=>+v>0 ? +v : OT_FACTOR_DEFAULT, blankDefault:true, sheetDefault:String(OT_FACTOR_DEFAULT), width:11},
     {key:'otRate', label:'OT Rate — 1 hour (₹)', section:'salary', input:'number', auto:true, displayOnly:true,
-      title:'1-hour OT rate = Daily Wage ÷ 8 × OT Factor (shown for reference; Payroll calculates OT from the monthly OT hours in Employee Time Entry (or a figure typed on Attendance))',
+      title:'1-hour OT rate = Daily Wage ÷ 8 × OT Factor (shown for reference; Payroll calculates OT from the monthly OT hours entered on Attendance)',
       formValue:e=>dailyWageSplit(e.dailyWage, otFactorOf(e)).otRate, sheetFormula:'ROUND({dailyWage}/8*IFERROR(VALUE(LEFT({otFactor},3)),1.5),0)', width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.
     // PF / ESI Deduction are set in the form only — not in the bulk-import sheet (new employees

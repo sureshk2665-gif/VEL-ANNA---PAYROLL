@@ -59,7 +59,7 @@ function renderSettings(){
 function renderCanteenPricesPanel(){
   const s=getSettings(), own=unitTokenPrices(), def=+s.canteenTokenPrice||0;
   return `<div class="panel"><h3>${ico('receipt')} Canteen Token Prices</h3>
-    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each working unit can have its own price per canteen token. An employee's tokens (Employee Time Entry → Token Entry) are charged at the price of their unit. A change applies to months generated from now on; to apply it to a month already generated, click Regenerate on the Payroll page for that month.</p>
+    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each working unit can have its own price per canteen token. An employee's tokens (entered each month on Attendance) are charged at the price of their unit. A change applies to months generated from now on; to apply it to a month already generated, click Regenerate on the Payroll page for that month.</p>
     <fieldset class="setEditFs" ${settingsEdit==='canteen'?'':'disabled'}>
     <table class="setPriceTable"><thead><tr><th>Unit</th><th>Unit name</th><th class="num">Employees</th><th class="num">Price per token (₹)</th></tr></thead><tbody>
       ${getUnits().map(u=>{ const n=(db.employees||[]).filter(e=>e.status!=='Resigned' && unitCodeOf(e.unit)===u.code).length; const v=tokenPriceValue(own[u.code]);
@@ -91,7 +91,7 @@ function renderLateWaiverPanel(){
   const list=lateWaivers().slice().sort((a,b)=>a.from<b.from?1:-1);
   const ex=Math.max(0, 120-now);
   return `<div class="panel"><h3>${ico('clock')} Late Waiver</h3>
-    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each month, the first minutes of an employee's Late (coming after the shift start and leaving before the shift end, from Employee Time Entry) are waived; only the minutes beyond the waiver are deducted (one minute = Daily Wage ÷ 8 ÷ 60). Example with a ${now}-minute waiver: an employee with 120 minutes late is charged for ${ex} minutes. A change applies to Payroll <b>straight away</b> — no Regenerate — from the month you choose onwards; earlier months keep their waiver.</p>
+    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each month, the first minutes of an employee's Late (the month's Late minutes entered on Attendance) are waived; only the minutes beyond the waiver are deducted (one minute = Daily Wage ÷ 8 ÷ 60). Example with a ${now}-minute waiver: an employee with 120 minutes late is charged for ${ex} minutes. A change applies to Payroll <b>straight away</b> — no Regenerate — from the month you choose onwards; earlier months keep their waiver.</p>
     <div class="teStatRow" style="margin:0 0 14px;"><div class="teStatBox"><b>${now} min</b><span>Waiver in ${monthLabel(cur)}${active?'':' (default)'}</span></div></div>
     <fieldset class="setEditFs" ${settingsEdit==='late'?'':'disabled'}>
     <div class="formGrid setRates">
@@ -199,7 +199,7 @@ function renderPayrollRatesPanel(){
       <div><label>ESI rate — employee (0.0075 = 0.75% of Total Earnings)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
       <div><label>ESI rate — employer (0.0325 = 3.25% of Total Earnings)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for each Present day (a Half Day counts ½) and paid holiday. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Employee Time Entry. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the waived minutes (Admin → Late Waiver). <b>Canteen:</b> tokens (Employee Time Entry → Token Entry) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Employee Time Entry → Holiday Calendar).</p>
+    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for each Present day (a Half Day counts ½) and paid holiday. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Attendance. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the waived minutes (Admin → Late Waiver). <b>Canteen:</b> tokens (entered on Attendance) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Attendance → Holidays).</p>
     </fieldset>
     <div class="modalActions">${setEditButtons('rates','savePayrollConstants','Save Payroll Rates')}</div>
   </div>`;
