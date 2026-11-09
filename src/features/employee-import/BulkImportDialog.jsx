@@ -123,7 +123,7 @@ export default function BulkImportDialog() {
               <button type="button" className="btn secondary" onClick={downloadTemplate} disabled={!!busy}><Download className="ico" aria-hidden="true" /> Download Template</button>
             </li>
             <li>
-              <div><b>Fill one new employee per row</b><small>Only Full Name is required. Use the dropdowns for Status, Gender, Department, Designation, Employment Type, Working Unit, Contractor and Payment Mode. Dates as DD-MM-YYYY. Leave the grey columns empty.</small></div>
+              <div><b>Fill one new employee per row</b><small>Full Name and Contractor are required. Use the dropdowns for Status, Gender, Department, Designation, Working Unit and Contractor. Dates as DD-MM-YYYY. Leave the grey columns empty.</small></div>
             </li>
             <li>
               <div><b>Upload the filled file</b><small>Every row is checked and shown before anything is added.</small></div>

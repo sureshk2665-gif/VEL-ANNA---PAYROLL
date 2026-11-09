@@ -85,7 +85,7 @@ function renderPayroll(){
 function payrollRegisterColumns(){
   return [
     {header:'Code', key:'code', width:10}, {header:'Name', key:'name', width:24}, {header:'Designation', key:'designation', width:14},
-    {header:'Working Unit', key:'unitLabel', width:12}, {header:'Contractor', key:'contractorName', width:22}, {header:'Payment Mode', key:'mode', width:10},
+    {header:'Working Unit', key:'unitLabel', width:12}, {header:'Contractor', key:'contractorName', width:22},
     {header:'NOWD', key:'nowd', type:'number', noTotal:true}, {header:'Week Off (Sundays)', key:'weekOffDays', type:'number', noTotal:true}, {header:'Present', key:'presentPaid', type:'number'}, {header:'NOPH', key:'holidayDays', type:'number'},
     {header:'Half Day', key:'halfDayCount', type:'number'}, {header:'LOP', key:'lopDays', type:'number'}, {header:'Not Marked', key:'unmarkedDays', type:'number'},
     {header:'Paid Days', key:'daysWorking', type:'number'}, {header:'Daily Wage', key:'dailyWage', type:'money', noTotal:true},
@@ -105,7 +105,7 @@ function payrollRegisterColumns(){
 function payrollRegisterRow(r){
   const e=db.employees.find(x=>x.code===r.code)||{};
   return {...r, name:e.name||r.name, designation:e.designation||r.designation||'', unitLabel:unitLabel(e.unit||r.unit),
-    contractorName:contractorName(e)||'', mode:e.mode||r.mode||'', othersDed:(+r.otherDed||0)+(+r.tax||0), presentPaid:payPresentDays(r), weekOffDays:payWeekOff(r, r.month||payMonth),
+    contractorName:contractorName(e)||'', othersDed:(+r.otherDed||0)+(+r.tax||0), presentPaid:payPresentDays(r), weekOffDays:payWeekOff(r, r.month||payMonth),
     pfNo:e.pfNo||r.pfNo||'', uan:e.uan||r.uan||'', esiNo:e.esiNo||r.esiNo||''};
 }
 function downloadPayrollExcel(){

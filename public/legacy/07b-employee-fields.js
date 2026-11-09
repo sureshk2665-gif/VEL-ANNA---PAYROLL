@@ -16,7 +16,9 @@
      options    select choices: [{value, label}] (or a function returning them)
      formValue  (employee) => value shown in the form (default employee[key] or '' / 0)
      readValue  (rawValue) => value stored (default: text as typed, numbers +value||0)
-     auto       shown in the form but not editable (filled automatically) — grey, ignored on import
+     auto       filled automatically — grey and not editable in the form (unless editable), ignored on import
+     editable   an auto field the user may still change in the form (Employee Code: the next free code
+                is filled in, and can be changed)
      sheet      false = not a template column (e.g. resignation details: the sheet is for new employees)
      sheetOptions  limit the template dropdown to these values (e.g. Status: only Active)
      blankDefault  an empty sheet cell takes a default instead of staying empty (no "None" choice)
@@ -27,7 +29,7 @@
 function employeeFieldSections(){
   return [
     {key:'basic',  title:'Basic Information'},
-    {key:'bank',   title:'Bank &amp; Statutory Details'},
+    {key:'bank',   title:'Statutory Details'},
     {key:'salary', title:'Salary Details (Daily Wage ₹)'}
   ];
 }
@@ -42,8 +44,12 @@ function employeeFields(){
   const inactiveWrap = (e, extra) => (extra||'') + ` style="${e.status==='Inactive'?'':'display:none;'}"`;
   return [
     // ---- Basic Information ----
-    {key:'code', label:'Employee Code', section:'basic', input:'text', auto:true, id:'',
-      formValue:e=>e.code||'(auto)', width:14},
+    // A new employee gets the next free code (EMP001, EMP002 …) filled in; it can be changed, here or
+    // later on Edit — saving refuses a code another employee already has (saveEmployee). Bulk Import
+    // always allocates codes itself.
+    {key:'code', label:'Employee Code *', section:'basic', input:'text', auto:true, editable:true, id:'f_code',
+      formValue:e=>e.code||peekNextEmpCode(), attrs:'required autocomplete="off" spellcheck="false" maxlength="20" oninput="empCodeCheck(this)"',
+      title:'Filled in with the next free code — you can change it. No two employees can have the same code.', width:14},
     {key:'status', label:'Status', section:'basic', input:'select', options:opts(['Active','Inactive','Resigned']),
       attrs:'onchange="toggleResignationField(this.value)"', formValue:e=>e.status||'Active', sheetOptions:['Active'], blankDefault:true, width:11},
     {key:'inactiveFrom', label:'Inactive From', section:'basic', input:'date', sheet:false,
@@ -57,28 +63,23 @@ function employeeFields(){
     {key:'dob', label:'Date of Birth', sheetLabel:'Date of Birth (DD-MM-YYYY)', section:'basic', input:'date', width:16},
     {key:'relative', label:'Father / Husband Name', section:'basic', input:'text', width:22},
     {key:'mobile', label:'Mobile Number', section:'basic', input:'text', width:15},
-    {key:'email', label:'Email', section:'basic', input:'text', width:24},
-    {key:'address', label:'Address', section:'basic', input:'text', full:true, width:32},
     {key:'joining', label:'Joining Date', sheetLabel:'Joining Date (DD-MM-YYYY)', section:'basic', input:'date', width:16},
+    {key:'address', label:'Address', section:'basic', input:'text', full:true, width:32},
     {key:'department', label:'Department', section:'basic', input:'select', id:'f_dept',
       options:e=>blankOpt(withCurrent(db.departments||[], e&&e.department)), width:16},
     // Managed list (Admin → Designations), like Departments.
     {key:'designation', label:'Designation', section:'basic', input:'select',
       options:e=>blankOpt(withCurrent(designationList(), e&&e.designation)), width:18},
-    {key:'empType', label:'Employment Type', section:'basic', input:'select', options:blankOpt(['Full-Time','Part-Time','Contract']), width:15},
     {key:'unit', label:'Working Unit', section:'basic', input:'select',
       // Import also accepts just the unit name or number ("Unit-1").
       options:()=>getUnits().map(u=>({value:u.code, label:unitDisplayName(u), aliases:[u.code].concat(u.name?[u.name]:[])})),
       formValue:e=>unitCodeOf(e.unit), width:16},
-    // Who supplied the employee — independent of the unit (see 06c-contractors.js).
-    {key:'contractor', label:'Contractor', section:'basic', input:'select',
+    // Who supplied the employee — independent of the unit (see 06c-contractors.js). Every employee
+    // must be under a contractor: Attendance and the Contractors Bill work contractor by contractor.
+    {key:'contractor', label:'Contractor *', section:'basic', input:'select', required:true, attrs:'required',
       options:()=>[{value:'', label:'— Select —'}, ...getContractors().map(c=>({value:c.code, label:c.name||c.code, aliases:[c.code]}))],
       formValue:e=>e.contractor||'', width:22},
-    // ---- Bank & Statutory Details ----
-    {key:'bankName', label:'Bank Name', section:'bank', input:'text', width:18},
-    {key:'branch', label:'Branch', section:'bank', input:'text', width:16},
-    {key:'accNo', label:'Account Number', section:'bank', input:'text', width:20},
-    {key:'ifsc', label:'IFSC', section:'bank', input:'text', width:14},
+    // ---- Statutory Details ----
     {key:'pan', label:'PAN Number', section:'bank', input:'text', width:14},
     {key:'aadhaar', label:'Aadhaar Number', section:'bank', input:'text', width:16},
     {key:'pfNo', label:'PF Number', section:'bank', input:'text', width:16},
@@ -102,7 +103,6 @@ function employeeFields(){
     {key:'otRate', label:'OT Rate — 1 hour (₹)', section:'salary', input:'number', auto:true, displayOnly:true,
       title:'1-hour OT rate = Daily Wage ÷ 8 × OT Factor (shown for reference; Payroll calculates OT from the monthly OT hours in Employee Time Entry (or a figure typed on Attendance))',
       formValue:e=>dailyWageSplit(e.dailyWage, otFactorOf(e)).otRate, sheetFormula:'ROUND({dailyWage}/8*IFERROR(VALUE(LEFT({otFactor},3)),1.5),0)', width:13},
-    {key:'mode', label:'Payment Mode', section:'salary', input:'select', options:blankOpt(['NEFT','TRANSFER','CASH','CHEQUE']), width:13},
     // Stored as pfDeduction ('yes'|'no'|'nil') plus the pfApplicable flag used by payroll.
     // PF / ESI Deduction are set in the form only — not in the bulk-import sheet (new employees
     // start at Yes; Payroll calculates the amounts).
@@ -115,11 +115,7 @@ function employeeFields(){
       title:'Each month: Total Earnings on the salary slip × the ESI rate (Admin → Payroll Rates), rounded to the rupee. Exempted = no ESI.',
       options:[{value:'yes',label:'Yes'},{value:'no',label:'Exempted'}],
       formValue:e=>e.esiApplicable===false ? 'no' : 'yes',
-      readValue:v=>v==='yes', width:13},
-    // Canteen tokens bought each month — deducted at the canteen token price (Admin → Payroll Rates).
-    // This is the usual monthly count; it can be changed for a single month on the Attendance screen.
-    {key:'canteenTokens', label:'Canteen Tokens (per month)', section:'salary', input:'number',
-      title:'Usual number of canteen tokens this employee buys each month (change a single month in Employee Time Entry → Monthly Token Entry). Deducted from salary at the canteen token price (Admin → Payroll Rates).', width:14}
+      readValue:v=>v==='yes', width:13}
   ];
 }
 // The employee ESI rate as text, e.g. "0.75%" (Admin → Payroll Rates).
@@ -166,7 +162,7 @@ function employeeFormHtml(e){
       const id=employeeFieldId(f);
       const val=employeeFieldFormValue(f,e);
       const idAttr=id ? ` id="${id}"` : '';
-      const extra=(f.attrs?' '+f.attrs:'')+(f.auto?' disabled':'')+(f.title?` title="${empAttr(f.title)}"`:'');
+      const extra=(f.attrs?' '+f.attrs:'')+(f.auto&&!f.editable?' disabled':'')+(f.title?` title="${empAttr(f.title)}"`:'');
       let control;
       if(f.input==='select'){
         control=`<select${idAttr}${extra}>${employeeFieldOptions(f,e).map(o=>`<option value="${empAttr(o.value)}" ${String(val)===String(o.value)?'selected':''}>${o.label}</option>`).join('')}</select>`;
@@ -206,7 +202,7 @@ function employeeSheetFields(){
     // leaves the field empty. An empty cell means the same.
     options: f.input==='select'
       ? employeeFieldOptions(f).filter(o=>o.value!=='' && (!f.sheetOptions || f.sheetOptions.includes(o.value))).map(o=>({value:o.value, label:String(o.label), aliases:o.aliases||[]}))
-          .concat(f.blankDefault ? [] : [{value:'', label:'None', aliases:f.key==='contractor' ? ['Non Contractor'] : []}])
+          .concat(f.blankDefault || f.required ? [] : [{value:'', label:'None', aliases:[]}])
       : undefined
   }));
 }
