@@ -179,9 +179,12 @@ function teSetTab(t){ if(t!==teTab && !teEditConfirmLeave()) return; teTab=t; re
 const TE_EDIT_KEYS=['timeEntries','timeLeaves','shiftOverrides','payrollAdjustments','attendance','groupWeekShift','groupMap','shiftPresets','shiftPresetsOffered','shiftGroups','holidays','timeHolidays'];
 let teEdit=null; // {area:'grid'|'tokens'|'groups'|'leave'|'holidays'|'attendance', snap:JSON, dirty:boolean}
 function teEditActive(area){ return !!teEdit && (!area || teEdit.area===area); }
+// The page an Edit session belongs to: Attendance, or the page showing the shared tabs (the Holiday
+// Calendar is on both Employee Time Entry and Attendance — teHostPage).
+let teHostPage='timeentry';
 function teEditBegin(area){
   if(teEdit) return teEdit.area===area;
-  teEdit={area, snap:JSON.stringify(Object.fromEntries(TE_EDIT_KEYS.map(k=>[k, db[k]===undefined?null:db[k]]))), dirty:false};
+  teEdit={area, page:area==='attendance'?'attendance':teHostPage, snap:JSON.stringify(Object.fromEntries(TE_EDIT_KEYS.map(k=>[k, db[k]===undefined?null:db[k]]))), dirty:false};
   return true;
 }
 // A change made inside a session: shown on screen, saved only with Save.
@@ -208,7 +211,7 @@ function teEditDiscard(){
 // Cancel button: back to the saved figures.
 function teEditCancel(page){
   if(teEdit && teEdit.dirty && !confirm('Discard the changes you made since Edit?')) return;
-  teEditDiscard(); render(page||'timeentry');
+  teEditDiscard(); render(page||teHostPage);
 }
 // Before leaving a screen that has an open session. true = go on, false = stay.
 function teEditConfirmLeave(){
@@ -227,8 +230,8 @@ function teDraftSafe(d){
 }
 window.addEventListener('beforeunload',e=>{ if(teEdit && teEdit.dirty){ e.preventDefault(); e.returnValue=''; } });
 // Edit / Save / Cancel bar for a Time Entry tab whose whole content is one edit area.
-function teAreaEdit(area){ if(!teEditBegin(area)){ alert('Save or cancel the other edit first.'); return; } render('timeentry'); }
-function teAreaSave(){ teEditSave(); render('timeentry'); }
+function teAreaEdit(area){ if(!teEditBegin(area)){ alert('Save or cancel the other edit first.'); return; } render(teHostPage); }
+function teAreaSave(){ teEditSave(); render(teHostPage); }
 function teEditBarHtml(area, allowed, offNote, onNote, below){
   const on=allowed && teEditActive(area);
   return `<div class="teSmEditBar ${below?'teHasFilt':''}">
@@ -350,8 +353,8 @@ window.addEventListener('resize', ()=>{ ['teDwGrid','teEwGrid'].forEach(id=>{ if
    opening another folds the one before; click the open bar again to fold it. The corner button
    (<gridId>FoldAll) opens every section or folds them all. The bar stays at the top of the grid
    (under the column headings) while its rows scroll. Folding only changes what is shown. */
-const teOpenSecs={teDwGrid:new Set(), teEwGrid:new Set(), teLvGrid:new Set()};
-const TE_SEC_WORD={teDwGrid:'shift', teEwGrid:'week', teLvGrid:'date'};
+const teOpenSecs={teDwGrid:new Set(), teEwGrid:new Set(), teLvGrid:new Set(), attGrid:new Set()};
+const TE_SEC_WORD={teDwGrid:'shift', teEwGrid:'week', teLvGrid:'date', attGrid:'contractor'};
 function teSecGridId(el){ const t=el && el.closest('table'); return t ? t.id : ''; }
 function teSecApply(gridId){
   const open=teOpenSecs[gridId], word=TE_SEC_WORD[gridId]||'section';

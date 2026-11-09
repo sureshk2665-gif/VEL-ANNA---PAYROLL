@@ -11,7 +11,7 @@ function setActiveNav(page){
 let lastRenderedPage=null;
 function render(page){
   // Leaving a screen that has an open Edit session asks to Save or Discard first (13-time-entry.js).
-  if(typeof teEdit!=='undefined' && teEdit && page!==(teEdit.area==='attendance'?'attendance':'timeentry') && !teEditConfirmLeave()) return;
+  if(typeof teEdit!=='undefined' && teEdit && page!==(teEdit.page||(teEdit.area==='attendance'?'attendance':'timeentry')) && !teEditConfirmLeave()) return;
   if(!canOpenModule(page)){
     // No view permission for this module: bounce to the first module the user CAN open.
     const fallback=PERMISSION_MODULES.map(m=>m.key).find(k=>canOpenModule(k));
@@ -19,11 +19,11 @@ function render(page){
   }
   setActiveNav(page);
   const titles={dashboard:'Dashboard',employees:'Employees',resigned:'Resigned Employees',departments:'Departments',attendance:'Attendance',timeentry:'Employee Time Entry',payroll:'Payroll',salaryadvance:'Salary Advance',contractorbill:'Contractors Bill',reports:'Reports',settings:'Admin',softwareadmin:'Software Admin'};
-  const subtitles={dashboard:"Today's attendance, the last two weeks and this month's payroll",employees:'Search, add and manage your workforce',resigned:'Employees who have resigned — rejoin them to restore full access',departments:'Organize employees into departments',attendance:'Attendance by month, day or employee — entered in Employee Time Entry',timeentry:'Daily In / Out times, leave and holidays — days entered here count in Attendance and Payroll',payroll:'Process salaries and generate payslips',salaryadvance:'Issue employee advances and auto-manage monthly recovery',contractorbill:'Service charge to contractors, and what the company pays each contractor (salary + service charge)',reports:'Open a report, then download it as PDF or print it',settings:'Payroll rates, designations, your password and user accounts',softwareadmin:'Company details, automatic backup scheduler and full user rights / admin management — Software Admin only'};
+  const subtitles={dashboard:"Today's attendance, the last two weeks and this month's payroll",employees:'Search, add and manage your workforce',resigned:'Employees who have resigned — rejoin them to restore full access',departments:'Organize employees into departments',attendance:'Each employee\'s month — LOP, Half Days, Late, OT and canteen tokens; everything else is calculated',timeentry:'Daily In / Out times, leave and holidays — days entered here count in Attendance and Payroll',payroll:'Process salaries and generate payslips',salaryadvance:'Issue employee advances and auto-manage monthly recovery',contractorbill:'Service charge to contractors, and what the company pays each contractor (salary + service charge)',reports:'Open a report, then download it as PDF or print it',settings:'Payroll rates, designations, your password and user accounts',softwareadmin:'Company details, automatic backup scheduler and full user rights / admin management — Software Admin only'};
   document.getElementById('pageTitle').textContent=titles[page];
   const subEl=document.getElementById('pageSubtitle'); if(subEl) subEl.textContent=subtitles[page]||'';
   const mainPanel=document.getElementById('mainPanel');
-  if(mainPanel) mainPanel.classList.toggle('fullScreenPage', page==='attendance');
+  if(mainPanel) mainPanel.classList.remove('fullScreenPage');
   const body=document.getElementById('pageBody');
   if(!canOpenModule(page)){
     body.innerHTML=denyMsg('view this page',titles[page]||page);

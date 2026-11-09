@@ -1,65 +1,31 @@
-/* ================= ATTENDANCE ================= */
-let attMonth = monthKey(todayStr());
-let attSearch = '';
-let attDayFilter = ''; // Day View: '' = everyone, or 'Present' / 'LossOfPay' / 'HalfDay' (the count chips)
-let attCompact = true;
-let attViewMode = 'overview'; // 'overview' (all employees, month calendar with counts), 'day' (one day, every employee) or 'employee' (one employee's month)
-let attDate = todayStr();
-let attEmpCode = ''; // selected employee for the Employee-wise Monthly Attendance view
-let attUnitFilter = ''; // '' = all units, or a unit code ('Unit-1', 'Unit-2', …) — filters the Employee dropdown above
-let attContractorFilter = ''; // '' = all contractors, '-' = no contractor, or a contractor code — same idea
-let attEditMode = false; // Monthly Attendance screen: locked (view) until the user clicks Edit
-let attEditSnapshot = null; // used to restore data if edits are cancelled
-function getMonthAttendanceSnapshot(code, ym){
-  const dim=daysInMonth(ym);
-  const snap={};
-  for(let d=1; d<=dim; d++){ const dt=dateStr(ym,d); snap[dt]=db.attendance[dt]?.[code]; }
-  return snap;
-}
-function toggleAttEdit(){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  // An Edit session (13-time-entry.js): the figures typed below reach the database — and Payroll —
-  // only with Save; Cancel puts the saved figures back.
-  if(!teEditBegin('attendance')){ alert('Save or cancel the edit open in Employee Time Entry first.'); return; }
-  attEditSnapshot = { dates: getMonthAttendanceSnapshot(attEmpCode, attMonth), adj: JSON.parse(JSON.stringify(getAdj(attMonth, attEmpCode))) };
-  attEditMode = true;
-  render('attendance');
-}
-function saveAttendance(){
-  const a=document.activeElement; if(a && a.closest && a.closest('.attEntryRow') && a.tagName==='INPUT') a.dispatchEvent(new Event('change'));
-  teEditSave();
-  attEditMode = false;
-  attEditSnapshot = null;
-  render('attendance');
-}
-function cancelAttendanceEdit(){
-  teEditCancel('attendance'); // puts the saved figures back and closes Edit
-}
-function setAttView(mode){ attViewMode=mode; render('attendance'); }
-function shiftAttDate(delta){
-  const d=new Date(attDate+'T00:00:00');
-  d.setDate(d.getDate()+delta);
-  attDate=localDateStr(d);
-  attMonth=monthKey(attDate);
-  render('attendance');
-}
-function setAttDate(v){ attDate=v; attMonth=monthKey(v); render('attendance'); }
-function goAttToday(){ attDate=todayStr(); attMonth=monthKey(attDate); render('attendance'); }
-function toggleAttCompact(){ attCompact=!attCompact; render('attendance'); }
-const QUICK_STATUS = ['Present','HalfDay','LossOfPay'];
+/* ================= ATTENDANCE — once a month, one row per employee =================
+   From the cut-over month (db.monthlyAttFrom — attIsMonthly in 12-payroll-calc.js) attendance is
+   entered once a month. For every employee the client types:
+     LOP days · Half Days · Late (minutes) · OT (hours) · Canteen tokens · one-off Allowance / Deduction
+   Everything else follows with the same formulas as before:
+     Working days = days on the roll that month, not Sundays, NOPH or holidays without pay
+     Present      = Working days − LOP − Half Days        Paid Days = Present + Half Days × ½ + NOPH
+     then Basic, HRA, OT pay, PF, ESI, Canteen, Late deduction and Net Pay (computePayrollForEmployee)
+   — so Payroll, salary slips, reports and the Contractors Bill all show these figures.
+   The table is grouped by contractor (every employee is under one; LOP differs contractor by
+   contractor): one contractor open at a time, every contractor's bar always on screen (teSecApply,
+   13-time-entry.js). Made for filling a whole month fast: Enter / arrows move between boxes, a column
+   pasted from Excel fills down, and each contractor's bar shows its totals.
+   Months before the cut-over were entered day by day: they are shown here read-only (the figures
+   Payroll worked out from the days), and one button switches such a month to monthly entry.
+   The second tab is the Holiday Calendar (NOPH and holidays without pay). */
+
+/* ---- Date and holiday helpers (used by Payroll, Reports, the Dashboard and Time Entry) ---- */
 function daysInMonth(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); }
-// NOWD — Number Of Working Days is always auto-calculated per payroll month:
-// Total Days in the month − Sundays in the month. There is no manual entry for this figure.
+// Sundays in the month — the weekly off.
 function sundaysInMonth(ym){
   const total=daysInMonth(ym);
   let count=0;
   for(let d=1; d<=total; d++){ if(isSunday(ym,d)) count++; }
   return count;
 }
-// Holiday Calendar — dates selected here are deducted from NOWD in addition to Sundays.
-// A holiday that falls on a Sunday is not double-counted (it's already removed as a Sunday).
-// NOPH (No. of Paid Holidays) is the only selectable Holiday Calendar type — it's deducted
-// from NOWD the same way Sundays are, and auto-locks Attendance for that date.
+// Holiday Calendar: NOPH (paid holiday) dates are taken off NOWD like Sundays. A holiday on a Sunday
+// is not counted twice.
 function dateStr(ym, day){ return ym+'-'+String(day).padStart(2,'0'); }
 function getHolidayEntry(dateStr){ return (db.holidays||[]).find(h=>h.date===dateStr); }
 function getHolidayType(dateStr){ const h=getHolidayEntry(dateStr); return h?h.type:null; }
@@ -71,25 +37,24 @@ function holidaysInMonth(ym){
   for(let d=1; d<=total; d++){ if(isHoliday(ym,d) && !isSunday(ym,d)) count++; }
   return count;
 }
+// NOWD — Number Of Working Days: days in the month − Sundays − NOPH holidays.
 function computeWorkingDays(ym){ return daysInMonth(ym) - sundaysInMonth(ym) - holidaysInMonth(ym); }
-function weekdayShort(ym, day){ const [y,m]=ym.split('-').map(Number); return ['Su','Mo','Tu','We','Th','Fr','Sa'][new Date(y,m-1,day).getDay()]; }
 function isSunday(ym, day){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,day).getDay()===0; }
-// Single source of truth for "what is this employee's status on this date" — used everywhere
-// attendance is displayed or summarized (Attendance, Payroll, Dashboard). In order:
-//   1. a Holiday Calendar date shows/counts as 'NOPH' for every employee;
-//   2. a mark made on the Attendance screen;
-//   3. otherwise Employee Time Entry — see timeEntryAttStatus().
+
+/* ---- One day's status — for the months entered day by day (before the cut-over) ----
+     1. a Holiday Calendar date counts as 'NOPH' for every employee;
+     2. a mark made on the old daily Attendance screen;
+     3. otherwise Employee Time Entry — see timeEntryAttStatus(). */
 function getAttStatus(date, code){
   const t=getHolidayType(date);
   if(t) return t;
-  const s=db.attendance[date]?.[code] || '';
+  const s=db.attendance && db.attendance[date] && db.attendance[date][code] || '';
   if(s) return s==='PaidLeave' ? 'LossOfPay' : s; // NOPL (paid leave) was removed — any old NOPL mark counts as Loss Of Pay
   return timeEntryAttStatus(date, code);
 }
 // A day's status from Employee Time Entry: its Employee Leave (Loss of Pay / Half Day), else
-// Present when an In Time was entered, else '' (not marked).
-// A date booked in Time Entry's own Holiday Booking is not a working day there: time worked on it is
-// paid as full-day OT, so it does not also count as a Present (paid) day.
+// Present when an In Time was entered, else '' (not marked). A booked holiday without pay is not a
+// working day: time worked on it is paid as full-day OT, not as a Present day.
 function timeEntryAttStatus(date, code){
   const lv=typeof teGetLeave==='function' ? teGetLeave(date, code) : null;
   if(lv) return lv.type==='Half Day' ? 'HalfDay' : 'LossOfPay';
@@ -97,684 +62,343 @@ function timeEntryAttStatus(date, code){
   if(!(te && te.inH!=='' && te.inH!==undefined && te.inH!==null)) return '';
   return (db.timeHolidays||[]).some(h=>h.date===date) ? '' : 'Present';
 }
-// True when the status shown for this day comes from Employee Time Entry (nothing marked here).
-function attIsFromTimeEntry(date, code){
-  return !getHolidayType(date) && !(db.attendance[date]?.[code]) && !!timeEntryAttStatus(date, code);
-}
 
-// Only days the employee is on the roll count (the same days payroll pays). "unmarked" = working
-// days on the roll up to today with no status at all (unpaid).
-function attendanceSummary(code, ym){
-  const dim=daysInMonth(ym), today=todayStr();
-  const emp=(db.employees||[]).find(e=>e.code===code);
-  let present=0, leave=0, noph=0, halfDay=0, lop=0, marked=0, unmarked=0;
-  for(let d=1; d<=dim; d++){
-    // Sundays are already excluded from NOWD's denominator, so they must never contribute to
-    // Days Worked either — otherwise a Sunday marked Present (e.g. by a bulk "Fill as Present"
-    // action) inflates earnings by an extra day's pay beyond NOWD. Skip them entirely here.
-    if(isSunday(ym,d)) continue;
-    const ds=dateStr(ym,d);
-    if(emp && !isEmpOnRollOn(emp, ds)) continue;
-    const s=getAttStatus(ds, code);
-    if(!s){ if(ds<=today) unmarked++; continue; }
-    marked++;
-    if(s==='Present') present++;
-    else if(s==='NOPH') noph++;
-    else if(s==='HalfDay') halfDay++;
-    else if(s==='LossOfPay') lop++;
-  }
-  const payableDays = present + leave + noph + halfDay*0.5;
-  return { present, presentPaid: Math.round((present + halfDay*0.5)*100)/100, leave, holiday: noph, holidayOnly:0, nophDays:noph, halfDay, lop, absent:lop, marked,
-    unmarked, daysInMonth: dim, lopEquivalent: lop + halfDay*0.5, payableDays: Math.round(payableDays*100)/100 };
-}
-// Kept for payroll compatibility — LOP-equivalent days derived straight from Attendance data.
-function attendanceLopCount(code, ym){ return attendanceSummary(code, ym).lopEquivalent; }
-
-function attTabsInline(){
-  const tab=(mode,icon,label,title)=>`<button class="attTab ${attViewMode===mode?'active':''}" ${attEditMode?'disabled':''} title="${title}" onclick="setAttView('${mode}')">${ico(icon)} ${label}</button>`;
-  return `<div class="attTabsInline">
-    ${tab('overview','calendar-days','Month Overview','Every employee — how many are Present, Absent and on Half Day each day')}
-    ${tab('day','users','Day View','Every employee on one day — who was present, absent or on half day')}
-    ${tab('employee','user','Employee-wise','One employee\'s whole month')}
-  </div><span class="attTabDivider"></span>`;
-}
-function renderAttendance(){
-  if(attViewMode==='day') return `<div class="attStage">${renderAttendanceDay()}</div>`;
-  if(attViewMode==='overview') return `<div class="attStage">${renderAttendanceOverview()}</div>`;
-  return `<div class="attStage">${renderAttendanceEmployee()}</div>`;
-}
-// Employees counted on a date: on the roll that day and inside the Unit / Contractor filters.
-function attFilteredOnDate(date){
-  return db.employees.filter(e=>isEmpOnRollOn(e,date) && (!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
-}
-// Present / Absent (Loss Of Pay) / Half Day / NOPH / Not marked counts for one day (filters applied).
-function attDayStatusCounts(date){
-  const c={total:0, Present:0, LossOfPay:0, HalfDay:0, NOPH:0, unmarked:0};
-  attFilteredOnDate(date).forEach(e=>{
-    c.total++;
-    const s=getAttStatus(date, e.code);
-    if(s && c[s]!==undefined) c[s]++; else if(!s) c.unmarked++;
+/* ---- The cut-over to monthly entry ----
+   The first time this version loads, the current month becomes the first monthly-entry month, so
+   every earlier month stays exactly as it was. Whatever was already entered for the current month
+   (Loss of Pay / Half Days, Late, OT, tokens) is carried into its monthly figures. An earlier month
+   can be switched to monthly entry from this screen (attSwitchToMonthly). */
+// Carries a day-by-day month's figures into monthly figures (run while the month is still
+// day-by-day). Days with nothing entered then count as Present.
+function attConvertMonth(ym){
+  payrollEmployeesFor(ym).forEach(e=>{
+    const r=computePayrollForEmployee(e, ym);
+    const put={lopDays:+r.lopMarked||0, halfDays:+r.halfDayCount||0, lateMinutes:+r.lateMinutes||0, canteenTokens:+r.canteenTokens||0};
+    const ot=+r.otHours||0;
+    if(!ot && !Object.values(put).some(v=>v)) return; // nothing to carry over
+    const a=getAdj(ym, e.code);
+    Object.keys(put).forEach(k=>{ if(put[k]) a[k]=put[k]; });
+    if(ot){ a.otHours=ot; a.otTyped=true; }
   });
-  return c;
 }
-function openAttDay(date){ attDayFilter=''; attDate=date; attMonth=monthKey(date); attViewMode='day'; render('attendance'); }
-function shiftAttMonth(delta){
-  const [y,m]=attMonth.split('-').map(Number); const d=new Date(y, m-1+delta, 1);
-  attMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('attendance');
+function ensureMonthlyAttendance(){
+  if(db.monthlyAttFrom) return;
+  const ym=monthKey(todayStr());
+  attConvertMonth(ym);
+  db.monthlyAttFrom=ym;
 }
-/* ---- Month Overview: one big box per day with how many employees were Present, Absent (Loss Of
-   Pay), on Half Day, on a paid holiday or not marked yet — for the unit / contractor chosen above.
-   Click a day to open it in Day View. Counts include days filled from Employee Time Entry. ---- */
-function renderAttendanceOverview(){
-  const dim=daysInMonth(attMonth), today=todayStr();
-  const [y0,m0]=attMonth.split('-').map(Number);
-  const firstDow=(new Date(y0,m0-1,1).getDay()+6)%7; // Monday first
-  const tot={Present:0, LossOfPay:0, HalfDay:0, unmarked:0};
-  const cells=[];
-  for(let i=0;i<firstDow;i++) cells.push('<div class="attOvCell blank"></div>');
-  for(let d=1; d<=dim; d++){
-    const dt=dateStr(attMonth,d), sun=isSunday(attMonth,d), hol=getHolidayType(dt), future=dt>today;
-    const c=attDayStatusCounts(dt);
-    if(!sun){ tot.Present+=c.Present; tot.LossOfPay+=c.LossOfPay; tot.HalfDay+=c.HalfDay; }
-    const line=(cls,label,n)=>`<div class="attOvLine ${cls}"><span>${label}</span><b>${n}</b></div>`;
-    const any=c.Present+c.LossOfPay+c.HalfDay;
-    cells.push(`<button type="button" class="attOvCell ${sun?'sun':''} ${hol?'hol':''} ${dt===today?'today':''} ${future?'future':''}" onclick="openAttDay('${dt}')" title="Open ${fmtDate(dt)} in Day View">
-      <div class="attOvHead"><b>${d}</b><span>${weekdayShort(attMonth,d)}</span>${hol?`<em>${STATUS_LABEL[hol]||hol}</em>`:sun?'<em>Sunday</em>':''}</div>
-      ${hol ? `<div class="attOvHoliday" title="${String((getHolidayEntry(dt)||{}).name||'Holiday').replace(/"/g,'&quot;')}">${String((getHolidayEntry(dt)||{}).name||'Holiday').replace(/&/g,'&amp;').replace(/</g,'&lt;')}</div>`
-        : any ? `${line('present','Present',c.Present)}${line('absent','Absent',c.LossOfPay)}${line('half','Half Day',c.HalfDay)}` : ''}
-    </button>`);
-  }
-  const emps=attFilteredOnDate(dateStr(attMonth, Math.min(dim, attMonth===monthKey(today)?Number(today.slice(8,10)):dim))).length;
-  return `${attUnitTabsHTML()}
-  <div class="attStageTop">
-    ${attTabsInline()}
-    <div class="grp">${attUnitOptionsHTML()}</div>
-    <div class="sep"></div>
-    <div class="grp">
-      <button class="navBtn" onclick="shiftAttMonth(-1)" title="Previous month">‹</button>
-      <input type="month" value="${attMonth}" onchange="if(this.value){attMonth=this.value;render('attendance');}">
-      <button class="navBtn" onclick="shiftAttMonth(1)" title="Next month">›</button>
-      <span class="attDayLabel">${monthLabel(attMonth)}</span>
-    </div>
-  </div>
-  <div class="teStatRow attStrip">
-    <div class="teStatBox"><b>${emps}</b><span>Employees</span></div>
-    <div class="teStatBox ok"><b>${tot.Present}</b><span>Present (employee-days)</span></div>
-    <div class="teStatBox ${tot.LossOfPay?'danger':''}"><b>${tot.LossOfPay}</b><span>Absent (employee-days)</span></div>
-    <div class="teStatBox ${tot.HalfDay?'warn':''}"><b>${tot.HalfDay}</b><span>Half day (employee-days)</span></div>
-  </div>
-  <div class="attOvPanel">
-    <div class="attOvGrid attOvDows">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="attCalDow">${d}</div>`).join('')}</div>
-    <div class="attOvGrid">${cells.join('')}</div>
-    <p class="syncNote" style="margin:8px 0 0;">View only — attendance comes from <b>Employee Time Entry</b> (In time = Present; Loss of Pay / Half Day leave). Counts are employees for the unit and contractor chosen above (Absent = Loss Of Pay). Click a day to see that day's details. <button type="button" class="linkBtn" onclick="teOpenDateWise(todayStr())">Go to Employee Time Entry →</button></p>
-  </div>`;
+function attMonthName(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
+// Moves the cut-over back to `ym`: that month (and any up to the old cut-over) is entered here from now on.
+function attSwitchToMonthly(ym){
+  if(!attCanEdit()){ alert('You do not have permission to edit attendance.'); return; }
+  if(typeof teEditActive==='function' && teEditActive()){ alert('Save or cancel the open edit first.'); return; }
+  const from=db.monthlyAttFrom; if(!from || ym>=from) return;
+  const months=[]; for(let m=ym; m<from; m=nextMonthKey(m,1)) months.push(m);
+  const gen=months.filter(m=>payrollGenerated(m));
+  const span=months.length>1 ? `${attMonthName(ym)} to ${attMonthName(months[months.length-1])}` : attMonthName(ym);
+  if(!confirm(`Enter ${span} on this screen instead of day by day?\n\n`
+    +`Each employee's Loss of Pay days, Half Days, Late minutes, OT hours and canteen tokens are carried over from what was entered day by day. `
+    +`Working days with nothing entered then count as Present (until now they were not paid).`
+    +(gen.length?`\n\nPayroll for ${gen.map(m=>attMonthName(m)).join(', ')} is already generated — it will show the new figures.`:''))) return;
+  months.forEach(attConvertMonth);
+  db.monthlyAttFrom=ym;
+  saveDB(db);
+  render('attendance');
 }
 
-/* ================= ATTENDANCE COMPLETION TRACKING =================
-   Answers, at a glance, "has everyone's attendance been marked?" for the month
-   currently open on screen — so nobody gets missed when there are many employees.
-   An employee's "required" days are their on-roll, non-Sunday days from the 1st of
-   the month up to today (or the whole month, if it's already in the past). Holidays
-   auto-count as marked (getAttStatus returns NOPH for them), so only genuinely
-   unmarked working days show up as "pending". */
-function attendanceCompletionStats(ym){
-  const dim = daysInMonth(ym);
-  const today = todayStr();
-  const curYm = monthKey(today);
-  let lastDay;
-  if(ym < curYm) lastDay = dim;
-  else if(ym === curYm) lastDay = Number(today.slice(8,10));
-  else lastDay = 0; // future month — nothing due yet
-  const active = db.employees.filter(e=>isEmpOnRollInMonth(e,ym));
-  const list = active.map(e=>{
-    let required=0, marked=0;
-    for(let d=1; d<=lastDay; d++){
-      if(isSunday(ym,d)) continue;
-      const dt = dateStr(ym,d);
-      if(!isEmpOnRollOn(e,dt)) continue;
-      required++;
-      if(getAttStatus(dt, e.code)) marked++;
-    }
-    return {code:e.code, name:e.name, department:e.department, required, marked, missing:required-marked, complete: required===0 || marked===required};
-  });
-  const totalEmp = list.length;
-  const complete = list.filter(x=>x.complete).length;
-  const notStarted = list.filter(x=>x.required>0 && x.marked===0).length;
-  const partial = totalEmp - complete - notStarted;
-  const pct = totalEmp ? Math.round(complete/totalEmp*100) : 100;
-  return { list, totalEmp, complete, notStarted, partial, pct, lastDay, dim };
-}
-function renderAttCompletionCard(){
-  const st = attendanceCompletionStats(attMonth);
-  if(st.lastDay===0){
-    return `<div class="attCompletionCard future">
-      <div class="accHead"><h4>${ico('clipboard')} Attendance Completion — ${monthLabel(attMonth)}</h4></div>
-      <p class="syncNote" style="margin:6px 0 0;">This month hasn't started yet — nothing to mark.</p>
-    </div>`;
-  }
-  if(!st.totalEmp){
-    return `<div class="attCompletionCard future">
-      <div class="accHead"><h4>${ico('clipboard')} Attendance Completion — ${monthLabel(attMonth)}</h4></div>
-      <p class="syncNote" style="margin:6px 0 0;">No active employees for this month.</p>
-    </div>`;
-  }
-  const pctClass = st.pct===100?'ok':(st.pct>=70?'mid':'low');
-  const incomplete = st.list.filter(x=>!x.complete).sort((a,b)=>(b.missing-a.missing)||a.name.localeCompare(b.name));
-  return `
-  <div class="attCompletionCard">
-    <div class="accHead">
-      <h4>${ico('clipboard')} Completion <span class="accSub">${monthLabel(attMonth)} · up to ${fmtDate(dateStr(attMonth,st.lastDay))}</span></h4>
-      <span class="accPct ${pctClass}">${st.pct}% Complete</span>
-    </div>
-    <div class="accBarTrack"><div class="accBarFill ${pctClass}" style="width:${st.pct}%;"></div></div>
-    <div class="accChips">
-      <span class="chip ok">${ico('check')} ${st.complete} Fully Marked</span>
-      <span class="chip ${st.partial?'warn':''}">${ico('circle-dashed')} ${st.partial} Partially Marked</span>
-      <span class="chip ${st.notStarted?'danger':''}">${ico('x')} ${st.notStarted} Not Started</span>
-      <span class="chip">${st.totalEmp} Total Employees</span>
-    </div>
-    ${incomplete.length ? `
-    <div class="accMissingList">
-      ${incomplete.slice(0,60).map(x=>`<button type="button" class="accMissingPill" onclick="setAttEmpCode('${x.code}')" title="Open ${x.name}'s attendance to fill in the missing day(s)">
-        <b>${x.name}</b><span>${x.code}${x.department?' · '+x.department:''} · ${x.missing} day${x.missing===1?'':'s'} pending</span>
-      </button>`).join('')}
-    </div>` : `<p class="syncNote" style="margin:10px 0 0;color:var(--st-present-text);">${ico('circle-check')} Everyone is fully marked up to date.</p>`}
-  </div>`;
-}
+/* ---- Screen state ---- */
+let attMonth=monthKey(todayStr());
+let attTab='entry';          // 'entry' (monthly attendance) | 'holidays' (Holiday Calendar)
+let attUnitFilter='';        // '' = all units, or a unit code
+let attContractorFilter='';  // '' = all, or a contractor code
+let attEditMode=false;       // boxes are locked until Edit (an Edit session — Save / Cancel)
+let attEditSnapshot=null;    // kept for the Edit session code (13-time-entry.js)
+let attEmpCode='';           // kept for renameEmployeeCode (08-employees.js)
+let attFocusFirst=false;     // after Edit: put the cursor in the first row still to be entered
 
-function dayCounts(date){
-  const active=db.employees.filter(e=>isEmpOnRollOn(e,date));
-  const counts={total:active.length, marked:0, unmarked:0};
-  active.forEach(e=>{
-    const s=getAttStatus(date, e.code);
-    if(s) counts.marked++; else counts.unmarked++;
-  });
-  return counts;
-}
+// The boxes, in order (data-c). Stored in db.payrollAdjustments[ym][code].
+const ATT_COLS=[
+  {k:'lopDays',              h:'LOP',          title:'Loss of Pay days this month', whole:false},
+  {k:'halfDays',             h:'Half Day',     title:'Half days this month (each is paid ½ day)', whole:true},
+  {k:'lateMinutes',          h:'Late (min)',   title:'Late minutes this month (the first minutes of the month are free — Admin → Late Waiver)', whole:true},
+  {k:'otHours',              h:'OT (hrs)',     title:'OT hours this month — paid at Daily Wage ÷ 8 × OT Factor', whole:false},
+  {k:'canteenTokens',        h:'Tokens',       title:'Canteen tokens bought this month — deducted at the token price of the employee\'s unit', whole:true},
+  {k:'otherAllowanceOneOff', h:'Allowance ₹',  title:'One-off allowance this month (added to Total Earnings)', whole:false},
+  {k:'otherDedOneOff',       h:'Deduction ₹',  title:'One-off deduction this month', whole:false}
+];
 
-// Day View (read only): who was Present, Absent (Loss Of Pay) or on Half Day that day, with their
-// Time Entry In / Out times. Nothing is shown for a day without attendance; a holiday shows "Holiday".
-// Clicking a count chip lists only those employees (Absent / Half Day with their leave remarks).
-// Attendance is entered and changed only in Employee Time Entry.
+function attCanEdit(){ return hasPerm('attendance','edit'); }
+function attEditable(){ return attCanEdit() && attEditMode && attIsMonthly(attMonth); }
 function attEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-// Search keeps the cursor in the box while the list redraws.
-function attSetSearch(el){ const pos=el.selectionStart; attSearch=el.value; render('attendance'); const i=document.querySelector('.attSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
-function setAttDayFilter(s){ attDayFilter = attDayFilter===s ? '' : s; render('attendance'); }
-function renderAttendanceDay(){
-  const dObj=new Date(attDate+'T00:00:00');
-  const dayName=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][dObj.getDay()];
-  const dateLabel=fmtDate(attDate);
-  const hol=getHolidayType(attDate);
-  const q=attSearch.toLowerCase();
-  const rows=attFilteredOnDate(attDate)
-    .map(e=>({e, s:getAttStatus(attDate, e.code)}))
-    .filter(x=>x.s && x.s!=='NOPH' && (!attDayFilter || x.s===attDayFilter) && (!q || (`${x.e.name} ${x.e.code}`).toLowerCase().includes(q)))
-    .sort((a,b)=>({Present:0,HalfDay:1,LossOfPay:2}[a.s]-{Present:0,HalfDay:1,LossOfPay:2}[b.s]) || a.e.code.localeCompare(b.e.code,undefined,{numeric:true}));
-  const c=attDayStatusCounts(attDate);
-  const tm=code=>{ const t=db.timeEntries&&db.timeEntries[attDate]&&db.timeEntries[attDate][code]; return t&&t.inH!==''&&t.inH!==undefined ? {inT:teEwFmtTime(t.inH,t.inM,t.inAP), outT:teEwFmtTime(t.outH,t.outM,t.outAP)} : {inT:'',outT:''}; };
-  // Leave remarks from Employee Time Entry (Loss of Pay / Half Day).
-  const remarks=code=>{ const l=typeof teGetLeave==='function' ? teGetLeave(attDate, code) : null; return (l && l.remarks) || ''; };
-  const absentOnly=attDayFilter==='LossOfPay';
-  const leaveCols=attDayFilter==='LossOfPay' || attDayFilter==='HalfDay';
-  const cols=8+(leaveCols?1:0);
-  const body = hol ? `<div class="attDayEmpty hol">${ico('palm')} <b>Holiday</b> — ${dateLabel} (${STATUS_LABEL[hol]||hol})</div>`
-    : !(c.Present+c.LossOfPay+c.HalfDay) ? `<div class="attDayEmpty">No attendance recorded for ${dateLabel}.</div>`
-    : `<div class="tableScrollWrap attDayScroll"><table class="attDayTable"><thead><tr><th>Sl No</th><th>Emp Code</th><th style="text-align:left;">Name</th>${absentOnly?'<th>Designation</th><th>Mobile</th>':''}<th>Unit</th><th>Contractor</th>${absentOnly?'':'<th>In Time</th><th>Out Time</th>'}${leaveCols?'<th style="text-align:left;">Remarks</th>':''}<th>Status</th></tr></thead><tbody>
-      ${rows.map((x,i)=>{ const t=tm(x.e.code); return `<tr><td>${i+1}</td><td>${x.e.code}</td><td style="text-align:left;">${attEsc(x.e.name)}</td>${absentOnly?`<td>${attEsc(x.e.designation||'-')}</td><td>${attEsc(x.e.mobile||'-')}</td>`:''}<td>${unitLabel(x.e.unit)}</td><td>${attEsc(contractorName(x.e)||'-')}</td>${absentOnly?'':`<td>${t.inT||'-'}</td><td>${t.outT||'-'}</td>`}${leaveCols?`<td style="text-align:left;">${attEsc(remarks(x.e.code)||'-')}</td>`:''}<td><span class="tag ${x.s}">${STATUS_LABEL[x.s]}</span></td></tr>`; }).join('') || `<tr><td colspan="${cols}" class="empty">${q?'No employees match your search.':`No ${attDayFilter==='LossOfPay'?'absent':attDayFilter==='HalfDay'?'half-day':'present'} employees on ${dateLabel}.`}</td></tr>`}
-    </tbody></table></div>`;
-  const chip=(s,cls,label)=>`<button type="button" class="chip ${cls}${attDayFilter===s?' on':''}" onclick="setAttDayFilter('${s}')" title="${attDayFilter===s?'Show everyone':'Show only these employees'}">${c[s]} ${label}</button>`;
-  return `${attUnitTabsHTML()}
-  <div class="attStageTop">
-    ${attTabsInline()}
-    <div class="grp">${attUnitOptionsHTML()}</div>
-    <div class="sep"></div>
-    <div class="grp">
-      <button class="navBtn" onclick="shiftAttDate(-1)" title="Previous day">‹</button>
-      <input type="date" value="${attDate}" onchange="setAttDate(this.value)">
-      <button class="navBtn" onclick="shiftAttDate(1)" title="Next day">›</button>
-      <button class="btn secondary" ${attDate===todayStr()?'disabled':''} onclick="goAttToday()">Today</button>
-      <span class="attDayLabel">${dayName}</span>
-    </div>
-  </div>
-  <div class="attDayRow">
-    <div class="attDaySumBar">${!hol && (c.Present+c.LossOfPay+c.HalfDay) ? `
-      ${chip('Present','ok','Present')}${chip('LossOfPay','danger','Absent')}${chip('HalfDay','warn','Half Day')}
-      ${attDayFilter?`<button type="button" class="chip" onclick="setAttDayFilter('')">Show all ${c.Present+c.LossOfPay+c.HalfDay}</button>`:''}` : ''}
-    </div>
-    <div class="attDayRight">
-      <input type="search" class="attSearch" placeholder="Search employee" aria-label="Search employee" value="${attEsc(attSearch)}" oninput="attSetSearch(this)">
-      <button class="btn secondary" onclick="teOpenDateWise('${attDate}')">${ico('clock')} Enter / change in Employee Time Entry</button>
-    </div>
-  </div>
-  <div class="panel attDayPanel">${body}
-    <p class="syncNote">View only — attendance is entered in <b>Employee Time Entry</b> and worked out from the In / Out times and leave recorded there.</p>
-  </div>`;
+const attN=v=>Math.round((+v||0)*100)/100;
+
+// Employees on the roll that month, inside the Unit / Contractor filters, by code.
+function attEmployees(){
+  return payrollEmployeesFor(attMonth).filter(e=>(!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
 }
-// Day View bulk actions act on the employees shown (Unit / Contractor filters).
-function markAllQuick(status){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
-  if(!db.attendance[attDate]) db.attendance[attDate]={};
-  attFilteredOnDate(attDate).forEach(e=>{ if(!getAttStatus(attDate, e.code)) db.attendance[attDate][e.code]=status; }); // only the not-marked ones
-  saveDB(db);
-  render('attendance');
+// One section per contractor (in the contractor list's order); employees whose contractor is not
+// set come last, flagged.
+function attGroups(emps){
+  const cons=getContractors(), known=new Set(cons.map(c=>c.code));
+  const out=cons.map(c=>({key:c.code, name:c.name||c.code, emps:emps.filter(e=>e.contractor===c.code)})).filter(g=>g.emps.length);
+  const none=emps.filter(e=>!known.has(e.contractor));
+  if(none.length) out.push({key:'-', name:'Contractor not set', emps:none, unset:true});
+  return out;
 }
-function copyPrevDayAttendance(){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
-  const d=new Date(attDate+'T00:00:00'); d.setDate(d.getDate()-1);
-  const prev=localDateStr(d);
-  const src=db.attendance[prev];
-  if(!src){ alert('No attendance recorded for the previous day.'); return; }
-  if(!db.attendance[attDate]) db.attendance[attDate]={};
-  attFilteredOnDate(attDate).forEach(e=>{
-    if(src[e.code]) db.attendance[attDate][e.code]=src[e.code];
-  });
-  saveDB(db);
-  render('attendance');
+// Working days on the roll: not Sundays, NOPH or holidays without pay.
+function attWorkDays(e, ym){
+  let n=0; const dim=daysInMonth(ym);
+  for(let d=1; d<=dim; d++){ const ds=dateStr(ym,d); if(!isSunday(ym,d) && isEmpOnRollOn(e, ds) && getHolidayType(ds)!=='NOPH' && !isUnpaidHolidayDate(ds)) n++; }
+  return n;
 }
-function clearDayAttendance(){
-  if(!hasPerm('attendance','delete')){ alert('You do not have permission to clear attendance.'); return; }
-  if(isHolidayDate(attDate)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
-  if(!confirm('Clear the attendance marked on this screen for '+fmtDate(attDate)+' for the employees shown? Days from Employee Time Entry stay. This cannot be undone.')) return;
-  attFilteredOnDate(attDate).forEach(e=>{ if(db.attendance[attDate]) delete db.attendance[attDate][e.code]; });
-  saveDB(db);
-  render('attendance');
+function attEntered(code){ const a=db.payrollAdjustments && db.payrollAdjustments[attMonth] && db.payrollAdjustments[attMonth][code]; return !!(a && a.attEntered); }
+// The value in a box: the figure entered (monthly months), or the figure Payroll worked out from the
+// days (day-by-day months, read-only). Zero shows as an empty box.
+function attBoxValue(e, k, r){
+  let v;
+  if(attIsMonthly(attMonth)){ const a=adjFor(attMonth, e.code); v=a[k]; }
+  else v={lopDays:r.lopMarked, halfDays:r.halfDayCount, lateMinutes:r.lateMinutes, otHours:r.otHours, canteenTokens:r.canteenTokens, otherAllowanceOneOff:r.otherAllowance, otherDedOneOff:r.otherDed}[k];
+  return v===undefined || v===null || v==='' || !+v ? '' : attN(v);
 }
 
-/* ================= EMPLOYEE-WISE MONTHLY ATTENDANCE =================
-   Faster, focused way to enter a whole month for ONE employee at a time — useful for
-   catching up a new joiner, correcting a month in one place, or just working employee-
-   by-employee instead of day-by-day. Reads/writes the exact same db.attendance store as
-   Quick Mark and Month Grid, so all three views always stay in sync automatically. */
-function setAttEmpCode(code){ attEmpCode=code; attEditMode=false; attEditSnapshot=null; render('attendance'); }
-// Unit filter above the Employee dropdown. Changing the unit clears the current employee
-// selection so the picker re-defaults to the first employee within the newly chosen unit
-// (see renderAttendanceEmployee, which rebuilds empOpts from the unit-filtered list).
-function setAttUnitFilter(unit){ attUnitFilter=unit; attEmpCode=''; attEditMode=false; attEditSnapshot=null; render('attendance'); }
-function setAttContractorFilter(c){ attContractorFilter=c; attEmpCode=''; attEditMode=false; attEditSnapshot=null; render('attendance'); }
-function shiftAttEmpMonth(delta){
-  const [y,m]=attMonth.split('-').map(Number);
-  const d=new Date(y, m-1+delta, 1);
-  attMonth = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
-  attEditMode=false; attEditSnapshot=null;
-  render('attendance');
+/* ---- Rendering ---- */
+function renderAttendance(){
+  const tabs=`<div class="teTabs attPageTabs" role="tablist">
+    <div class="teTab ${attTab==='entry'?'active':''}" role="tab" onclick="attSetTab('entry')">${ico('calendar-days')} Monthly Attendance</div>
+    <div class="teTab ${attTab==='holidays'?'active':''}" role="tab" onclick="attSetTab('holidays')">${ico('calendar')} Holidays</div>
+  </div>`;
+  if(attTab==='holidays'){ teHostPage='attendance'; return tabs+renderTEHolidayTab(); }
+  return tabs+renderAttEntry();
 }
-function setAttEmpMonth(v){ attMonth=v; attEditMode=false; attEditSnapshot=null; render('attendance'); }
-// Bulk fills and copies only touch days the employee is on the roll, up to today — a future day
-// or a day before joining / after leaving is never marked Present (it would be paid).
-function attFillableDay(e, dt){ return !!e && isEmpOnRollOn(e, dt) && dt<=todayStr(); }
-function fillEmployeeMonthPresent(code){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const dim=daysInMonth(attMonth);
-  const emp=db.employees.find(x=>x.code===code);
-  for(let d=1; d<=dim; d++){
-    const dt=dateStr(attMonth,d);
-    if(isHolidayDate(dt)) continue; // Holiday Calendar (NOPH) dates are locked
-    if(isSunday(attMonth,d)) continue; // Sundays are outside NOWD and are never marked Present
-    if(!attFillableDay(emp, dt)) continue;
-    if(getAttStatus(dt, code)) continue; // already marked, or filled from Employee Time Entry
-    if(!db.attendance[dt]) db.attendance[dt]={};
-    db.attendance[dt][code]='Present';
-  }
-  saveDB(db);
-  render('attendance');
+function attSetTab(t){
+  if(t===attTab) return;
+  if(typeof teEditConfirmLeave==='function' && !teEditConfirmLeave()) return;
+  attTab=t; render('attendance');
 }
-function copyEmployeePrevMonth(code){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const [y,m]=attMonth.split('-').map(Number);
-  const pd=new Date(y, m-2, 1);
-  const prevYm=pd.getFullYear()+'-'+String(pd.getMonth()+1).padStart(2,'0');
-  const dim=daysInMonth(attMonth);
-  const prevDim=daysInMonth(prevYm);
-  const emp=db.employees.find(x=>x.code===code);
-  let copied=0;
-  for(let d=1; d<=dim; d++){
-    if(d>prevDim) continue;
-    const dt=dateStr(attMonth,d);
-    if(isHolidayDate(dt)) continue; // Holiday Calendar dates are locked
-    if(!attFillableDay(emp, dt)) continue;
-    const src=db.attendance[dateStr(prevYm,d)]?.[code];
-    if(!src) continue;
-    if(!db.attendance[dt]) db.attendance[dt]={};
-    db.attendance[dt][code]=src;
-    copied++;
-  }
-  if(!copied){ alert('No attendance found for '+code+' in '+monthLabel(prevYm)+'.'); return; }
-  saveDB(db);
-  render('attendance');
-}
-function clearEmployeeMonth(code){
-  if(!hasPerm('attendance','delete')){ alert('You do not have permission to clear attendance.'); return; }
-  if(!confirm('Clear all attendance entries for this employee in '+monthLabel(attMonth)+'? This cannot be undone.')) return;
-  const dim=daysInMonth(attMonth);
-  for(let d=1; d<=dim; d++){
-    const dt=dateStr(attMonth,d);
-    if(db.attendance[dt]) delete db.attendance[dt][code];
-  }
-  saveDB(db);
-  render('attendance');
-}
-// Monthly figures typed after Edit Monthly Figures are saved with Save (an Edit session); otherwise at once.
-function attStoreFigure(){ if(typeof teEditActive==='function' && teEditActive('attendance')) teEditTouch(); else saveDB(db); }
-function setAdvanceAmount(code, val){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const a=getAdj(attMonth, code);
-  a.advance = +val||0;
-  attStoreFigure();
-}
-// Late for the Attendance screen's employee/month (see lateDeductionFor in Payroll).
-function attLateInfo(emp){
-  return lateDeductionFor(emp, attMonth, wageOnDate(emp, dateStr(attMonth, daysInMonth(attMonth)))); // the month's wage
-}
-function attLateTip(emp){
-  const l=attLateInfo(emp);
-  return `${l.minutes} min late − ${l.grace} min free = ${l.charged} min × ₹${(Math.round(l.perMinute*100)/100)}/min (Daily Wage ÷ 8 ÷ 60)`;
-}
-// Late minutes for one month: a typed number overrides Employee Time Entry's total; a blank box
-// goes back to the Time Entry figure.
-function setMonthlyLate(code, inp){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const a=getAdj(attMonth, code);
-  if(String(inp.value).trim()==='') delete a.lateMinutes;
-  else a.lateMinutes=Math.max(0, Math.round(+inp.value||0));
-  attStoreFigure();
-  const emp=db.employees.find(x=>x.code===code); if(!emp) return;
-  inp.value=attLateInfo(emp).minutes;
-  const row=document.getElementById('attLateRow');
-  if(row){ row.title=attLateTip(emp); row.querySelector('b').textContent='₹'+attLateInfo(emp).amount; }
-}
-function setCanteenTokens(code, field, val){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const a=getAdj(attMonth, code);
-  a[field] = +val||0;
-  attStoreFigure();
-}
-// Unit- and Contractor-selection dropdowns shown to the left of the Employee dropdown on the
-// Attendance screen. "All" clears a filter; picking a unit and/or contractor narrows the Employee list.
-function attUnitOptionsHTML(){
-  return `<select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttContractorFilter(this.value)" title="Select contractor">
-    ${contractorFilterOptionsHtml(attContractorFilter)}
-  </select>`;
-}
-// Unit tabs across the top of the Attendance screen: "All Units", "UNIT 1", "UNIT 2", … Picking a
-// tab narrows the Employee dropdown to that unit (locked while attendance is being edited).
-function attUnitTabsHTML(){
-  const dis=attEditMode?'disabled':'';
-  const tab=(code,label,title)=>`<button type="button" role="tab" class="attUnitTab ${attUnitFilter===code?'active':''}" aria-selected="${attUnitFilter===code}" ${dis} title="${String(title).replace(/"/g,'&quot;')}" onclick="setAttUnitFilter('${code}')">${label}</button>`;
-  return `<div class="attUnitTabs" role="tablist" aria-label="Working unit">
-    ${tab('','All Units','All units')}
-    ${getUnits().map(u=>tab(u.code, unitTabLabel(u), unitDisplayName(u))).join('')}
+function attFilterRowHtml(shown, all){
+  const sel=(on, fn, label, opts)=>`<select class="teFiltSel ${on?'on':''}" ${attEditMode?'disabled title="Save or cancel first"':''} onchange="${fn}(this.value)" aria-label="${label}">${opts}</select>`;
+  const any=!!(attUnitFilter||attContractorFilter);
+  return `<div class="teFiltRow">
+    <span class="teFiltLbl">${ico('filter')} Filter</span>
+    ${sel(attUnitFilter, 'attSetUnit', 'Unit', `<option value="" ${!attUnitFilter?'selected':''}>All Units</option>`+getUnits().map(u=>`<option value="${u.code}" ${attUnitFilter===u.code?'selected':''}>${attEsc(unitTabLabel(u))}</option>`).join(''))}
+    ${sel(attContractorFilter, 'attSetContractor', 'Contractor', contractorFilterOptionsHtml(attContractorFilter))}
+    <span class="teFiltCount">${shown===all?`${all} employees`:`<b>${shown}</b> of ${all} employees`}</span>
+    ${any&&!attEditMode?`<button type="button" class="teFiltClear" onclick="attClearFilters()">${ico('filter-x')} Clear filters</button>`:''}
   </div>`;
 }
-function renderAttendanceEmployee(){
-  const allActiveAllUnits=db.employees.filter(e=>isEmpOnRollInMonth(e,attMonth)).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
-  if(!allActiveAllUnits.length) return `<div class="panel"><div class="empty">No active employees. Add employees first.</div></div>`;
-  // Unit filter: '' shows every unit's employees; a unit code narrows the list (and
-  // therefore the Employee dropdown below) to just that unit's on-roll employees.
-  const active = allActiveAllUnits.filter(e=>(!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
-  if(!active.length){
-    const what=[attUnitFilter?'in '+unitLabel(attUnitFilter):'', attContractorFilter?(attContractorFilter==='-'?'with no contractor':'from '+contractorName(attContractorFilter)):''].filter(Boolean).join(' ');
-    return `<div class="attStage">${attUnitTabsHTML()}<div class="attStageTop">${attTabsInline()}
-      <div class="grp">${attUnitOptionsHTML()}</div>
-    </div><div class="panel"><div class="empty">No active employees ${what||'for this selection'} this month.</div></div></div>`;
-  }
-  if(!attEmpCode || !active.find(e=>e.code===attEmpCode)) attEmpCode = active[0].code;
-  const emp = active.find(e=>e.code===attEmpCode);
-  const dim = daysInMonth(attMonth);
-  const sum = attendanceSummary(attEmpCode, attMonth);
-  const adj = getAdj(attMonth, attEmpCode);
-  const otVal = otHoursFor(emp, attMonth);
-  const s = getSettings();
-  const tokenPrice = canteenTokenPrice(attMonth, emp.unit);
-  const monthTokens = canteenTokensFor(emp, attMonth);
-  const pay = computePayrollForEmployee(emp, attMonth); // same figures as the salary slip
-  const canteenAmt = Math.round(monthTokens*tokenPrice*100)/100;
-  const scheduledAdv = scheduledAdvanceDeduction(attEmpCode, attMonth);
-  const advDetails = scheduledAdvanceDetails(attEmpCode, attMonth);
-  const empAllAdvances = ensureSalaryAdvances().filter(a=>a.empCode===attEmpCode);
-  const empOpts = active.map(e=>`<option value="${e.code}" ${e.code===attEmpCode?'selected':''}>${e.name} (${e.code}${e.department?' · '+e.department:''})</option>`).join('');
-  const editable = hasPerm('attendance','edit') && attEditMode;
-  // Monday-first calendar grid, blanks before day 1 and after the last day
-  const [y0,m0]=attMonth.split('-').map(Number);
-  const firstDow=(new Date(y0,m0-1,1).getDay()+6)%7; // 0=Mon..6=Sun
-  const cells=[];
-  for(let i=0;i<firstDow;i++) cells.push('<div class="attCalCell blank"></div>');
-  for(let d=1; d<=dim; d++){
-    const dt=dateStr(attMonth,d);
-    const val=getAttStatus(dt, attEmpCode);
-    const dtIsHoliday=isHolidayDate(dt);
-    const optionList = dtIsHoliday ? [val] : STATUS_LIST;
-    const fromTE = attIsFromTimeEntry(dt, attEmpCode);
-    cells.push(`<div class="attCalCell st-${val} ${isSunday(attMonth,d)?'sun':''} ${fromTE?'fromTE':''}">
-      <div class="dNum">${d} <span style="font-weight:400;color:var(--muted);">${weekdayShort(attMonth,d)}</span>${fromTE?`<span class="attTETag" title="From Employee Time Entry">${ico('clock')}</span>`:''}</div>
-      <div class="attCalStatus" title="${dtIsHoliday?'Holiday Calendar':fromTE?'From Employee Time Entry':val?'Marked earlier on this screen':'No attendance'}">${val?(dtIsHoliday?'Holiday':STATUS_LABEL[val]):''}</div>
-    </div>`);
-  }
-  const advTip = advDetails.length ? advDetails.map(x=>`${x.advance.reason||'Advance'}: ₹${x.row.amount}`).join(' | ') : 'No salary advance scheduled this month';
+function attSetUnit(v){ attUnitFilter=v||''; render('attendance'); }
+function attSetContractor(v){ attContractorFilter=v||''; render('attendance'); }
+function attClearFilters(){ attUnitFilter=''; attContractorFilter=''; render('attendance'); }
+function attSetMonth(v){ if(!v || v===attMonth) return; if(attEditMode){ alert('Save or cancel first.'); return; } attMonth=v; render('attendance'); }
+function attStepMonth(k){ attSetMonth(nextMonthKey(attMonth, k)); }
+// Kept for the Dashboard's "View in Attendance": opens that date's month.
+function openAttDay(date){ attTab='entry'; attMonth=monthKey(date); render('attendance'); }
 
-  // ---- Top bar: the controls used on every visit — employee, month, edit/save, quick fills ----
-  const topBar = `
-  <div class="attStageTop">
-    ${attTabsInline()}
-    <div class="grp">
-      ${attUnitOptionsHTML()}
-      <select class="empPicker" ${attEditMode?'disabled':''} onchange="setAttEmpCode(this.value)" title="Select employee">${empOpts}</select>
-    </div>
-    <div class="sep"></div>
-    <div class="grp">
-      <button class="navBtn" ${attEditMode?'disabled':''} onclick="shiftAttEmpMonth(-1)" title="Previous month">‹</button>
-      <input type="month" value="${attMonth}" ${attEditMode?'disabled':''} onchange="setAttEmpMonth(this.value)">
-      <button class="navBtn" ${attEditMode?'disabled':''} onclick="shiftAttEmpMonth(1)" title="Next month">›</button>
-      <span class="attDayLabel">${monthLabel(attMonth)}</span>
-    </div>
-    <div class="sep"></div>
-    ${attEditMode ? `<div class="attStageEditNote">${ico('pencil')} Edit mode — change this month's figures below (OT, canteen, allowance, deduction, late), then Save.</div>` : ''}
-    <div class="attRightActions">
-      ${hasPerm('attendance','edit') ? (attEditMode
-        ? `<button class="btn secondary" onclick="cancelAttendanceEdit()">${ico('x')} Cancel</button><button class="btn" onclick="saveAttendance()">${ico('save')} Save</button>`
-        : `<button class="btn btnEditAtt" onclick="toggleAttEdit()" title="Attendance itself comes from Employee Time Entry; this edits the month's OT / canteen / allowance / deduction / late figures">${ico('pencil')} Edit Monthly Figures</button>`) : ''}
-    </div>
-  </div>`;
-
-  // ---- Left column: everything auto-calculated / system-derived (read-only) ----
-  const autoCol = `
-  <div class="attAutoCol">
-    ${renderAttCompletionCard()}
-    <div class="autoCard grow">
-      <h4>${ico('chart')} Attendance Summary (auto)</h4>
-      <div class="attSumGrid">
-        <div class="sk" title="Full days + Half Days × ½">Present Days</div><div class="sv">${sum.presentPaid}</div>
-        <div class="sk">Loss Of Pay Days</div><div class="sv">${sum.absent}</div>
-        <div class="sk" title="Sundays — the weekly off, not paid">Week Off (Sundays)</div><div class="sv">${sundaysInMonth(attMonth)}</div>
-        <div class="sk">NOPH Days</div><div class="sv">${sum.nophDays}</div>
-        <div class="sk">Half Days</div><div class="sv">${sum.halfDay}</div>
-        <div class="sk" title="Working days up to today with no status — not paid">Not Marked (unpaid)</div><div class="sv" style="${sum.unmarked?'color:var(--warn);':''}">${sum.unmarked}</div>
-        <div class="sk totalRow">Total Payable Days</div><div class="sv totalRow">${sum.payableDays}</div>
+function attStatsHtml(recs){
+  const sum=k=>attN(recs.reduce((s,x)=>s+(+x.r[k]||0),0));
+  const monthly=attIsMonthly(attMonth), entered=monthly ? recs.filter(x=>attEntered(x.e.code)).length : 0;
+  return `<div class="teStatBox"><b>${recs.length}</b><span>Employees</span></div>
+    <div class="teStatBox"><b>${computeWorkingDays(attMonth)}</b><span>Working days (NOWD)</span></div>
+    ${monthly?`<div class="teStatBox ${entered<recs.length?'warn':''}"><b>${entered}<small> / ${recs.length}</small></b><span>Entered</span></div>`:''}
+    <div class="teStatBox"><b>${sum('lopMarked')}</b><span>LOP days</span></div>
+    <div class="teStatBox"><b>${sum('halfDayCount')}</b><span>Half days</span></div>
+    <div class="teStatBox"><b>${sum('otHours')}</b><span>OT hours</span></div>
+    <div class="teStatBox"><b>${sum('lateMinutes')}</b><span>Late minutes</span></div>
+    <div class="teStatBox"><b>${sum('canteenTokens')}</b><span>Tokens</span></div>
+    <div class="teStatBox"><b>${fmt(sum('netSalary'))}</b><span>Net pay</span></div>`;
+}
+// A contractor bar's figures.
+function attSecSum(recs){
+  const sum=k=>attN(recs.reduce((s,x)=>s+(+x.r[k]||0),0));
+  const parts=[`LOP ${sum('lopMarked')}`, `Half ${sum('halfDayCount')}`, `OT ${sum('otHours')} h`];
+  if(attIsMonthly(attMonth)) parts.push(`${recs.filter(x=>attEntered(x.e.code)).length}/${recs.length} entered`);
+  return parts.join(' · ');
+}
+function attMRowHtml(e, r, i, editable){
+  const work=attWorkDays(e, attMonth), box=k=>attBoxValue(e, k, r);
+  const cells=ATT_COLS.map((c,ci)=>`<td class="attInCell"><input class="attIn" data-r="${i}" data-c="${ci}" data-k="${c.k}" value="${box(c.k)}" inputmode="decimal" autocomplete="off" spellcheck="false"
+      ${editable?'':'disabled'} placeholder="0" title="${attEsc(c.title)}" aria-label="${attEsc(c.h)} — ${attEsc(e.name)}"
+      onfocus="this.select()" oninput="attInput(this)" onkeydown="attKey(event,this)" onpaste="attPaste(event,this)"></td>`);
+  const entered=attIsMonthly(attMonth) && attEntered(e.code);
+  return `<tr class="attMRow ${attIsMonthly(attMonth)&&!entered?'notEntered':''}" data-code="${attEsc(e.code)}" data-r="${i}">
+    <td class="num attSl">${i+1}</td><td>${attEsc(e.code)}</td><td class="attName">${attEsc(e.name)}</td>
+    <td class="num" data-k="work" title="Working days on the roll (not Sundays, NOPH or holidays without pay)">${work}</td>
+    ${cells[0]}${cells[1]}
+    <td class="num attCalc" data-k="present" title="Present = Working days − LOP − Half Days, + Half Days × ½">${payPresentDays(r)}</td>
+    <td class="num attCalc" data-k="paid" title="Paid Days = Present + NOPH">${attN(r.daysWorking)}</td>
+    ${cells.slice(2).join('')}
+    <td class="num attNet" data-k="net" title="Net Pay — the same figure as Payroll and the salary slip">${fmt(r.netSalary)}</td>
+  </tr>`;
+}
+function renderAttEntry(){
+  const ym=attMonth, monthly=attIsMonthly(ym), canEdit=attCanEdit(), editable=attEditable();
+  if(attEditMode && !monthly){ attEditMode=false; }
+  const emps=attEmployees(), all=payrollEmployeesFor(ym).length;
+  const recs=emps.map(e=>({e, r:computePayrollForEmployee(e, ym)}));
+  const groups=attGroups(emps);
+  let idx=0;
+  const open=teOpenSecs.attGrid;
+  const bodies=groups.map((g, gi)=>{
+    const gr=recs.filter(x=>g.emps.includes(x.e)), folded=!open.has(g.key);
+    const rows=gr.map(x=>attMRowHtml(x.e, x.r, idx++, editable)).join('');
+    return `<tbody class="teSec attSec ${folded?'folded':''} ${g.unset?'attUnset':''}" data-sec="${attEsc(g.key)}" style="--secTop:${gi};--secBot:${groups.length-1-gi}">
+      <tr class="teGrpHead teDwShiftHead teSecHead"><td colspan="14">
+        <button type="button" class="teDwFold" tabindex="-1" aria-expanded="${!folded}" title="${folded?'Click to expand this contractor':'Fold this contractor'}" onclick="teSecFold(this)">${ico('chevron-down')}<span class="teShiftBadge">${attEsc(g.name)}</span><span>${gr.length} employee${gr.length===1?'':'s'}</span><span class="attSecSum" data-sum="${attEsc(g.key)}">${attSecSum(gr)}</span>${g.unset?'<span class="attUnsetTag">Edit these employees and choose their contractor</span>':''}<span class="teDwFoldNote">Click to expand</span></button></td></tr>
+      ${rows}
+    </tbody>`;
+  }).join('');
+  const prev=nextMonthKey(ym,-1), thisM=monthKey(todayStr());
+  const note = monthly
+    ? (editable
+      ? `Type each employee's LOP days, Half Days, Late minutes, OT hours and canteen tokens — everything else is calculated. <b>Enter</b> / <b>↓</b> next employee, <b>←</b> <b>→</b> next box; paste a column copied from Excel to fill down. Save when done.`
+      : `Each employee's month: LOP days, Half Days, Late minutes, OT hours and canteen tokens. Present = working days − LOP − Half Days; Payroll, slips, reports and the Contractors Bill use these figures.${canEdit?' Click <b>Edit</b> to enter them.':''}`)
+    : `<b>${attMonthName(ym)}</b> was entered day by day (old Attendance / Employee Time Entry) — shown here read-only, as Payroll worked it out.${canEdit&&db.monthlyAttFrom?` <button type="button" class="btn secondary attSwitchBtn" onclick="attSwitchToMonthly('${ym}')">Enter ${attEsc(attMonthName(ym))} here instead</button>`:''}`;
+  if(attFocusFirst){ attFocusFirst=false; setTimeout(attFocusFirstOpen, 0); }
+  setTimeout(()=>{ teSetHeadHeight('attGrid'); teSecRefreshAll('attGrid'); teFitGridBox('attGrid'); }, 0);
+  return `<div class="panel attPanel">
+    <div class="teDwTop teBar">
+      <div class="teDwGroup">
+        <span class="teBarLbl">${ico('calendar-days')} Month</span>
+        <button class="btn secondary teDwNav" ${attEditMode?'disabled':''} title="Previous month" aria-label="Previous month" onclick="attStepMonth(-1)">‹</button>
+        <input type="month" value="${ym}" ${attEditMode?'disabled':''} onchange="attSetMonth(this.value)" aria-label="Month">
+        <button class="btn secondary teDwNav" ${attEditMode?'disabled':''} title="Next month" aria-label="Next month" onclick="attStepMonth(1)">›</button>
+        ${ym!==thisM && !attEditMode?`<button class="btn secondary" onclick="attSetMonth('${thisM}')">This month</button>`:''}
+      </div>
+      <div class="teDwGroup">
+        <span class="teDwFindWrap">${ico('search')}<input id="attFind" placeholder="Find employee — Enter" autocomplete="off" title="Type a code or name and press Enter"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();attFind(this.value);}" oninput="this.classList.remove('bad')"></span>
+        <span id="teEwSaveState" class="teEwSave ${typeof teEwSaveState!=='undefined'?teEwSaveState:''}"></span>
+        ${!canEdit||!monthly ? '' : attEditMode
+          ? `<button class="btn secondary" onclick="attCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="attSave()">${ico('save')} Save</button>`
+          : `<button class="btn btnEditAtt" onclick="attEdit()">${ico('pencil')} Edit</button>`}
       </div>
     </div>
-    <div class="autoCard">
-      <h4>${ico('credit-card')} System-Calculated</h4>
-      <div class="autoRow" title="${advTip}"><span>Scheduled Advance</span><b>₹${scheduledAdv}</b></div>
-      <div class="autoRow" title="${monthTokens} token(s) × ₹${tokenPrice}"><span>Canteen Deduction</span><b>₹${canteenAmt}</b></div>
-      <div class="autoRow" id="attLateRow" title="${attLateTip(emp)}"><span>Late Deduction</span><b>₹${attLateInfo(emp).amount}</b></div>
-      <div class="autoRow" title="${pay.otHours} hrs × ₹${pay.otPerHourRate}/hr"><span>OT Pay</span><b>₹${pay.otAmount}</b></div>
-      <div class="autoRow" title="Total Earnings ₹${pay.earningsTotal} − Total Deductions ₹${pay.deductionsTotal} — the same figure as the salary slip"><span>Net Pay (${monthLabel(attMonth)})</span><b>₹${pay.netSalary}</b></div>
-    </div>
-  </div>`;
-
-  // ---- Right column: the actual data-entry surface — calendar + the few editable monthly figures ----
-  const entryCol = `
-  <div class="attEntryCol">
-    <div class="attCalPanel">
-      <div class="attCalGrid" style="grid-auto-rows:18px;flex:0 0 auto;">
-        ${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div class="attCalDow">${d}</div>`).join('')}
-      </div>
-      <div class="attCalGrid" style="flex:1;">${cells.join('')}</div>
-    </div>
-    <div class="attEntryRow">
-      <div class="attEntryField" title="${attOTTip(emp)}"><label>OT Hours${otTypedFor(adjFor(attMonth, attEmpCode))?' (typed)':''}</label><input type="number" value="${otVal}" min="0" step="any" ${editable?'':'disabled'} onchange="setMonthlyOT('${attEmpCode}',this)"></div>
-      <div class="attEntryField" title="Tokens for the month come from Employee Time Entry → Monthly Token Entry (usual count from the Employee form: ${+emp.canteenTokens||0})."><label>Canteen Tokens (₹${tokenPrice}/tkn)${adj.canteenTokens!==undefined&&adj.canteenTokens!==null?' (typed)':''}</label><input type="number" value="${monthTokens}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','canteenTokens',this.value)"></div>
-      <div class="attEntryField"><label>Other Allowance (₹)</label><input type="number" value="${adj.otherAllowanceOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherAllowanceOneOff',this.value)"></div>
-      <div class="attEntryField"><label>Other Deduction (₹)</label><input type="number" value="${adj.otherDedOneOff||0}" min="0" ${editable?'':'disabled'} onchange="setCanteenTokens('${attEmpCode}','otherDedOneOff',this.value)"></div>
-      <div class="attEntryField" title="Total Late this month from Employee Time Entry (${typeof teMonthLateMinutes==='function'?teMonthLateMinutes(attEmpCode, attMonth):0} min). Type a different number to use it for this month only; clear the box to go back to Time Entry. The first ${lateGraceMinutes(attMonth)} minutes are free."><label>Late Minutes${adj.lateMinutes!==undefined&&adj.lateMinutes!==null&&adj.lateMinutes!==''?' (typed)':''}</label><input type="number" value="${attLateInfo(emp).minutes}" min="0" step="1" ${editable?'':'disabled'} onchange="setMonthlyLate('${attEmpCode}',this)"></div>
-    </div>
-  </div>`;
-
-  return `${attUnitTabsHTML()}${topBar}<div class="attStageBody">${autoCol}${entryCol}</div>`;
-}
-
-function renderAttendanceGrid(){
-  const dim=daysInMonth(attMonth);
-  let active=db.employees.filter(e=>isEmpOnRollInMonth(e,attMonth));
-  if(attSearch) active=active.filter(e=>(`${e.name} ${e.code}`).toLowerCase().includes(attSearch.toLowerCase()));
-  const dayCols=[]; for(let d=1; d<=dim; d++) dayCols.push(d);
-  return `
-  <div class="attToolbar">
-    <input type="month" value="${attMonth}" onchange="attMonth=this.value;render('attendance')">
-    <input type="search" placeholder="Search employee..." value="${attSearch}" oninput="attSearch=this.value;render('attendance')">
-    ${hasPerm('attendance','edit') ? `<button class="btn secondary" onclick="fillUnmarkedPresent()">Fill Blank Days as Present</button>` : ''}
-    ${hasPerm('attendance','delete') ? `<button class="btn danger" onclick="clearMonthAttendance()">Clear This Month</button>` : ''}
-    <label class="attViewToggle" style="cursor:pointer;"><input type="checkbox" ${attCompact?'checked':''} onchange="toggleAttCompact()"> Fit all days on screen</label>
-  </div>
-  <div class="attLegend">
-    ${[...STATUS_LIST,'NOPH'].map(s=>`<span class="tag ${s}">${STATUS_LABEL[s]}</span>`).join('')}
-  </div>
-  <div class="panel">
-    ${!db.employees.filter(e=>isEmpOnRollInMonth(e,attMonth)).length ? '<div class="empty">No active employees. Add employees first.</div>' : `
-    <div class="attGridWrap" style="${attCompact?'overflow-x:hidden;':''}">
-    <table class="attGrid${attCompact?' compact':''}" style="${attCompact?'table-layout:fixed;width:100%;':'width:max-content;'}">
-      <thead>
-        <tr>
-          <th class="empHead">Employee</th>
-          ${dayCols.map(d=>`<th class="${isSunday(attMonth,d)?'sun':''} ${isHolidayDate(dateStr(attMonth,d))?'holiday':''}" title="${isHolidayDate(dateStr(attMonth,d))?'NOPH':''}">${d}<br><span style="font-weight:400;">${weekdayShort(attMonth,d)}</span></th>`).join('')}
-          <th class="sumHead">Pres</th><th class="sumHead">Hol</th><th class="sumHead">Half</th><th class="sumHead">LOP</th><th class="sumHead">OT</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${active.length ? active.map(e=>{
-          const sum=attendanceSummary(e.code, attMonth);
-          const otVal=otHoursFor(e, attMonth);
-          return `<tr>
-            <td class="empCell">
-              <div class="empName">${e.name}</div>
-              <div class="empSub">${e.code} · ${e.department||'-'}</div>
-              <select class="cellSel" style="width:100%;height:20px;font-size:9px;" ${hasPerm('attendance','edit')?'':'disabled'} onchange="if(this.value){setRowForMonth('${e.code}',this.value);this.value='';}">
-                <option value="">Fill whole month...</option>
-                ${STATUS_LIST.map(s=>`<option value="${s}">${STATUS_LABEL[s]}</option>`).join('')}
-              </select>
-            </td>
-            ${dayCols.map(d=>{
-              const dt=dateStr(attMonth,d);
-              const val=getAttStatus(dt, e.code);
-              const dtIsHoliday=isHolidayDate(dt);
-              const optionList = dtIsHoliday ? [val] : STATUS_LIST;
-              return `<td class="${val?('cellStatus-'+val):''}" title="${dtIsHoliday?STATUS_LABEL[val]+' — Holiday Calendar, locked':attIsFromTimeEntry(dt, e.code)?STATUS_LABEL[val]+' — from Employee Time Entry':(val?STATUS_LABEL[val]:'')}">
-                <select class="cellSel" ${(hasPerm('attendance','edit') && !dtIsHoliday)?'':'disabled'} onchange="setCellStatus('${dt}','${e.code}',this.value)">
-                  ${!dtIsHoliday?`<option value="" ${!val?'selected':''}>—</option>`:''}
-                  ${optionList.map(s=>`<option value="${s}" ${val===s?'selected':''}>${STATUS_LABEL[s].slice(0,3)}</option>`).join('')}
-                </select>
-              </td>`;
-            }).join('')}
-            <td class="sumCell">${sum.presentPaid}</td>
-            <td class="sumCell">${sum.holiday}</td>
-            <td class="sumCell">${sum.halfDay}</td>
-            <td class="sumCell">${sum.lop}</td>
-            <td><input type="number" class="otInput" style="width:100%;height:20px;font-size:9px;" value="${otVal}" min="0" step="any" ${hasPerm('attendance','edit')?'':'disabled'} onchange="setMonthlyOT('${e.code}',this)" title="${attOTTip(e)}"></td>
-          </tr>`;
-        }).join('') : `<tr><td colspan="${dayCols.length+6}" style="text-align:center;padding:12px;color:var(--muted);">No employees match your search.</td></tr>`}
-      </tbody>
-      <tfoot>
-        <tr>
-          <td class="empCell"><b>Quick-set whole day</b></td>
-          ${dayCols.map(d=>{
-            const dt=dateStr(attMonth,d);
-            const dtIsHoliday=isHolidayDate(dt);
-            return `<td><select class="daySel" ${(hasPerm('attendance','edit') && !dtIsHoliday)?'':'disabled'} onchange="if(this.value){setDayForAll('${dt}',this.value);this.value='';}">
-              <option value="">${dtIsHoliday?'🔒':'·'}</option>
-              ${QUICK_STATUS.map(s=>`<option value="${s}">${STATUS_LABEL[s].slice(0,3)}</option>`).join('')}
-            </select></td>`;
-          }).join('')}
-          <td colspan="5"></td>
-        </tr>
-      </tfoot>
-    </table>
-    </div>
-    <p class="syncNote">Changes save instantly and flow straight into Payroll — working days, holidays, half-days and LOP are calculated automatically from this grid, and OT hours come from Employee Time Entry (a number typed here overrides it for the month). No need to re-enter attendance data on the Payroll page. Untick "Fit all days on screen" for a wider, easier-to-read scrollable view.</p>
-    `}
+    ${attFilterRowHtml(emps.length, all)}
+    <p class="attNote ${monthly?'':'attNoteOld'}">${note}</p>
+    <div class="teStatRow" id="attStats">${attStatsHtml(recs)}</div>
+    <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attGrid" id="attGrid">
+      <thead><tr>
+        <th class="teDwSlTh"><button type="button" id="attGridFoldAll" class="teDwFoldAll" tabindex="-1" aria-expanded="true" title="Fold every contractor — only the bars stay" onclick="teSecFoldAll('attGrid')">${ico('chevron-down')}</button>Sl</th>
+        <th>Code</th><th style="text-align:left;">Employee</th><th title="Working days on the roll">Work days</th>
+        <th class="attInHead">LOP</th><th class="attInHead">Half Day</th><th>Present</th><th>Paid days</th>
+        <th class="attInHead">Late (min)</th><th class="attInHead">OT (hrs)</th><th class="attInHead">Tokens</th><th class="attInHead">Allowance ₹</th><th class="attInHead">Deduction ₹</th>
+        <th>Net pay</th>
+      </tr></thead>
+      ${bodies || `<tbody><tr><td colspan="14"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr></tbody>`}
+    </table></div>
+    <p class="syncNote">Working days = days on the roll that month, not Sundays, NOPH holidays or holidays without pay (Holidays tab). Present = Working days − LOP − Half Days, and a Half Day is paid ½. Late, OT, tokens, allowance and deduction are the month's totals. Net pay is worked out exactly as on the Payroll page and the salary slip; the Contractors Bill counts each contractor's full Present days.</p>
   </div>`;
 }
-function setCellStatus(date, code, status){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  if(isHolidayDate(date)){ alert('This date is set as NOPH in the Holiday Calendar and is locked. Change it in the Holiday Calendar (Employee Time Entry → Holiday Calendar) to edit attendance for this date.'); return; }
-  if(!db.attendance[date]) db.attendance[date]={};
-  if(status) db.attendance[date][code]=status; else delete db.attendance[date][code];
-  saveDB(db);
-  render('attendance');
+
+/* ---- Edit / Save (an Edit session: nothing reaches the database or Payroll until Save) ---- */
+function attEdit(){
+  if(!attCanEdit()){ alert('You do not have permission to edit attendance.'); return; }
+  if(!attIsMonthly(attMonth)) return;
+  if(!teEditBegin('attendance')){ alert('Save or cancel the other edit first.'); return; }
+  attEditMode=true; attFocusFirst=true; render('attendance');
 }
-function setDayForAll(date, status){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  if(isHolidayDate(date)){ alert('This date is set as NOPH in the Holiday Calendar and is locked.'); return; }
-  const active=db.employees.filter(e=>isEmpOnRollOn(e,date));
-  if(!db.attendance[date]) db.attendance[date]={};
-  active.forEach(e=>{ db.attendance[date][e.code]=status; });
-  saveDB(db);
-  render('attendance');
+function attSave(){ teEditSave(); attEditMode=false; render('attendance'); }
+function attCancel(){ teEditCancel('attendance'); }
+// After Edit: the first row still to be entered (its contractor opens), else the first row.
+function attFocusFirstOpen(){
+  const tr=document.querySelector('#attGrid tr.attMRow.notEntered') || document.querySelector('#attGrid tr.attMRow');
+  const inp=tr && tr.querySelector('input.attIn:not(:disabled)');
+  if(inp){ teSecReveal(inp); teSecFocus(inp); inp.select(); }
 }
-function setRowForMonth(code, status){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const dim=daysInMonth(attMonth);
-  for(let d=1; d<=dim; d++){
-    const dt=dateStr(attMonth,d);
-    if(isHolidayDate(dt)) continue; // Holiday Calendar dates are locked
-    if(!db.attendance[dt]) db.attendance[dt]={};
-    db.attendance[dt][code]=status;
-  }
-  saveDB(db);
-  render('attendance');
+
+/* ---- Typing ---- */
+function attParse(raw, whole){
+  const s=String(raw==null?'':raw).trim().replace(/,/g,'');
+  if(s==='') return {v:null};
+  const n=Number(s);
+  if(!isFinite(n) || n<0) return {bad:true};
+  return {v: whole ? Math.round(n) : Math.round(n*100)/100};
 }
-function fillUnmarkedPresent(){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
-  const active=db.employees.filter(e=>isEmpOnRollInMonth(e,attMonth));
-  const dim=daysInMonth(attMonth);
-  active.forEach(e=>{
-    for(let d=1; d<=dim; d++){
-      const dt=dateStr(attMonth,d);
-      if(isHolidayDate(dt)) continue; // Holiday Calendar (NOPH) dates are locked
-      if(isSunday(attMonth,d)) continue; // Sundays are outside NOWD and are never marked Present
-      if(!attFillableDay(e, dt)) continue;
-      if(getAttStatus(dt, e.code)) continue; // already marked, or filled from Employee Time Entry
-      if(!db.attendance[dt]) db.attendance[dt]={};
-      db.attendance[dt][e.code]='Present';
-    }
-  });
-  saveDB(db);
-  render('attendance');
-}
-function clearMonthAttendance(){
-  if(!hasPerm('attendance','delete')){ alert('You do not have permission to clear attendance.'); return; }
-  if(!confirm('Clear all attendance entries for '+monthLabel(attMonth)+'? This cannot be undone.')) return;
-  const dim=daysInMonth(attMonth);
-  for(let d=1; d<=dim; d++) delete db.attendance[dateStr(attMonth,d)];
-  saveDB(db);
-  render('attendance');
-}
-// OT hours for one month: a typed number (0 included) overrides Employee Time Entry's total; a
-// blank box goes back to the Time Entry figure.
-function setMonthlyOT(code, inp){
-  if(!hasPerm('attendance','edit')){ alert('You do not have permission to edit attendance.'); return; }
+function attInput(inp){
+  if(!attEditable()) return;
+  const tr=inp.closest('tr.attMRow'), code=tr.dataset.code, col=ATT_COLS[+inp.dataset.c];
+  const p=attParse(inp.value, col.whole);
+  if(p.bad){ inp.classList.add('bad'); inp.title='Enter a number (0 or more)'; return; }
+  inp.classList.remove('bad'); inp.title=col.title;
   const a=getAdj(attMonth, code);
-  if(String(inp.value).trim()===''){ a.otTyped=false; a.otHours=0; }
-  else { a.otTyped=true; a.otHours=Math.max(0, +inp.value||0); }
-  attStoreFigure();
-  const emp=db.employees.find(x=>x.code===code);
-  if(emp){ inp.value=otHoursFor(emp, attMonth); inp.title=attOTTip(emp); }
+  if(p.v===null) delete a[col.k]; else a[col.k]=p.v;
+  if(col.k==='otHours') a.otTyped=true;
+  a.attEntered=true;
+  teEditTouch();
+  attUpdateRow(tr);
+  attTotalsSoon();
 }
-function attOTTip(emp){
-  const te=typeof teMonthOTMinutes==='function' ? Math.round(teMonthOTMinutes(emp.code, attMonth)/60*100)/100 : 0;
-  return otTypedFor(adjFor(attMonth, emp.code))
-    ? `Typed for ${monthLabel(attMonth)} (Employee Time Entry has ${te} hrs). Clear the box to use Time Entry.`
-    : `From Employee Time Entry: ${te} hrs in ${monthLabel(attMonth)}. Type a number to use it instead for this month.`;
+// Recomputes one row in place (the boxes keep focus).
+function attUpdateRow(tr){
+  const e=(db.employees||[]).find(x=>x.code===tr.dataset.code); if(!e) return;
+  const r=computePayrollForEmployee(e, attMonth), a=adjFor(attMonth, e.code), work=attWorkDays(e, attMonth);
+  const set=(k,v)=>{ const el=tr.querySelector(`[data-k="${k}"]`); if(el && el.tagName!=='INPUT') el.textContent=v; };
+  set('present', payPresentDays(r)); set('paid', attN(r.daysWorking)); set('net', fmt(r.netSalary));
+  tr.classList.toggle('notEntered', !attEntered(e.code));
+  const over=(+a.lopDays||0)+(+a.halfDays||0) > work;
+  tr.classList.toggle('attOver', over);
+  ['lopDays','halfDays'].forEach(k=>{ const el=tr.querySelector(`input[data-k="${k}"]`); if(el){ el.classList.toggle('bad', over); el.title=over?`LOP + Half Days are more than the ${work} working days`:ATT_COLS.find(c=>c.k===k).title; } });
 }
-// Manual per-employee, per-month adjustments (OT hours, LOP override, advance, tax, other allowance one-off)
+let attTotalsTimer=null;
+function attTotalsSoon(){ clearTimeout(attTotalsTimer); attTotalsTimer=setTimeout(attRefreshTotals, 150); }
+function attRefreshTotals(){
+  const recs=attEmployees().map(e=>({e, r:computePayrollForEmployee(e, attMonth)}));
+  const st=document.getElementById('attStats'); if(st) st.innerHTML=attStatsHtml(recs);
+  attGroups(recs.map(x=>x.e)).forEach(g=>{
+    const el=document.querySelector(`#attGrid .attSecSum[data-sum="${CSS.escape(g.key)}"]`);
+    if(el) el.textContent=attSecSum(recs.filter(x=>g.emps.includes(x.e)));
+  });
+}
 
+/* ---- Keyboard: Enter / ↓ next employee (into the next contractor when one ends), ↑ back,
+   ← → between boxes ---- */
+function attCell(r,c){ return document.querySelector(`#attGrid input.attIn[data-r="${r}"][data-c="${c}"]`); }
+function attKey(ev, inp){
+  const r=+inp.dataset.r, c=+inp.dataset.c;
+  let dr=0, dc=0;
+  if(ev.key==='Enter') dr=ev.shiftKey?-1:1;
+  else if(ev.key==='ArrowDown') dr=1;
+  else if(ev.key==='ArrowUp') dr=-1;
+  else if(ev.key==='ArrowRight' && inp.selectionEnd===inp.value.length) dc=1;
+  else if(ev.key==='ArrowLeft' && inp.selectionStart===0) dc=-1;
+  else return;
+  ev.preventDefault();
+  attMove(r, c, dr, dc);
+}
+function attMove(r, c, dr, dc){
+  let el=null;
+  if(dc){ const cc=c+dc; if(cc>=0 && cc<ATT_COLS.length) el=attCell(r, cc); }
+  else el=attCell(r+dr, c);
+  if(!el || el.disabled) return;
+  teSecReveal(el); teSecFocus(el); el.select();
+}
+// Paste: lines go down the rows of this contractor, tab-separated values across the boxes.
+function attPaste(ev, inp){
+  if(!attEditable()) return;
+  const text=(ev.clipboardData || window.clipboardData).getData('text') || '';
+  if(!/[\t\n]/.test(text.replace(/\s+$/,''))) return; // a single value: normal paste
+  ev.preventDefault();
+  const lines=text.replace(/\r/g,'').replace(/\n+$/,'').split('\n');
+  const tr0=inp.closest('tr.attMRow'), rows=[...tr0.closest('tbody').querySelectorAll('tr.attMRow')], start=rows.indexOf(tr0), c0=+inp.dataset.c;
+  let filled=0, extra=0;
+  lines.forEach((ln, i)=>{
+    const tr=rows[start+i]; if(!tr){ extra++; return; }
+    ln.split('\t').forEach((v, j)=>{ const el=tr.querySelector(`input.attIn[data-c="${c0+j}"]`); if(el && !el.disabled){ el.value=String(v).trim(); attInput(el); } });
+    filled++;
+  });
+  if(extra) alert(`${filled} row(s) filled. ${extra} more line(s) were not used — this contractor has no more employees below.`);
+}
+
+/* ---- Find employee ---- */
+function attFind(v){
+  v=String(v||'').trim().toLowerCase(); if(!v) return;
+  const rows=[...document.querySelectorAll('#attGrid tr.attMRow')];
+  const nameOf=tr=>tr.querySelector('.attName').textContent.toLowerCase();
+  const tr=rows.find(t=>t.dataset.code.toLowerCase()===v) || rows.find(t=>nameOf(t).startsWith(v)) || rows.find(t=>(t.dataset.code+' '+nameOf(t)).toLowerCase().includes(v));
+  const box=document.getElementById('attFind');
+  if(!tr){ if(box){ box.classList.add('bad'); box.title='No employee matches that.'; } return; }
+  if(box){ box.classList.remove('bad'); box.title=''; }
+  teSecReveal(tr); teSecKeepInView(tr);
+  tr.classList.remove('teDwFlash'); void tr.offsetWidth; tr.classList.add('teDwFlash');
+  const inp=tr.querySelector('input.attIn:not(:disabled)'); if(inp){ teSecFocus(inp); inp.select(); }
+}
