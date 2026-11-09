@@ -189,6 +189,8 @@ async function initDB(){
   delete db.admin;
   db.users.forEach(u=>{ if(u) delete u.password; });
   db.users = db.users.filter(u=>u && u.username);
+  // Attendance is entered once a month from the current month on (earlier months stay as they were).
+  if(typeof ensureMonthlyAttendance==='function') ensureMonthlyAttendance();
   // Every profile needs an active flag; the built-in 'admin' profile (if present) can never be
   // left inactive.
   db.users.forEach(u=>{

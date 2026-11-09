@@ -812,6 +812,7 @@ function renderTEEmpWiseTab(){
 }
 
 function renderTimeEntry(){
+  teHostPage='timeentry';
   return `<div class="teTabs">
     <div class="teTab ${teTab==='entry'?'active':''}" onclick="teSetTab('entry')">${ico('calendar')} Date-wise</div>
     <div class="teTab ${teTab==='empwise'?'active':''}" onclick="teSetTab('empwise')">${ico('user')} Employee-wise</div>
@@ -879,10 +880,11 @@ function excelTEDay(dt){
    - Paid holiday (NOPH, db.holidays): paid to every employee, taken off NOWD, time worked = OT;
    - Holiday without pay (db.timeHolidays): not a paid day; time worked on it = full-day OT.
    Sundays are always off (time worked = OT). Click a date to set or change it. ---------------- */
-function teCalPrevMonth(){ const [y,m]=teCalMonth.split('-').map(Number); const d=new Date(y,m-2,1); teCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
-function teCalNextMonth(){ const [y,m]=teCalMonth.split('-').map(Number); const d=new Date(y,m,1); teCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render('timeentry'); }
-function teCalGoMonth(v){ if(v){ teCalMonth=v; render('timeentry'); } }
-function teHolCanEdit(){ return hasPerm('timeentry','add')||hasPerm('timeentry','edit'); }
+function teCalPrevMonth(){ const [y,m]=teCalMonth.split('-').map(Number); const d=new Date(y,m-2,1); teCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render(teHostPage); }
+function teCalNextMonth(){ const [y,m]=teCalMonth.split('-').map(Number); const d=new Date(y,m,1); teCalMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); render(teHostPage); }
+function teCalGoMonth(v){ if(v){ teCalMonth=v; render(teHostPage); } }
+// On Attendance the Attendance rights apply, on Employee Time Entry its own.
+function teHolCanEdit(){ return teHostPage==='attendance' ? hasPerm('attendance','edit') : (hasPerm('timeentry','add')||hasPerm('timeentry','edit')); }
 // 'paid' | 'unpaid' | '' for a date, with its name.
 function teHolKind(dt){
   const p=(db.holidays||[]).find(h=>h.date===dt); if(p) return {kind:'paid', name:p.name||''};
@@ -924,13 +926,13 @@ function teHolSave(dt){
     return;
   }
   const cur=teHolKind(dt);
-  if(cur.kind && !kind && !hasPerm('timeentry','delete')){ alert('You do not have permission to remove a holiday.'); return; }
+  if(cur.kind && !kind && !hasPerm(teHostPage==='attendance'?'attendance':'timeentry','delete')){ alert('You do not have permission to remove a holiday.'); return; }
   db.holidays=(db.holidays||[]).filter(h=>h.date!==dt);
   db.timeHolidays=(db.timeHolidays||[]).filter(h=>h.date!==dt);
   if(kind==='paid') db.holidays.push({date:dt, type:'NOPH', name});
   if(kind==='unpaid') db.timeHolidays.push({date:dt, remarks:name});
   db.holidays.sort((a,b)=>a.date.localeCompare(b.date));
-  teEditTouch(); closeModal(); render('timeentry'); // used by Attendance / Payroll after Save
+  teEditTouch(); closeModal(); render(teHostPage); // used by Attendance / Payroll after Save
 }
 function renderTEHolidayTab(){
   const allowed=teHolCanEdit(), canEdit=allowed && teEditActive('holidays');
