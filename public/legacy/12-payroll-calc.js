@@ -177,7 +177,7 @@ function computePayrollForEmployee(e, ym){
     if(isSunday(ym,d) || !isEmpOnRollOn(e, ds)) continue;
     if(monthly){
       const sp=dailyWageSplit(w);
-      if(getHolidayType(ds)==='NOPH'){ noph++; basicSum+=sp.basic; hraSum+=sp.hra; paidDays+=1; }
+      if(getHolidayType(ds)==='NOPH' || contractorLeaveOn(e.contractor, ds)){ noph++; basicSum+=sp.basic; hraSum+=sp.hra; paidDays+=1; }
       else if(!isUnpaidHolidayDate(ds)){ workDays++; workBasic+=sp.basic; workHra+=sp.hra; }
       continue;
     }
