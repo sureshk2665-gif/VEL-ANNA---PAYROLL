@@ -16,24 +16,27 @@ function adjFor(ym, code){
   const a=db.payrollAdjustments && db.payrollAdjustments[ym] && db.payrollAdjustments[ym][code];
   return a ? {...ADJ_DEFAULTS, ...a} : {...ADJ_DEFAULTS};
 }
-/* ---- Monthly attendance (the Attendance screen) ----
-   From the cut-over month db.monthlyAttFrom on, attendance is entered once a month for each employee
-   (db.payrollAdjustments[ym][code]): lopDays, halfDays, lateMinutes, otHours, canteenTokens and the
-   one-off allowance / deduction. Every working day on the roll counts as Present unless entered as
-   LOP or Half Day. Months before the cut-over keep their day-by-day attendance (Attendance marks and
-   Employee Time Entry) and are worked out exactly as before. Without a cut-over (data from before
-   this feature, until it is first loaded — ensureMonthlyAttendance) every month is day-by-day. */
-function attIsMonthly(ym){ return !!(db && db.monthlyAttFrom) && !!ym && ym>=db.monthlyAttFrom; }
+/* ---- How a month's attendance was entered ----
+   Day by day (the Attendance screen: one employee, every date, In / Out times, LOP / Half Day
+   marks — db.timeEntries / db.timeLeaves): Present, LOP, Half Days, Late and OT all come from the
+   days. This is how every month is entered, from db.dayAttFrom on (attIsDaily) and before it (the
+   former Employee Time Entry — worked out exactly as then).
+   Month totals (attIsMonthly): a month whose figures were typed as totals for the month on the
+   short-lived monthly screen (db.monthlyAttMonths) — db.payrollAdjustments[ym][code]: lopDays,
+   halfDays, lateMinutes, otHours. Every working day on the roll counts as Present unless entered as
+   LOP or Half Day. Such a month stays as typed until it is switched to day-by-day entry. */
+function attIsMonthly(ym){ return !!ym && !!db && Array.isArray(db.monthlyAttMonths) && db.monthlyAttMonths.includes(ym); }
+function attIsDaily(ym){ return !!ym && !!db && !!db.dayAttFrom && ym>=db.dayAttFrom && !attIsMonthly(ym); }
 // A booked "holiday without pay" (Holiday Calendar): not a working day and not paid.
 function isUnpaidHolidayDate(ds){ return (db.timeHolidays||[]).some(h=>h.date===ds); }
-// Canteen tokens for an employee in a month: the month's own figure if one was entered (Attendance,
-// or Employee Time Entry → Monthly Token Entry before), otherwise — in a day-by-day month only — the
-// employee's usual monthly count stored on the employee record. A monthly-entry month uses only the
-// figure entered for it (none = 0).
+// Canteen tokens for an employee in a month: the month's own figure entered on Attendance (or
+// Employee Time Entry → Monthly Token Entry before). Months before db.dayAttFrom without one fall back
+// to the employee's usual monthly count stored on the employee record; later months use only the
+// figure entered (none = 0).
 function canteenTokensFor(e, ym){
   const adj=adjFor(ym, e.code);
   if(adj.canteenTokens!==undefined && adj.canteenTokens!==null) return +adj.canteenTokens||0;
-  return attIsMonthly(ym) ? 0 : (+e.canteenTokens||0);
+  return attIsMonthly(ym) || attIsDaily(ym) ? 0 : (+e.canteenTokens||0);
 }
 /* ---- Rates for a month ----
    PF / ESI rates, the canteen token price and the late grace are copied into

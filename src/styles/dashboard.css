@@ -167,3 +167,5 @@ table.dashTable td:first-child{max-width:220px;overflow:hidden;text-overflow:ell
 }
 
 } /* @media screen */
+.dashList2 li.dashClick{cursor:pointer;border-radius:6px;}
+.dashList2 li.dashClick:hover{background:var(--hl-soft,var(--raised));}

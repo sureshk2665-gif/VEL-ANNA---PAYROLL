@@ -72,3 +72,47 @@ tr.attMRow.attOver td{background:color-mix(in srgb, var(--negative) 6%, var(--su
 .attUnsetTag{display:inline-block;margin-left:10px !important;padding:1px 8px;border-radius:999px;background:color-mix(in srgb, var(--negative) 12%, var(--surface));color:var(--negative) !important;font-size:11.5px;font-weight:600;}
 .teStatBox b small{font-size:12px;font-weight:500;color:var(--muted);}
 }
+
+/* ---- Employee Attendance (10-attendance.js): one employee, every date of the month ---- */
+.attEmpCard{display:flex;align-items:baseline;justify-content:space-between;gap:4px 16px;flex-wrap:wrap;margin:12px 0 0;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius-card);background:var(--raised);}
+.attEmpName b{font-size:15px;font-weight:600;color:var(--text);}
+.attEmpName span{margin-left:6px;font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;}
+.attEmpMeta{font-size:12.5px;color:var(--muted);}
+.attMBoxes{display:flex;align-items:center;gap:8px 18px;flex-wrap:wrap;margin:10px 0 0;}
+.attMBox{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--muted);}
+.attMBox input.attIn{width:84px;}
+.attLockNote{font-size:13px;color:var(--muted);}
+.attLockNote svg{width:13px;height:13px;vertical-align:-2px;}
+/* The bar for ticked days: Fill with a shift, Mark LOP / Half Day, Clear */
+.attActBar{margin:10px 0 0;padding:8px 10px;border:1px solid color-mix(in srgb, var(--hl) 45%, var(--border));border-radius:var(--radius-card);background:var(--hl-soft);}
+.attActRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+.attActRow .btn{height:var(--control-height);padding:0 12px;font-size:13px;}
+.attActRow select{height:var(--control-height);max-width:330px;padding:0 8px;border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.attSelInfo{min-width:92px;font-size:13px;color:var(--hl-ink);}
+.attSelInfo b{font-weight:700;}
+.attActSep{width:1px;align-self:stretch;margin:2px 4px;background:color-mix(in srgb, var(--hl) 35%, var(--border));}
+.attActRow .btn.attLopBtn{background:var(--negative,#c4242a);border-color:var(--negative,#c4242a);color:#fff;}
+.attActNote{margin:6px 2px 0;font-size:12.5px;color:var(--muted);}
+.attActNote.ok{color:var(--hl-ink);font-weight:500;}
+/* The days */
+.teEwWrap table.attDayGrid{min-width:820px;}
+table.attDayGrid td.attChk,table.attDayGrid th.attChk{width:34px;padding-left:8px;padding-right:2px;}
+table.attDayGrid td.attChk input,table.attDayGrid th.attChk input{width:16px;height:16px;accent-color:var(--hl);cursor:pointer;}
+table.attDayGrid td.attDate{font-weight:600;font-variant-numeric:tabular-nums;cursor:default;}
+table.attDayGrid td.attDow{color:var(--muted);}
+table.attDayGrid td.attSt{text-align:left;}
+table.attDayGrid tr.sel td{background:color-mix(in srgb, var(--hl) 16%, var(--surface)) !important;}
+table.attDayGrid tr.sel td.attDate{box-shadow:inset 3px 0 0 var(--hl);}
+table.attDayGrid input.attFig{width:62px;height:28px;}
+table.attDayGrid input.attFig.typed{color:var(--hl-ink);font-weight:700;border-color:var(--hl);background:var(--hl-soft);}
+table.attDayGrid input.attFig.typed:disabled{background:transparent;}
+table.attDayGrid tfoot td.attFootLbl{text-align:left;font-weight:600;}
+.attOffTag{color:var(--muted);font-size:12px;}
+.attOffTag small,.tag small{font-weight:400;opacity:.85;}
+/* Month Summary */
+table.attGrid tr.attSumRow{cursor:pointer;}
+table.attGrid tr.attSumRow:hover td{background:var(--hl-soft);}
+.attOk{display:inline-flex;align-items:center;gap:4px;color:var(--st-present-text,#15803d);font-size:12px;font-weight:600;}
+.attOk svg{width:13px;height:13px;}
+.attEpMiss{font-style:normal;color:var(--st-lop-text,#c4242a);font-weight:600;}
+@media (max-width:640px){ .attActRow select{max-width:100%;flex:1 1 100%;} }
