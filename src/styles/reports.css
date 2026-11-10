@@ -10,19 +10,8 @@
 @media screen {
 
 /* ---------- Report list ---------- */
-.repListBar{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding:8px 10px;}
-.repListBar .attTabsInline{display:flex;gap:6px;flex-wrap:wrap;}
-.repListBar .attTab,.repTop .attTab{height:var(--control-height);padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;}
-.repListBar .attTab svg{width:15px;height:15px;}
-.repTabCount{min-width:20px;padding:0 6px;border-radius:999px;background:var(--raised);color:var(--muted);font-size:11.5px;font-weight:600;line-height:18px;text-align:center;}
-.repListBar .attTab.active .repTabCount{background:var(--surface);color:var(--hl-ink,var(--text));}
-.repFind{margin-left:auto;}
-.repFind input{width:240px;}
+.repTop .attTab{height:var(--control-height);padding:0 12px;display:inline-flex;align-items:center;gap:6px;font-size:13px;}
 .repCatPanel h3{display:flex;align-items:center;gap:8px;}
-.repCatCount{font-size:12px;font-weight:500;color:var(--muted);}
-.repCatPanel[hidden],.reportCard[hidden],.repNoMatch[hidden]{display:none !important;}
-.repNoMatch{display:flex;align-items:center;justify-content:center;gap:8px;padding:28px;}
-.repNoMatch svg{width:18px;height:18px;}
 
 .reportGrid{grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;}
 .reportCard{min-height:0;padding:12px 14px;gap:12px;align-items:flex-start;cursor:pointer;}
@@ -86,3 +75,7 @@
 .repSvcHead > span{font-size:12.5px;color:var(--muted);}
 .repSvcHead > span b{color:var(--text);font-weight:600;}
 }
+
+/* The choice inside a report (Group by / By / Period / Rate / Show) — reports that used to be separate cards */
+.repVariants{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--rule,var(--border));}
+.repVarLbl{margin-right:4px;font-size:12.5px;font-weight:600;color:var(--muted);}
