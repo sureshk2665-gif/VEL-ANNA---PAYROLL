@@ -372,7 +372,7 @@ function attendanceRegisterRows(ym){
     const e=db.employees.find(x=>x.code===r.code);
     return {Code:r.code, Name:(e&&e.name)||r.name||'-', Unit:unitLabel(e?e.unit:r.unit), Contractor:contractorName(e?(e.contractor||''):(r.contractor||''))||'-',
       NOWD:n(r.nowd), WeekOff:payWeekOff(r, ym), Present:payPresentDays(r), HalfDay:n(r.halfDayCount), LOP:n(r.lopDays), NOPH:n(r.holidayDays), NotMarked:n(r.unmarkedDays), PaidDays:n(r.daysWorking),
-      OTHrs:n(r.otHours), OTAmount:n(r.otAmount), LateMin:n(r.lateMinutes), LateChargedMin:n(r.lateChargedMinutes), LateAmount:n(r.lateDeduction),
+      OTHrs:n(r.otHours), OTAmount:n(r.otAmount), LateMin:n(r.lateMinutes), LateOffOT:n(r.lateOtMinutes), LateChargedMin:n(r.lateChargedMinutes), LateAmount:n(r.lateDeduction),
       CanteenTokens:n(r.canteenTokens), CanteenAmount:n(r.canteen), AdvanceAmount:n(r.advance)};
   });
 }

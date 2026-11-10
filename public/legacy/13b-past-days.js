@@ -112,6 +112,7 @@ function teCompute(entry, dateForRow, code){
 // the day has a time entry, and the day is not Loss of Pay (a Time Entry leave or a mark on the
 // Attendance screen). Sundays and holidays count their whole time as OT (teCompute).
 function teMonthDays(code, ym){
+  if(attIsSimple(ym)) return attFigDays(code, ym); // entered as Late / OT figures per day (10-attendance.js)
   const emp=(db.employees||[]).find(e=>e.code===code);
   const out=[], dim=daysInMonth(ym);
   for(let d=1; d<=dim; d++){

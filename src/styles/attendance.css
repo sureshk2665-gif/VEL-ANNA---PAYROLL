@@ -133,3 +133,17 @@ table.clvGrid tr.hol td{background:var(--st-noph-bg);}
 input.clvReason{box-sizing:border-box;width:180px;height:28px;padding:0 8px;border:1px solid var(--control);border-radius:6px;background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;}
 input.clvReason:focus{outline:none;border-color:var(--hl);box-shadow:var(--focus);}
 input.clvReason:disabled{border-color:transparent;background:transparent;color:var(--text);}
+
+/* ---- A day's Present / LOP / Half Day buttons (no shifts, no times) ---- */
+.attStBtns{display:inline-flex;border:1px solid var(--control);border-radius:7px;overflow:hidden;vertical-align:middle;}
+.attStB{min-width:38px;height:26px;padding:0 9px;border:0;background:var(--surface);color:var(--muted);font:inherit;font-size:12px;font-weight:600;cursor:pointer;}
+.attStB + .attStB{border-left:1px solid var(--control);}
+.attStB:hover{background:var(--raised);color:var(--text);}
+.attStB.p.on{background:var(--st-present-bg,#e7f6ec);color:var(--st-present-text,#15803d);}
+.attStB.l.on{background:var(--negative,#c4242a);color:#fff;}
+.attStB.h.on{background:var(--st-half-bg,#fff4e0);color:var(--st-half-text,#b45309);}
+table.attDayGrid td.attSt{white-space:nowrap;}
+.teEwWrap table.attDayGrid{min-width:560px;}
+.attFootOt{color:var(--hl-ink);font-weight:600;}
+.teStatBox span small{font-weight:400;opacity:.8;}
+table.attDayGrid input.attFig:disabled{border-color:transparent !important;background:transparent !important;}

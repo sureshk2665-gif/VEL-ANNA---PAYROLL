@@ -1,22 +1,24 @@
 /* ================= ATTENDANCE — one employee at a time, every date of the month =================
    Made for entering a whole month quickly, employee by employee:
      1. pick the employee (type a code or name; ‹ › for the previous / next one);
-     2. every date of the month is a row, like a sheet — Sundays and holidays are marked;
-     3. tick days (Shift+click ticks a range), choose a shift (General, First, Second, + OT, + Extra
-        OT) and click Fill: those days get the shift's In / Out times. A person on First and Second
-        shift by turns: tick one set of days, fill First; tick the others, fill Second;
-     4. tick days and click Mark LOP or Mark Half Day (Clear puts a day back to "Needs entry");
-     5. change any In / Out time; Late (minutes) and OT (hours) are worked out from the times and the
-        day's shift, and a figure typed in either box replaces the worked-out one for that day;
-     6. canteen tokens and any one-off allowance / deduction for the month, then Save & next.
+     2. every date of the month is a row, like a sheet — Sundays, holidays and the contractor's paid
+        leave are marked;
+     3. tick days (Shift+click ticks a range, Working days ticks them all) and Mark Present / LOP /
+        Half Day — or click a day's own P / LOP / ½ (or press P, L, H in its boxes);
+     4. type Late minutes and OT hours on the days they happened (OT also on a Sunday or holiday worked);
+     5. canteen tokens and any one-off allowance / deduction for the month, then Save & next.
+   No shifts and no In / Out times: whatever shift was worked, the day is Present.
    Payroll, salary slips, reports, the Contractors Bill and the Dashboard all work from these days
-   (getAttStatus, teMonthDays): Present = days with an In time, LOP / Half Day = days marked, Paid
-   Days = Present + Half Days × ½ + NOPH. A working day up to today with nothing entered is not paid.
+   (getAttStatus, teMonthDays → attFigDays): Paid Days = Present + Half Days × ½ + paid holidays; a
+   working day up to today with nothing marked is not paid. Late beyond the month's free minutes is
+   taken off the OT hours first; what OT cannot cover is cut from salary (lateDeductionFor).
+   Months before db.simpleAttFrom were entered with In / Out times; they show read-only.
    Other tabs: Month Summary (every employee's month, by contractor, read-only — click a row to open
    that employee), Holidays (the Holiday Calendar) and Contractor Paid Leave (paid days off by date
    for one contractor's employees).
-   Data: db.timeEntries / db.timeLeaves (13b-past-days.js), and db.payrollAdjustments[ym][code] for
-   canteenTokens, otherAllowanceOneOff and otherDedOneOff. */
+   Data: db.attendance[date][code] (Present / LossOfPay / HalfDay), db.dayFigs[date][code] = {late,
+   ot} (minutes), and db.payrollAdjustments[ym][code] for canteenTokens, otherAllowanceOneOff and
+   otherDedOneOff. */
 /* ---- Date and holiday helpers (used by Payroll, Reports and the Dashboard) ---- */
 function daysInMonth(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m,0).getDate(); }
 // Sundays in the month — the weekly off.
@@ -61,8 +63,8 @@ function empPaidLeaveOn(code, ds){
 /* ---- One day's status ----
      1. a Holiday Calendar date counts as 'NOPH' for every employee, and a contractor's paid leave
         as 'NOPH' for that contractor's employees;
-     2. a mark made on the old daily Attendance screen;
-     3. otherwise the day entered on this screen (In / Out times, LOP / Half Day) — timeEntryAttStatus(). */
+     2. a mark made on this screen (Present / LossOfPay / HalfDay — db.attendance);
+     3. otherwise a day entered with In / Out times before db.simpleAttFrom — timeEntryAttStatus(). */
 function getAttStatus(date, code){
   const t=getHolidayType(date);
   if(t) return t;
@@ -114,6 +116,37 @@ function ensureDayAttendance(){
   db.dayAttFrom=from;
   delete db.monthlyAttFrom;
 }
+/* ---- Present / LOP / Half Day with Late and OT per day, from db.simpleAttFrom ----
+   Runs once when this version first loads: the current month becomes the first such month. Days of
+   it already entered with In / Out times keep what they gave: Present (or Half Day), and the Late
+   and OT worked out from the times become that day's figures; LOP / Half Day leave entries become
+   the day's mark. Earlier months stay exactly as they were. */
+function ensureSimpleAttendance(){
+  if(db.simpleAttFrom) return;
+  const from=monthKey(todayStr());
+  const emps=new Map((db.employees||[]).map(e=>[e.code, e]));
+  const mark=(dt, code, st)=>{ if(!db.attendance) db.attendance={}; if(!db.attendance[dt]) db.attendance[dt]={}; if(!db.attendance[dt][code]) db.attendance[dt][code]=st; };
+  Object.keys(db.timeEntries||{}).filter(dt=>dt.slice(0,7)>=from).forEach(dt=>{
+    Object.keys(db.timeEntries[dt]||{}).forEach(code=>{
+      const en=db.timeEntries[dt][code], lv=teGetLeave(dt, code);
+      const half=!!(lv && lv.type==='Half Day'), lop=!!(lv && !half);
+      if(!lop && attHasTime(en,'in')){
+        const e=emps.get(code), off=attDow(dt)===0 || !!attHolidayFor(e, dt);
+        if(!off) mark(dt, code, half?'HalfDay':'Present');
+        const c=teDayFigures(en, dt, code, half), f={};
+        if(c.late>0) f.late=Math.round(c.late); if(c.ot>0) f.ot=Math.round(c.ot);
+        if(Object.keys(f).length){ if(!db.dayFigs) db.dayFigs={}; if(!db.dayFigs[dt]) db.dayFigs[dt]={}; db.dayFigs[dt][code]=f; }
+      }
+      delete db.timeEntries[dt][code];
+    });
+    if(!Object.keys(db.timeEntries[dt]).length) delete db.timeEntries[dt];
+  });
+  if(Array.isArray(db.timeLeaves)){
+    db.timeLeaves.filter(l=>String(l.date).slice(0,7)>=from).forEach(l=>mark(l.date, l.empCode, l.type==='Half Day'?'HalfDay':'LossOfPay'));
+    db.timeLeaves=db.timeLeaves.filter(l=>String(l.date).slice(0,7)<from);
+  }
+  db.simpleAttFrom=from;
+}
 function attMonthName(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
 // A month typed as month totals → entered day by day from now on (its totals are dropped).
 function attMonthToDaily(ym){
@@ -135,13 +168,12 @@ let attUnitFilter='';        // '' = all units, or a unit code
 let attContractorFilter='';  // '' = all, or a contractor code ('-' = not set)
 let attEditMode=false;       // the days are locked until Edit (an Edit session — Save / Cancel)
 let attEmp='';               // the employee shown
-let attSel=new Set();        // the dates ticked for Fill / Mark
+let attSel=new Set();        // the dates ticked for Mark Present / LOP / Half Day / Clear
 let attSelAnchor='';         // the date ticked last (Shift+click ticks everything between)
-let attFillShift='general';  // the shift Fill uses
-let attActNote='';           // what the last Fill / Mark did
+let attActNote='';           // what the last Mark did
 
 function attCanEdit(){ return hasPerm('attendance','edit') || hasPerm('attendance','add'); }
-function attEditable(){ return attCanEdit() && attEditMode && !attIsMonthly(attMonth); }
+function attEditable(){ return attCanEdit() && attEditMode && attIsSimple(attMonth); }
 function attEsc(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 const attN=v=>Math.round((+v||0)*100)/100;
 const ATT_DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
@@ -188,16 +220,31 @@ function attMissingDays(e, ym){
 }
 function attEntry(dt, code){ return db.timeEntries && db.timeEntries[dt] && db.timeEntries[dt][code] || null; }
 function attHasTime(en, k){ return !!en && en[k+'H']!=='' && en[k+'H']!==undefined && en[k+'H']!==null; }
-function attFmtTime(en, k){ return attHasTime(en,k) ? String(en[k+'H']).padStart(2,'0')+':'+String(en[k+'M']===''||en[k+'M']===undefined?0:en[k+'M']).padStart(2,'0')+' '+(en[k+'AP']||'AM') : ''; }
-// Everything one row shows.
+// A day's Late minutes and OT minutes as entered on this screen (db.dayFigs[date][code] = {late, ot}).
+function attFig(dt, code){ return db.dayFigs && db.dayFigs[dt] && db.dayFigs[dt][code] || null; }
+// The days with Late / OT in a month, as Payroll counts them (teMonthDays, 13b-past-days.js): on the
+// roll and not LOP.
+function attFigDays(code, ym){
+  const F=db.dayFigs||{}, emp=(db.employees||[]).find(e=>e.code===code), out=[];
+  for(const ds of attMonthDates(ym)){
+    const f=F[ds] && F[ds][code]; if(!f) continue;
+    if(emp && !isEmpOnRollOn(emp, ds)) continue;
+    if(getAttStatus(ds, code)==='LossOfPay') continue;
+    const late=Math.max(0, Math.round(+f.late||0)), ot=Math.max(0, Math.round(+f.ot||0));
+    if(late || ot) out.push({date:ds, c:{late, ot, working:0}});
+  }
+  return out;
+}
+// Everything one row shows. Months before db.simpleAttFrom were entered with In / Out times: their
+// Late and OT are worked out from the times (read-only here).
 function attDay(e, dt){
-  const code=e.code, entry=attEntry(dt, code), dow=attDow(dt), hol=attHolidayFor(e, dt), onRoll=isEmpOnRollOn(e, dt);
+  const code=e.code, dow=attDow(dt), hol=attHolidayFor(e, dt), onRoll=isEmpOnRollOn(e, dt);
   const st=onRoll ? getAttStatus(dt, code) : '';
-  const lop=st==='LossOfPay', half=st==='HalfDay';
-  const hasIn=attHasTime(entry,'in'), hasOut=attHasTime(entry,'out');
   const off=dow===0 || !!hol;
-  const c=onRoll && hasIn && !lop ? teDayFigures(entry, dt, code, half) : null;
-  return {dt, dow, hol, onRoll, st, lop, half, entry, hasIn, hasOut, off, c,
+  let late=0, ot=0;
+  if(attIsSimple(dt.slice(0,7))){ const f=attFig(dt, code); if(f && st!=='LossOfPay'){ late=Math.round(+f.late||0); ot=Math.round(+f.ot||0); } }
+  else if(onRoll && st!=='LossOfPay'){ const en=attEntry(dt, code); if(attHasTime(en,'in')){ const c=teDayFigures(en, dt, code, st==='HalfDay'); late=c.late; ot=c.ot; } }
+  return {dt, dow, hol, onRoll, st, off, late, ot, lop:st==='LossOfPay', half:st==='HalfDay', present:st==='Present',
     missing: onRoll && !off && !st && dt<=todayStr(), future: dt>todayStr()};
 }
 
@@ -241,65 +288,57 @@ function attMonthBarHtml(){
     ${attMonth!==thisM?`<button class="btn secondary" onclick="attSetMonth('${thisM}')">This month</button>`:''}`;
 }
 function attEditButtonsHtml(withNext){
-  if(!attCanEdit() || attIsMonthly(attMonth)) return '';
+  if(!attCanEdit() || !attIsSimple(attMonth)) return '';
   return attEditMode
     ? `<button class="btn secondary" onclick="attCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn ${withNext?'secondary':''}" onclick="attSave()">${ico('save')} Save</button>${withNext?`<button class="btn" onclick="attSaveNext()" title="Save, then open the next employee">${ico('save')} Save &amp; next ›</button>`:''}`
     : `<button class="btn btnEditAtt" onclick="attEdit()">${ico('pencil')} Edit</button>`;
 }
 
 /* ---- Employee Attendance tab ---- */
-function attStatusHtml(x){
+function attOffText(x){
+  if(x.dow===0) return 'Sunday';
+  if(!x.hol) return '';
+  if(x.hol.kind==='cleave') return 'Paid leave'+(x.hol.name?' · '+x.hol.name:'');
+  return x.hol.name+(x.hol.kind==='paid'?' · paid holiday':' · no pay');
+}
+function attStatusHtml(x, editable){
   if(!x.onRoll) return `<span class="teEwMuted">Not on roll</span>`;
-  const worked=x.hasIn ? ` <small>· worked (OT)</small>` : '';
-  if(x.st==='NOPH' && x.hol && x.hol.kind==='cleave') return `<span class="tag NOPH" title="Paid leave for this contractor's employees (Contractor Paid Leave tab)">Paid leave${x.hol.name?' · '+attEsc(x.hol.name):''}${worked}</span>`;
-  if(x.st==='NOPH') return `<span class="tag NOPH">${attEsc(x.hol?x.hol.name:'Paid holiday')} <small>· paid</small>${worked}</span>`;
+  if(x.off) return `<span class="${x.st==='NOPH'?'tag NOPH':'attOffTag'}">${attEsc(attOffText(x))}</span>`;
+  if(editable){
+    const b=(st, cls, label, title)=>`<button type="button" tabindex="-1" class="attStB ${cls} ${x.st===st?'on':''}" title="${title}${x.st===st?' — click again to clear':''}" onclick="attSetDay('${x.dt}','${st}')">${label}</button>`;
+    return `<span class="attStBtns">${b('Present','p','P','Present')}${b('LossOfPay','l','LOP','Loss of Pay')}${b('HalfDay','h','½','Half Day (paid ½)')}</span>${x.missing?' <span class="teEwMissing">Needs entry</span>':''}`;
+  }
   if(x.lop) return `<span class="tag LossOfPay">LOP</span>`;
   if(x.half) return `<span class="tag HalfDay">Half Day</span>`;
-  if(x.dow===0) return `<span class="attOffTag">Sunday${worked}</span>`;
-  if(x.hol) return `<span class="tag teEwHolTag">${attEsc(x.hol.name)} <small>· no pay</small>${worked}</span>`;
-  if(x.hasIn) return x.hasOut ? `<span class="tag Present">Present</span>` : `<span class="tag HalfDay" title="Type the Out time">Out time missing</span>`;
-  if(x.st==='Present') return `<span class="tag Present">Present</span>`;
+  if(x.present) return `<span class="tag Present">Present</span>`;
   if(x.future) return `<span class="teEwMuted">–</span>`;
   return `<span class="teEwMissing">Needs entry</span>`;
 }
-function attShiftText(x){
-  const own=x.entry && x.entry.shift ? teShiftByKey(x.entry.shift) : null;
-  if(own) return attEsc(own.label.replace(' Shift',''));
-  return x.c && x.c.shift ? `<span class="teEwMuted" title="Shift worked out from the In time">${attEsc(x.c.shift.name.replace(' Shift',''))}</span>` : '<span class="teEwMuted">–</span>';
-}
-function attFigVal(x, k){
-  if(!x.c) return '';
-  if(k==='late') return x.c.lateTyped || x.c.late ? String(Math.round(x.c.late)) : '';
-  return x.c.otTyped || x.c.ot ? String(attN(x.c.ot/60)) : '';
-}
+function attFigVal(x, k){ return k==='late' ? (x.late ? String(x.late) : '') : (x.ot ? String(attN(x.ot/60)) : ''); }
 function attRowHtml(e, x, i, editable){
-  const dis=!editable || !x.onRoll || x.lop;
-  const time=(k, c)=>`<td class="${k==='in'?'teEwInCell':'teEwOutCell'}"><input class="teEwTime ${k} attT" data-r="${i}" data-c="${c}" data-k="${k}" value="${attFmtTime(x.entry,k)}" ${dis?'disabled':''}
-      placeholder="${editable&&!dis?'hh:mm':''}" autocomplete="off" spellcheck="false" aria-label="${k==='in'?'In':'Out'} time ${fmtDate(x.dt)}"
-      onfocus="this.select()" onkeydown="attKey(event,this)" onblur="attCommit(this)"></td>`;
-  const fig=(k, c)=>{ const typed=x.c && (k==='late'?x.c.lateTyped:x.c.otTyped);
-    return `<td><input class="attIn attFig ${typed?'typed':''}" data-r="${i}" data-c="${c}" data-k="${k}" value="${attFigVal(x,k)}" ${dis||!x.c?'disabled':''}
-      placeholder="${x.c&&!dis?'0':''}" inputmode="decimal" autocomplete="off" spellcheck="false"
-      title="${k==='late'?'Late minutes this day':'OT hours this day'} — worked out from the times${typed?'; typed for this day (clear the box to work it out again)':'; type a figure to change it'}"
+  const box=(k, c)=>{
+    const on=editable && x.onRoll && !x.lop && !(k==='late' && x.off);
+    return `<td><input class="attIn attFig" data-r="${i}" data-c="${c}" data-k="${k}" value="${attFigVal(x,k)}" ${on?'':'disabled'} placeholder="${on?'0':''}"
+      inputmode="decimal" autocomplete="off" spellcheck="false" title="${k==='late'?'Late minutes this day':'OT hours this day'+(x.off?' (worked on a day off)':'')}"
       aria-label="${k==='late'?'Late minutes':'OT hours'} ${fmtDate(x.dt)}" onfocus="this.select()" onkeydown="attKey(event,this)" onblur="attCommit(this)"></td>`; };
   const sel=attSel.has(x.dt);
   const cls=['attDRow', x.dow===0?'sun':'', x.hol?'hol':'', x.lop?'onLeave':'', x.missing?'missing':'', sel?'sel':'', x.dt===todayStr()?'today':''].filter(Boolean).join(' ');
   return `<tr class="${cls}" data-r="${i}" data-dt="${x.dt}">
-    <td class="attChk"><input type="checkbox" tabindex="-1" ${sel?'checked':''} ${editable&&x.onRoll?'':'disabled'} onclick="attTick(event,'${x.dt}')" aria-label="Tick ${fmtDate(x.dt)}"></td>
+    <td class="attChk"><input type="checkbox" tabindex="-1" ${sel?'checked':''} ${editable&&x.onRoll&&!x.off?'':'disabled'} onclick="attTick(event,'${x.dt}')" aria-label="Tick ${fmtDate(x.dt)}"></td>
     <td class="attDate" onclick="attTickDate(event,'${x.dt}')" title="${fmtDate(x.dt)}">${attShortDate(x.dt)}</td><td class="attDow">${ATT_DOW[x.dow]}</td>
-    <td class="attSt" data-k="status">${attStatusHtml(x)}</td>
-    <td data-k="shift">${attShiftText(x)}</td>
-    ${time('in',0)}${time('out',1)}${fig('late',2)}${fig('ot',3)}
+    <td class="attSt" data-k="status">${attStatusHtml(x, editable)}</td>
+    ${box('late',0)}${box('ot',1)}
   </tr>`;
 }
 // The month for the employee as Payroll counts it.
 function attEmpStatsHtml(e, r, missing){
+  const fromOt=+r.lateOtMinutes||0;
   return `<div class="teStatBox"><b>${payPresentDays(r)}</b><span>Present days</span></div>
     <div class="teStatBox"><b>${attN(r.lopMarked)}</b><span>LOP days</span></div>
     <div class="teStatBox"><b>${attN(r.halfDayCount)}</b><span>Half days</span></div>
     <div class="teStatBox ${missing?'warn':''}"><b>${missing}</b><span>Days to enter</span></div>
     <div class="teStatBox"><b>${attN(r.lateMinutes)}</b><span>Late minutes</span></div>
-    <div class="teStatBox"><b>${attN(r.otHours)}</b><span>OT hours</span></div>
+    <div class="teStatBox" title="${fromOt?`OT worked ${attN(r.otHoursWorked)} h − Late beyond the free ${r.lateGraceMinutes} min (${fromOt} min)`:'OT hours paid'}"><b>${attN(r.otHours)}</b><span>OT hours paid${fromOt?` <small>(${attN(r.otHoursWorked)} − late)</small>`:''}</span></div>
     <div class="teStatBox"><b>${attN(r.daysWorking)}</b><span>Paid days</span></div>
     <div class="teStatBox"><b>${fmt(r.netSalary)}</b><span>Net pay</span></div>`;
 }
@@ -310,11 +349,10 @@ const ATT_MONTH_BOXES=[
 ];
 function attMonthBoxesHtml(e, r, editable){
   const val=k=>{ const v=k==='canteenTokens' ? r.canteenTokens : k==='otherAllowanceOneOff' ? r.otherAllowance : r.otherDed; return +v ? attN(v) : ''; };
-  return ATT_MONTH_BOXES.map((b,i)=>`<label class="attMBox" title="${attEsc(b.title)}"><span>${b.h}</span>
+  return ATT_MONTH_BOXES.map(b=>`<label class="attMBox" title="${attEsc(b.title)}"><span>${b.h}</span>
     <input class="attIn" data-mk="${b.k}" value="${val(b.k)}" ${editable?'':'disabled'} placeholder="0" inputmode="decimal" autocomplete="off" onfocus="this.select()" onchange="attMonthBox(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}"></label>`).join('');
 }
 function attActionBarHtml(){
-  const presets=teShiftPresets(); if(!presets.some(p=>p.key===attFillShift)) attFillShift=(presets[0]||{}).key||'';
   const n=attSel.size;
   return `<div class="attActBar">
     <div class="attActRow">
@@ -322,19 +360,18 @@ function attActionBarHtml(){
       <button type="button" class="btn secondary" onclick="attTickWorking()" title="Tick every working day of the month (not Sundays or holidays)">${ico('check')} Working days</button>
       <button type="button" class="btn secondary" onclick="attTickNone()">Untick</button>
       <span class="attActSep"></span>
-      <select id="attFillShift" onchange="attFillShift=this.value" aria-label="Shift to fill">${presets.map(p=>`<option value="${attEsc(p.key)}" ${p.key===attFillShift?'selected':''}>${attEsc(p.label)} · ${teMinLabel(p.inMin)} – ${teMinLabel(p.outMin)}</option>`).join('')}</select>
-      <button type="button" class="btn" onclick="attFill()" title="Put this shift's In / Out times on the ticked days">${ico('zap')} Fill</button>
-      <span class="attActSep"></span>
-      <button type="button" class="btn attLopBtn" onclick="attMark('Loss of Pay')">Mark LOP</button>
-      <button type="button" class="btn secondary" onclick="attMark('Half Day')">Mark Half Day</button>
-      <button type="button" class="btn secondary" onclick="attMark('')" title="Remove times and LOP / Half Day from the ticked days">${ico('x')} Clear</button>
+      <button type="button" class="btn" onclick="attMarkDays('Present')">Mark Present</button>
+      <button type="button" class="btn attLopBtn" onclick="attMarkDays('LossOfPay')">Mark LOP</button>
+      <button type="button" class="btn secondary" onclick="attMarkDays('HalfDay')">Mark Half Day</button>
+      <button type="button" class="btn secondary" onclick="attMarkDays('')" title="Back to Needs entry (Late and OT removed too)">${ico('x')} Clear</button>
     </div>
-    <p class="attActNote ${attActNote?'ok':''}" id="attActNote">${attActNote?attEsc(attActNote):'Tick days (Shift+click ticks a range), then Fill with a shift, or Mark LOP / Half Day. Change any time in the boxes; Late and OT are worked out — type in them to change a day\'s figure.'}</p>
+    <p class="attActNote ${attActNote?'ok':''}" id="attActNote">${attActNote?attEsc(attActNote):'Tick days (Shift+click ticks a range) and mark them — e.g. Working days → Mark Present. Change one day with its P / LOP / ½ buttons, or press P, L or H in its boxes. Type Late minutes and OT hours on the days they happened (blank = 0).'}</p>
   </div>`;
 }
 function renderAttEntry(){
-  const ym=attMonth, monthly=attIsMonthly(ym), emps=attEmployees(), all=payrollEmployeesFor(ym).length;
+  const ym=attMonth, monthly=attIsMonthly(ym), simple=attIsSimple(ym), emps=attEmployees(), all=payrollEmployeesFor(ym).length;
   if(!emps.some(e=>e.code===attEmp)) attEmp=emps.length ? emps[0].code : '';
+  if(attEditMode && !simple) attEditMode=false;
   const e=emps.find(x=>x.code===attEmp), editable=attEditable();
   const top=`<div class="teDwTop teBar attTop">
       <div class="teDwGroup">
@@ -367,25 +404,26 @@ function renderAttEntry(){
   const days=attMonthDates(ym).map(dt=>attDay(e, dt));
   setTimeout(()=>{ teFitGridBox('attDayGrid'); }, 0);
   return `<div class="panel attPanel">${top}${head}
+    ${simple?'':`<p class="attNote attNoteOld"><b>${attEsc(attMonthName(ym))}</b> was entered with In / Out times — shown read-only, with the Late and OT worked out from the times.</p>`}
     <div class="teStatRow" id="attStats">${attEmpStatsHtml(e, r, missing)}</div>
     <div class="attMBoxes">${attMonthBoxesHtml(e, r, editable)}
-      ${!attCanEdit()?'':editable?'':`<span class="attLockNote">${ico('pencil')} Click <b>Edit</b> to enter ${attEsc(e.name)}'s attendance.</span>`}</div>
+      ${!attCanEdit()||!simple?'':editable?'':`<span class="attLockNote">${ico('pencil')} Click <b>Edit</b> to enter ${attEsc(e.name)}'s attendance.</span>`}</div>
     ${editable?attActionBarHtml():''}
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attDayGrid" id="attDayGrid" data-emp="${attEsc(e.code)}">
       <thead><tr>
         <th class="attChk"><input type="checkbox" tabindex="-1" ${editable?'':'disabled'} ${attSel.size&&days.filter(x=>x.onRoll&&!x.off).every(x=>attSel.has(x.dt))?'checked':''} onclick="this.checked?attTickWorking():attTickNone()" title="Tick every working day" aria-label="Tick every working day"></th>
-        <th>Date</th><th>Day</th><th>Status</th><th>Shift</th>
-        <th class="teEwInHead">In time</th><th class="teEwOutHead">Out time</th><th title="Minutes late in + minutes left early">Late (min)</th><th title="Time after the shift end (whole time on Sundays and holidays)">OT (hrs)</th>
+        <th>Date</th><th>Day</th><th>Present / LOP / Half Day</th><th>Late (min)</th><th title="On Sundays and holidays, type the hours worked">OT (hrs)</th>
       </tr></thead>
       <tbody>${days.map((x,i)=>attRowHtml(e, x, i, editable)).join('')}</tbody>
       <tfoot><tr id="attDayFoot">${attFootHtml(r, missing)}</tr></tfoot>
     </table></div>
-    <p class="syncNote">A working day up to today with nothing entered is not paid — every such day shows <b>Needs entry</b>. Paid holidays and the contractor's paid leave (Contractor Paid Leave tab) are paid without an entry. Late = minutes after the shift start + minutes left before the shift end; OT = time after the shift end (shift start + 8 hours + 30-minute break); on Sundays and holidays the whole time worked is OT. Half Days are paid ½ and have no Late. Payroll, salary slips, reports, the Contractors Bill and the Dashboard all use these days.</p>
+    <p class="syncNote">Paid Days = Present + Half Days × ½ + paid holidays. A working day up to today with nothing marked is not paid (<b>Needs entry</b>); paid holidays and the contractor's paid leave are paid without an entry. The first ${r.lateGraceMinutes} Late minutes of the month are free (Admin → Late Waiver); Late beyond them is taken off the month's OT hours, and only what OT cannot cover is cut from salary (Daily Wage ÷ 8 ÷ 60 a minute). Payroll, salary slips, reports, the Contractors Bill and the Dashboard all use these days.</p>
   </div>`;
 }
 function attFootHtml(r, missing){
-  return `<td colspan="5" class="attFootLbl">Month: ${payPresentDays(r)} present · ${attN(r.lopMarked)} LOP · ${attN(r.halfDayCount)} half day${missing?` · <span class="teEwMissing">${missing} to enter</span>`:''}</td>
-    <td colspan="2"></td><td>${attN(r.lateMinutes)}</td><td>${attN(r.otHours)}</td>`;
+  const fromOt=+r.lateOtMinutes||0;
+  return `<td colspan="4" class="attFootLbl">Month: ${payPresentDays(r)} present · ${attN(r.lopMarked)} LOP · ${attN(r.halfDayCount)} half day${missing?` · <span class="teEwMissing">${missing} to enter</span>`:''}${fromOt?` · <span class="attFootOt">${fromOt} late min taken off OT</span>`:''}</td>
+    <td>${attN(r.lateMinutes)}</td><td>${attN(r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours)}</td>`;
 }
 
 /* ---- Ticking days ---- */
@@ -398,19 +436,19 @@ function attSelRefresh(){
   const n=attSel.size, el=document.getElementById('attSelInfo');
   if(el) el.innerHTML=n?`<b>${n}</b> day${n===1?'':'s'} ticked`:'Tick days';
 }
-// Click ticks / unticks a day; Shift+click does the same to every day from the one ticked last.
+// Click ticks / unticks a day; Shift+click does the same to every working day from the one ticked last.
 function attTick(ev, dt){
   if(!attEditable()){ ev.preventDefault(); return; }
   const e=attCurEmp(), on=!attSel.has(dt);
-  const dates=attMonthDates(attMonth).filter(d=>!e || isEmpOnRollOn(e, d));
-  if(ev.shiftKey && attSelAnchor && dates.includes(attSelAnchor)){
+  const dates=attMonthDates(attMonth).filter(d=>!e || (isEmpOnRollOn(e, d) && attDow(d)!==0 && !attHolidayFor(e, d)));
+  if(ev.shiftKey && attSelAnchor && dates.includes(attSelAnchor) && dates.includes(dt)){
     const a=dates.indexOf(attSelAnchor), b=dates.indexOf(dt);
     dates.slice(Math.min(a,b), Math.max(a,b)+1).forEach(d=>{ if(on) attSel.add(d); else attSel.delete(d); });
   } else if(on) attSel.add(dt); else attSel.delete(dt);
   attSelAnchor=dt;
   attSelRefresh();
 }
-function attTickDate(ev, dt){ if(attEditable()) attTick(ev, dt); }
+function attTickDate(ev, dt){ if(attEditable()){ const cb=ev.currentTarget.parentElement.querySelector('td.attChk input'); if(cb && !cb.disabled) attTick(ev, dt); } }
 function attTickWorking(){
   if(!attEditable()) return;
   const e=attCurEmp(); if(!e) return;
@@ -419,66 +457,49 @@ function attTickWorking(){
 }
 function attTickNone(){ attSel.clear(); attSelAnchor=''; attSelRefresh(); }
 
-/* ---- Writing a day (db.timeEntries / db.timeLeaves) ---- */
-function attEnsureEntry(dt, code){
-  if(!db.timeEntries) db.timeEntries={};
-  if(!db.timeEntries[dt]) db.timeEntries[dt]={};
-  if(!db.timeEntries[dt][code]) db.timeEntries[dt][code]={inH:'',inM:'',inAP:'AM',outH:'',outM:'',outAP:'PM'};
-  return db.timeEntries[dt][code];
+/* ---- Writing a day: db.attendance[date][code] = 'Present' | 'LossOfPay' | 'HalfDay', and
+   db.dayFigs[date][code] = {late, ot} (minutes) ---- */
+function attSetMark(dt, code, st){
+  if(!db.attendance) db.attendance={};
+  if(st){ if(!db.attendance[dt]) db.attendance[dt]={}; db.attendance[dt][code]=st; }
+  else if(db.attendance[dt]) delete db.attendance[dt][code];
+  // anything left from entry with times on that day goes
+  if(db.timeEntries && db.timeEntries[dt]) delete db.timeEntries[dt][code];
+  if(Array.isArray(db.timeLeaves) && db.timeLeaves.some(l=>l.date===dt && l.empCode===code)) db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===dt && l.empCode===code));
 }
-// A mark from the old daily Attendance screen would hide what is entered here: it goes.
-function attClearOldMark(dt, code){ if(db.attendance && db.attendance[dt] && db.attendance[dt][code]!==undefined) delete db.attendance[dt][code]; }
-function attSetTime(en, k, v){ // v = {h,m,ap} or null
-  if(v){ en[k+'H']=String(v.h); en[k+'M']=String(v.m); en[k+'AP']=v.ap; }
-  else { en[k+'H']=''; en[k+'M']=''; en[k+'AP']=k==='in'?'AM':'PM'; }
+function attSetFig(dt, code, k, min){
+  if(!db.dayFigs) db.dayFigs={};
+  const cur=(db.dayFigs[dt] && db.dayFigs[dt][code]) || {};
+  const f={...cur, [k]:Math.max(0, Math.round(+min||0))};
+  if(!f.late) delete f.late; if(!f.ot) delete f.ot;
+  if(Object.keys(f).length){ if(!db.dayFigs[dt]) db.dayFigs[dt]={}; db.dayFigs[dt][code]=f; }
+  else if(db.dayFigs[dt]){ delete db.dayFigs[dt][code]; if(!Object.keys(db.dayFigs[dt]).length) delete db.dayFigs[dt]; }
 }
-function attSetLeave(dt, code, type){ // 'Loss of Pay' | 'Half Day' | '' (none)
-  if(!Array.isArray(db.timeLeaves)) db.timeLeaves=[];
-  const old=teGetLeave(dt, code);
-  db.timeLeaves=db.timeLeaves.filter(l=>!(l.date===dt && l.empCode===code));
-  if(type) db.timeLeaves.push({date:dt, empCode:code, type, remarks:old && old.remarks || ''});
-}
-// The ticked days for an action: working days on the roll, or — when only Sundays / holidays are
-// ticked — those (someone who worked on them).
-function attActionDays(e, allowOff){
-  const days=[...attSel].sort().map(dt=>attDay(e, dt)).filter(x=>x.onRoll);
-  const work=days.filter(x=>!x.off), off=days.filter(x=>x.off);
-  return allowOff && !work.length ? {use:off, skipped:0} : {use:work, skipped:off.length};
+function attClearFigs(dt, code){ if(db.dayFigs && db.dayFigs[dt]){ delete db.dayFigs[dt][code]; if(!Object.keys(db.dayFigs[dt]).length) delete db.dayFigs[dt]; } }
+// One day's P / LOP / ½ button (clicking the one already on clears the day).
+function attSetDay(dt, st){
+  if(!attEditable()) return;
+  const e=attCurEmp(); if(!e) return;
+  const x=attDay(e, dt); if(!x.onRoll || x.off) return;
+  const to = x.st===st ? '' : st;
+  attSetMark(dt, e.code, to);
+  if(to==='LossOfPay' || !to) attClearFigs(dt, e.code);
+  teEditTouch();
+  const tr=document.querySelector(`#attDayGrid tr.attDRow[data-dt="${dt}"]`);
+  if(tr){ attUpdateRow(+tr.dataset.r); attRefreshTotals(); }
 }
 function attDone(note){
   attSel.clear(); attSelAnchor=''; attActNote=note;
   teEditTouch(); render('attendance');
 }
-function attFill(){
-  if(!attEditable()) return;
-  const e=attCurEmp(), p=teShiftByKey(attFillShift);
-  if(!e) return; if(!p){ alert('Choose a shift.'); return; }
-  if(!attSel.size){ alert('Tick the days to fill first (Shift+click ticks a range, or use Working days).'); return; }
-  const {use, skipped}=attActionDays(e, true);
-  let n=0, kept=0;
-  use.forEach(x=>{
-    if(x.lop || x.half){ kept++; return; }
-    const en=attEnsureEntry(x.dt, e.code);
-    attSetTime(en, 'in', teMinToHMAP(p.inMin)); attSetTime(en, 'out', teMinToHMAP(p.outMin));
-    en.shift=p.key; delete en.lateOv; delete en.otOv;
-    attClearOldMark(x.dt, e.code); n++;
-  });
-  attDone([`${n} day${n===1?'':'s'} filled with ${p.label} (${teMinLabel(p.inMin)} – ${teMinLabel(p.outMin)})`,
-    kept?`${kept} LOP / Half Day kept (Clear them first to fill)`:'', skipped?`${skipped} Sunday / holiday skipped`:''].filter(Boolean).join(' · ')+'.');
-}
-function attMark(type){
+function attMarkDays(st){
   if(!attEditable()) return;
   const e=attCurEmp(); if(!e) return;
-  if(!attSel.size){ alert('Tick the days first.'); return; }
-  const {use, skipped}=attActionDays(e, !type);
-  use.forEach(x=>{
-    attClearOldMark(x.dt, e.code);
-    attSetLeave(x.dt, e.code, type);
-    const en=attEntry(x.dt, e.code);
-    if(en && type!=='Half Day'){ attSetTime(en,'in',null); attSetTime(en,'out',null); delete en.shift; delete en.lateOv; delete en.otOv; }
-  });
-  const what=type==='Loss of Pay'?'marked LOP':type==='Half Day'?'marked Half Day':'cleared';
-  attDone([`${use.length} day${use.length===1?'':'s'} ${what}`, skipped?`${skipped} Sunday / holiday skipped`:''].filter(Boolean).join(' · ')+'.');
+  if(!attSel.size){ alert('Tick the days first (Shift+click ticks a range, or use Working days).'); return; }
+  const days=[...attSel].sort().map(dt=>attDay(e, dt)).filter(x=>x.onRoll && !x.off);
+  days.forEach(x=>{ attSetMark(x.dt, e.code, st); if(st==='LossOfPay' || !st) attClearFigs(x.dt, e.code); });
+  const what={Present:'marked Present', LossOfPay:'marked LOP', HalfDay:'marked Half Day', '':'cleared'}[st];
+  attDone(`${days.length} day${days.length===1?'':'s'} ${what}.`);
 }
 function attMonthBox(inp){
   if(!attEditable()) return;
@@ -502,7 +523,7 @@ function attParseNum(raw, whole){
 /* ---- Edit / Save (an Edit session: nothing reaches the database or Payroll until Save) ---- */
 function attEdit(){
   if(!attCanEdit()){ alert('You do not have permission to edit attendance.'); return; }
-  if(attIsMonthly(attMonth)) return;
+  if(!attIsSimple(attMonth)) return;
   if(!teEditBegin('attendance')){ alert('Save or cancel the other edit first.'); return; }
   attEditMode=true; attActNote=''; render('attendance');
 }
@@ -519,94 +540,24 @@ function attSaveNext(){
   if(i>=emps.length-1) setTimeout(()=>alert('Saved. That was the last employee in the list.'), 0);
 }
 
-/* ---- Typing a time, or a day's Late / OT ----
-   Times: 9, 930, 0930, 9:30, 9.30, 1730, 17:30, 9:30a, 5:30 pm … An explicit a/p (or a 24-hour
-   value) always wins; otherwise In is read next to the day's shift (or the employee's last In time)
-   and Out as the reading that gives a sensible length after the In time. "=" copies the box above. */
-function attParseTime(raw){
-  const s=String(raw).toLowerCase().replace(/\s+/g,'');
-  const mt=s.match(/^(\d{1,4})(?:[:.](\d{1,2}))?(a|am|p|pm)?$/);
-  if(!mt) return null;
-  let h,m;
-  if(mt[2]!==undefined){ if(mt[1].length>2) return null; h=+mt[1]; m=+mt[2]; }
-  else{ const d=mt[1];
-    if(d.length<=2){ h=+d; m=0; } else if(d.length===3){ h=+d[0]; m=+d.slice(1); } else { h=+d.slice(0,2); m=+d.slice(2); } }
-  if(m>59||h>24) return null;
-  if(h===24) h=0;
-  const suf=mt[3]?mt[3][0]:'';
-  if(suf){ if(h===0) h=12; if(h>12) return null; return {h,m,ap:suf==='a'?'AM':'PM'}; }
-  if(h===0) return {h:12,m,ap:'AM'};
-  if(h>12) return {h:h-12,m,ap:'PM'};
-  return {h,m,ap:null};
-}
-function attResolveAP(p, kind, refMin, halfDay){
-  const cands=['AM','PM'].map(ap=>({ap,min:teTimeToMinutes(p.h,p.m,ap)}));
-  if(kind==='in'){
-    if(refMin===null||refMin===undefined) return (p.h>=6&&p.h<=11)?'AM':'PM';
-    const dist=x=>{ const d=Math.abs(x-refMin); return Math.min(d,1440-d); };
-    return dist(cands[0].min)<=dist(cands[1].min)?'AM':'PM';
-  }
-  if(refMin===null||refMin===undefined) return 'PM';
-  const target=halfDay?270:510, lo=halfDay?60:270, hi=1260;
-  const scored=cands.map(c=>({ap:c.ap, d:(c.min-refMin+1440)%1440}));
-  let pool=scored.filter(c=>c.d>=lo&&c.d<=hi); if(!pool.length) pool=scored;
-  pool.sort((a,b)=>Math.abs(a.d-target)-Math.abs(b.d-target));
-  return pool[0].ap;
-}
-// The In time to read a typed In against: the day's shift, else the employee's last In time.
-function attInRef(code, dt, en){
-  const own=en && en.shift ? teShiftByKey(en.shift) : null; if(own) return own.inMin;
-  for(let k=1;k<=14;k++){
-    const d=teEwShiftDate(dt,-k), x=attEntry(d, code);
-    if(attHasTime(x,'in')){ const v=teTimeToMinutes(x.inH,x.inM,x.inAP); if(v!==null) return v; }
-  }
-  return null;
-}
+/* ---- Typing a day's Late minutes / OT hours ---- */
 // Commits one box. false = it could not be read (the box stays, marked).
 function attCommit(inp){
   if(!inp || !inp.isConnected || inp.disabled || !attEditable()) return true;
   const grid=inp.closest('#attDayGrid'); if(!grid || grid.dataset.emp!==attEmp) return true;
   const e=attCurEmp(); if(!e) return true;
   const tr=inp.closest('tr'), dt=tr.dataset.dt, k=inp.dataset.k, x=attDay(e, dt);
-  const raw=inp.value.trim();
-  if(k==='in' || k==='out'){
-    const stored=attFmtTime(x.entry, k);
-    if(raw===stored){ inp.classList.remove('bad'); return true; }
-    let v=null;
-    if(raw==='='||raw==='"'){
-      for(let p=tr.previousElementSibling; p; p=p.previousElementSibling){
-        const pe=attEntry(p.dataset.dt, e.code); if(attHasTime(pe,k)){ v={h:+pe[k+'H'], m:+pe[k+'M']||0, ap:pe[k+'AP']}; break; }
-      }
-      if(!v){ inp.classList.add('bad'); inp.title='Nothing above to copy.'; return false; }
-    } else if(raw!==''){
-      const p=attParseTime(raw);
-      if(!p){ inp.classList.add('bad'); inp.title='Could not read this time. Try 930, 9:30, 5:30p or 17:30.'; return false; }
-      if(!p.ap){
-        const ref = k==='in' ? attInRef(e.code, dt, x.entry) : (x.hasIn ? teTimeToMinutes(x.entry.inH,x.entry.inM,x.entry.inAP) : null);
-        p.ap=attResolveAP(p, k, ref, x.half);
-      }
-      v=p;
-    }
-    if(!v && !stored){ inp.value=''; return true; }
-    const en=attEnsureEntry(dt, e.code);
-    attSetTime(en, k, v);
-    delete en.lateOv; delete en.otOv; // worked out again from the new times
-    if(!attHasTime(en,'in') && !attHasTime(en,'out')) delete en.shift;
-    attClearOldMark(dt, e.code);
-  } else {
-    const shown=attFigVal(x, k);
-    if(raw===shown){ inp.classList.remove('bad'); return true; }
-    const en=x.entry; if(!en || !x.c) return true;
-    const key=k==='late'?'lateOv':'otOv';
-    if(raw===''){ delete en[key]; }
-    else {
-      const n=Number(raw.replace(/,/g,''));
-      if(!isFinite(n) || n<0){ inp.classList.add('bad'); inp.title='Enter a number (0 or more)'; return false; }
-      const min = k==='late' ? Math.round(n) : Math.round(n*60);
-      const calc = k==='late' ? (x.c.calcLate!==undefined ? x.c.calcLate : x.c.late) : (x.c.calcOt!==undefined ? x.c.calcOt : x.c.ot);
-      if(min===Math.round(calc)) delete en[key]; else en[key]=min;
-    }
+  const raw=inp.value.trim().replace(/,/g,'');
+  if(raw===attFigVal(x, k)){ inp.classList.remove('bad'); return true; }
+  let min=0;
+  if(raw!==''){
+    const n=Number(raw);
+    if(!isFinite(n) || n<0){ inp.classList.add('bad'); inp.title='Enter a number (0 or more)'; return false; }
+    min = k==='late' ? Math.round(n) : Math.round(n*60);
   }
+  attSetFig(dt, e.code, k, min);
+  // a figure on a working day with nothing marked: the employee was there
+  if(min && !x.off && !x.st) attSetMark(dt, e.code, 'Present');
   inp.classList.remove('bad');
   teEditTouch();
   attUpdateRow(+tr.dataset.r);
@@ -621,7 +572,7 @@ function attUpdateRow(r){
   const tmp=document.createElement('tbody'); tmp.innerHTML=attRowHtml(e, attDay(e, tr.dataset.dt), r, attEditable());
   const nr=tmp.firstElementChild;
   tr.className=nr.className;
-  ['status','shift'].forEach(k=>{ tr.querySelector(`[data-k="${k}"]`).innerHTML=nr.querySelector(`[data-k="${k}"]`).innerHTML; });
+  tr.querySelector('[data-k="status"]').innerHTML=nr.querySelector('[data-k="status"]').innerHTML;
   tr.querySelectorAll('input[data-c]').forEach(inp=>{
     const n=nr.querySelector(`input[data-c="${inp.dataset.c}"]`); if(!n) return;
     inp.value=n.value; inp.disabled=n.disabled; inp.placeholder=n.placeholder; inp.title=n.title; inp.className=n.className;
@@ -633,12 +584,19 @@ function attRefreshTotals(){
   const st=document.getElementById('attStats'); if(st) st.innerHTML=attEmpStatsHtml(e, r, missing);
   const f=document.getElementById('attDayFoot'); if(f) f.innerHTML=attFootHtml(r, missing);
 }
-// Keyboard: Enter / ↓ next day, ↑ back, ← → between the boxes (at the edge of the text).
+// Keyboard: Enter / ↓ next day, ↑ back, ← → / Tab between Late and OT; P / L / H mark the day.
 function attCell(r, c){ return document.querySelector(`#attDayGrid input[data-r="${r}"][data-c="${c}"]`); }
 function attKey(ev, inp){
   const r=+inp.dataset.r, c=+inp.dataset.c;
-  if(ev.key==='Escape'){ const e=attCurEmp(); if(e){ const x=attDay(e, inp.closest('tr').dataset.dt); inp.value=inp.dataset.k==='in'||inp.dataset.k==='out'?attFmtTime(x.entry, inp.dataset.k):attFigVal(x, inp.dataset.k); inp.classList.remove('bad'); inp.select(); } return; }
-  if((ev.ctrlKey||ev.metaKey) && (ev.key==='d'||ev.key==='D') && (inp.dataset.k==='in'||inp.dataset.k==='out')){ ev.preventDefault(); inp.value='='; if(attCommit(inp)) attMove(r, c, 1, 0); return; }
+  if(ev.key==='Escape'){ const e=attCurEmp(); if(e){ inp.value=attFigVal(attDay(e, inp.closest('tr').dataset.dt), inp.dataset.k); inp.classList.remove('bad'); inp.select(); } return; }
+  const mk={p:'Present', l:'LossOfPay', h:'HalfDay'}[String(ev.key).toLowerCase()];
+  if(mk && !ev.ctrlKey && !ev.metaKey && !ev.altKey){
+    ev.preventDefault();
+    const dt=inp.closest('tr').dataset.dt, e=attCurEmp(), x=e && attDay(e, dt);
+    if(x && !x.off && x.st!==mk) attSetDay(dt, mk);
+    const el=attCell(r, c); if(el && !el.disabled){ el.focus(); el.select(); } else attMove(r, c, 1, 0);
+    return;
+  }
   let dr=0, dc=0;
   if(ev.key==='Enter') dr=ev.shiftKey?-1:1;
   else if(ev.key==='ArrowDown') dr=1;
@@ -654,9 +612,8 @@ function attKey(ev, inp){
 function attMove(r, c, dr, dc){
   const n=document.querySelectorAll('#attDayGrid tr.attDRow').length;
   if(dc){
-    for(let cc=c+dc; cc>=0 && cc<=3; cc+=dc){ const el=attCell(r, cc); if(el && !el.disabled){ el.focus(); return; } }
-    // past the last box of a day: the first box of the next day (and back)
-    for(let rr=r+dc; rr>=0 && rr<n; rr+=dc){ for(let k=0;k<=3;k++){ const el=attCell(rr, dc>0?k:3-k); if(el && !el.disabled){ el.focus(); el.scrollIntoView({block:'nearest'}); return; } } }
+    const cc=c+dc; if(cc>=0 && cc<=1){ const el=attCell(r, cc); if(el && !el.disabled){ el.focus(); return; } }
+    for(let rr=r+dc; rr>=0 && rr<n; rr+=dc){ for(let k=0;k<=1;k++){ const el=attCell(rr, dc>0?k:1-k); if(el && !el.disabled){ el.focus(); el.scrollIntoView({block:'nearest'}); return; } } }
     return;
   }
   for(let rr=r+dr; rr>=0 && rr<n; rr+=dr){ const el=attCell(rr, c); if(el && !el.disabled){ el.focus(); el.scrollIntoView({block:'nearest'}); return; } }
@@ -802,7 +759,7 @@ function renderAttSummary(){
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attGrid" id="attGrid">
       <thead><tr>
         <th class="teDwSlTh"><button type="button" id="attGridFoldAll" class="teDwFoldAll" tabindex="-1" aria-expanded="true" title="Fold every contractor — only the bars stay" onclick="teSecFoldAll('attGrid')">${ico('chevron-down')}</button>Sl</th>
-        <th>Code</th><th style="text-align:left;">Employee</th><th>Present</th><th>LOP</th><th>Half Day</th><th>Paid days</th><th>Late (min)</th><th>OT (hrs)</th><th>Tokens</th><th>Net pay</th><th>Days to enter</th>
+        <th>Code</th><th style="text-align:left;">Employee</th><th>Present</th><th>LOP</th><th>Half Day</th><th>Paid days</th><th>Late (min)</th><th title="OT hours paid (after Late beyond the free minutes)">OT paid (hrs)</th><th>Tokens</th><th>Net pay</th><th>Days to enter</th>
       </tr></thead>
       ${bodies || `<tbody><tr><td colspan="12"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr></tbody>`}
     </table></div>

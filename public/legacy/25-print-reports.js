@@ -6,7 +6,7 @@ const REPORT_MONEY_KEYS=['Gross','Earnings','PF','ESI','Canteen','Late','Advance
 const REPORT_NO_TOTAL_KEYS=['NOWD','WeekOff','DailyWage'];
 // Printed headers for the report row keys (anything not listed prints as its key).
 const REPORT_COL_LABELS={WorkingUnit:'Working Unit',WeekOff:'Week Off',UnitCode:'Unit Code',HalfDay:'Half Day',PaidDays:'Paid Days',DaysWorked:'Paid Days',
-  OTHrs:'OT Hrs',LateMin:'Late Min',LateChargedMin:'Late Charged Min',Gross:'Gross (Basic + OT)',Earnings:'Total Earnings',Late:'Late (₹)',
+  OTHrs:'OT Hrs',LateMin:'Late Min',LateChargedMin:'Late Charged Min',LateOffOT:'Late off OT (min)',Gross:'Gross (Basic + OT)',Earnings:'Total Earnings',Late:'Late (₹)',
   OtherDed:'Other Ded.',Deductions:'Total Deductions',NetSalary:'Net Pay',NotMarked:'Not Marked',OTAmount:'OT ₹',LateAmount:'Late ₹',
   CanteenTokens:'Canteen Tokens',CanteenAmount:'Canteen ₹',AdvanceAmount:'Advance ₹',DailyWage:'Daily Wage'};
 function reportColLabel(k){ return REPORT_COL_LABELS[k]||k; }

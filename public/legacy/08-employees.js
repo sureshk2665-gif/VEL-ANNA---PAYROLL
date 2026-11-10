@@ -219,7 +219,7 @@ function empCodeCheck(inp){
 // Moves everything kept under an employee's code to a new code (Edit → Employee Code changed).
 function renameEmployeeCode(oldCode, newCode){
   const move=obj=>{ if(obj && typeof obj==='object' && Object.prototype.hasOwnProperty.call(obj, oldCode)){ obj[newCode]=obj[oldCode]; delete obj[oldCode]; } };
-  ['attendance','timeEntries','shiftOverrides','payrollAdjustments'].forEach(k=>Object.values(db[k]||{}).forEach(move));
+  ['attendance','timeEntries','dayFigs','shiftOverrides','payrollAdjustments'].forEach(k=>Object.values(db[k]||{}).forEach(move));
   Object.values(db.payroll||{}).forEach(m=>{ move(m); if(m && m[newCode] && m[newCode].code===oldCode) m[newCode]={...m[newCode], code:newCode}; });
   move(db.groupMap);
   ['timeLeaves','salaryAdvances','increments'].forEach(k=>(db[k]||[]).forEach(r=>{ if(r && r.empCode===oldCode) r.empCode=newCode; }));

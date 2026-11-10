@@ -27,6 +27,10 @@ function adjFor(ym, code){
    LOP or Half Day. Such a month stays as typed until it is switched to day-by-day entry. */
 function attIsMonthly(ym){ return !!ym && !!db && Array.isArray(db.monthlyAttMonths) && db.monthlyAttMonths.includes(ym); }
 function attIsDaily(ym){ return !!ym && !!db && !!db.dayAttFrom && ym>=db.dayAttFrom && !attIsMonthly(ym); }
+// From db.simpleAttFrom on, a day is entered as Present / LOP / Half Day with its Late minutes and OT
+// hours (no shifts, no In / Out times — db.attendance marks and db.dayFigs, 10-attendance.js), and
+// Late beyond the free minutes is taken off the month's OT hours first (lateDeductionFor).
+function attIsSimple(ym){ return !!ym && !!db && !!db.simpleAttFrom && ym>=db.simpleAttFrom && !attIsMonthly(ym); }
 // A booked "holiday without pay" (Holiday Calendar): not a working day and not paid.
 function isUnpaidHolidayDate(ds){ return (db.timeHolidays||[]).some(h=>h.date===ds); }
 // Canteen tokens for an employee in a month: the month's own figure entered on Attendance (or
@@ -108,13 +112,17 @@ function lateGraceMinutes(ym){
   const w=lateWaiverFor(ym || monthKey(todayStr()));
   return w ? Math.max(0, Math.round(+w.minutes||0)) : Math.max(0, payrollRates(ym).lateGraceMinutes);
 }
-// Late Deduction: one minute's salary = Daily Wage (Basic + HRA per day) ÷ 8 ÷ 60. The first
-// lateGraceMinutes(ym) of Late in the month (2 hours) are free; every minute beyond is deducted.
-function lateDeductionFor(e, ym, dailyWage){
+// Late Deduction: the first lateGraceMinutes(ym) of Late in the month are free (Admin → Late Waiver).
+// From db.simpleAttFrom on (otHoursAvail given), the minutes beyond are first taken off the month's
+// OT hours (fromOt); only what OT cannot cover is deducted from salary. Before that, every minute
+// beyond was deducted. One minute's salary = Daily Wage (Basic + HRA per day) ÷ 8 ÷ 60.
+function lateDeductionFor(e, ym, dailyWage, otHoursAvail){
   const minutes=lateMinutesFor(e, ym), grace=lateGraceMinutes(ym);
-  const charged=Math.max(0, minutes-grace);
+  const over=Math.max(0, minutes-grace);
+  const fromOt=otHoursAvail===null || otHoursAvail===undefined ? 0 : Math.min(over, Math.round((+otHoursAvail||0)*60));
+  const charged=over-fromOt;
   const perMinute=(+dailyWage||0)/8/60;
-  return {minutes, grace, charged, perMinute, amount:Math.round(charged*perMinute)};
+  return {minutes, grace, charged, fromOt, perMinute, amount:Math.round(charged*perMinute)};
 }
 
 /* ---- Daily wage in force on a date ----
@@ -209,11 +217,17 @@ function computePayrollForEmployee(e, ym){
   const basicE=Math.round(basicSum);
   const hraE=Math.round(hraSum);
   const otPerHourRate = wage.otRate;
-  const otHours = otHoursFor(e, ym);
+  // OT hours worked; from db.simpleAttFrom, Late beyond the free minutes comes off them first.
+  const simple=attIsSimple(ym);
+  const otWorked = otHoursFor(e, ym);
+  const late = lateDeductionFor(e, ym, wage.dailyWage, simple ? otWorked : null);
+  const otHours = simple ? Math.max(0, Math.round((otWorked*60 - late.fromOt)/60*100)/100) : otWorked;
   let otAmount;
   if(segs.length>1 && !monthly && !otTypedFor(adj) && typeof teMonthOTByDay==='function'){
-    // The wage changed during the month: each day's OT is paid at that day's rate.
-    otAmount=Math.round(teMonthOTByDay(e.code, ym).reduce((s,x)=>s + x.min/60*dailyWageSplit(wageOnDate(e, x.date, ev), otFactor).otRate, 0));
+    // The wage changed during the month: each day's OT is paid at that day's rate (less the share
+    // taken by Late).
+    const full=teMonthOTByDay(e.code, ym).reduce((s,x)=>s + x.min/60*dailyWageSplit(wageOnDate(e, x.date, ev), otFactor).otRate, 0);
+    otAmount=Math.round(full*(simple && otWorked ? otHours/otWorked : 1));
   } else otAmount=Math.round(otHours*otPerHourRate);
   const otherAllowance=+adj.otherAllowanceOneOff||0; // one-off, entered on the Attendance screen
 
@@ -240,7 +254,6 @@ function computePayrollForEmployee(e, ym){
   // is due this month (stops automatically once the full advance has been recovered).
   const advance = scheduledAdvanceDeduction(e.code, ym);
   const otherDed = +adj.otherDedOneOff||0; // one-off, entered on the Attendance screen
-  const late = lateDeductionFor(e, ym, wage.dailyWage);
   const lateDeduction = late.amount;
   const deductionsTotal = pf+esi+tax+canteen+advance+otherDed+lateDeduction; // PF (employee share) is deducted from salary
   const netSalary = Math.max(0, earningsTotal - deductionsTotal);
@@ -252,7 +265,7 @@ function computePayrollForEmployee(e, ym){
     presentDays:present, leaveDays:Math.round((lop + halfDay*0.5)*100)/100, holidayDays:noph, halfDayCount:halfDay,
     presentPlusHalf: Math.round((present + halfDay*0.5)*100)/100,
     unmarkedDays:unmarked, workDays:monthly?workDays:undefined, monthlyAttendance:monthly,
-    noph, otHours, otPerHourRate:Math.round(otPerHourRate*100)/100,
+    noph, otHours, otHoursWorked:otWorked, lateOtMinutes:late.fromOt, otPerHourRate:Math.round(otPerHourRate*100)/100,
     basicE,hraE,otAmount,otherAllowance,
     dailyWage:wage.dailyWage, basicPerDay:wage.basic, hraPerDay:wage.hra, holidaysPaid:noph,
     wageSegments: segs.length>1 ? segs : undefined,
