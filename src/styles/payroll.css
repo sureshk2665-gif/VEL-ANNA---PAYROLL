@@ -44,3 +44,16 @@ table.payrollTable tr.payTotalRow td{position:sticky;bottom:0;z-index:1;backgrou
 .payEmptyIcon{width:44px;height:44px;display:flex;align-items:center;justify-content:center;border-radius:12px;background:var(--raised);color:var(--muted);}
 .payEmptyIcon svg{width:22px;height:22px;}
 }
+@media screen {
+/* Simplified page (money only): one panel — bar, filters, figures, the list */
+.payPanel .payBar{padding:0 0 10px;border-bottom:1px solid var(--rule,var(--border));}
+.payPanel .teFiltRow{margin-top:10px;}
+.payPanel .payStrip{margin:12px 0;}
+.payPanel .payWarn{justify-content:space-between;flex-wrap:wrap;}
+.payPanel .payWarn span{flex:1 1 280px;}
+.payPanel .payWarn .btn{height:30px;padding:0 12px;font-size:12.5px;}
+.payPanel .payScroll table.payrollTable{min-width:720px;}
+table.payrollTable td.payCon{color:var(--muted);max-width:220px;overflow:hidden;text-overflow:ellipsis;}
+.payMiss{margin-left:8px;padding:1px 8px;border:0;border-radius:999px;background:var(--st-lop-bg,#fdecec);color:var(--st-lop-text,#c4242a);font:inherit;font-size:11.5px;font-weight:600;cursor:pointer;}
+.payMiss:hover{text-decoration:underline;}
+}
