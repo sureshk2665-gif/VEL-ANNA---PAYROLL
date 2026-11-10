@@ -28,13 +28,13 @@ function teEwSetSaveState(s){
   el.title = s==='unsaved' ? 'Changes since Edit are kept on this screen only — click Save to put them in the database and Payroll' : '';
 }
 // ---- Edit / Save sessions ----
-/* Nothing changed on Attendance (the month's figures, or the Holiday Calendar tab) reaches the
+/* Nothing changed on Attendance (an employee's days and month figures, or the Holiday Calendar tab) reaches the
    database — or Payroll — until Save. Edit opens a session and keeps a copy of the stores below;
    changes show on screen straight away; Save writes them; Cancel puts the copy back. Leaving the
    screen with unsaved changes asks to Save or Discard. While a session is open, anything else that
    saves the database writes these stores as they were before Edit (teDraftSafe), so a half-done
    edit never leaks out. */
-const TE_EDIT_KEYS=['payrollAdjustments','attendance','holidays','timeHolidays'];
+const TE_EDIT_KEYS=['timeEntries','timeLeaves','payrollAdjustments','attendance','holidays','timeHolidays'];
 let teEdit=null; // {area:'attendance'|'holidays', page, snap:JSON, dirty:boolean}
 function teEditActive(area){ return !!teEdit && (!area || teEdit.area===area); }
 // The page an Edit session belongs to (the Holiday Calendar is a tab of Attendance).
@@ -325,4 +325,4 @@ function renderTEHolidayTab(){
   </div>`;
 }
 window.addEventListener('beforeunload',e=>{ if(teEwSaveBusy || (teEdit && teEdit.dirty)){ e.preventDefault(); e.returnValue=''; } });
-window.addEventListener('resize', ()=>{ ['attGrid'].forEach(id=>{ if(document.getElementById(id)) teFitGridBox(id); }); });
+window.addEventListener('resize', ()=>{ ['attGrid','attDayGrid'].forEach(id=>{ if(document.getElementById(id)) teFitGridBox(id); }); });

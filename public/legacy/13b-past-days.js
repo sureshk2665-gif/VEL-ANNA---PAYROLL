@@ -1,11 +1,13 @@
-/* ================= PAST MONTHS ENTERED DAY BY DAY — Late and OT from In / Out times =================
-   Months before the monthly-attendance cut-over (db.monthlyAttFrom — 12-payroll-calc.js) were entered
-   day by day in the former Employee Time Entry. Their Late minutes and OT hours (when no figure was
-   typed for the month) come from the In / Out times kept in the database, measured against the
-   shift planned for each day — so those months' payroll stays exactly as it was. No screen uses this
-   any more; monthly-entry months never do.
-   Data read (all kept as they were):
-     db.timeEntries    {date: {empCode: {inH,inM,inAP,outH,outM,outAP}}}
+/* ================= DAY BY DAY — Late and OT from In / Out times =================
+   Attendance is entered day by day (10-attendance.js; before it, the former Employee Time Entry).
+   A month's Late minutes and OT hours come from the In / Out times, measured against the shift of
+   each day: the shift the day was filled with on Attendance (entry.shift), otherwise — for months
+   before db.dayAttFrom — the shift planned for the employee then (groups, below), otherwise the shift
+   the In Time falls in. A Late or OT figure typed for one day replaces the worked-out one.
+   Old months therefore stay exactly as they were.
+   Data:
+     db.timeEntries    {date: {empCode: {inH,inM,inAP,outH,outM,outAP, shift?, lateOv?, otOv?}}}
+                       shift = the shift key it was filled with; lateOv / otOv = minutes typed
      db.timeLeaves     [{date, empCode, type:'Loss of Pay'|'Half Day', remarks}]
      db.shiftPresets   [{key,label,inMin,outMin}]  shift timings (minutes from midnight)
      db.shiftGroups    [{key,label}]               Shift A Group / Shift B Group / General Group …
@@ -58,10 +60,11 @@ function teGetLeave(dateStr2, code){
   return l && l.type==='NOPL' ? {...l, type:'Loss of Pay'} : l; // NOPL was removed — old records read as Loss of Pay
 }
 /* ---- Late, Working and OT for one day ----
-   Measured against the employee's SHIFT: the shift planned for them that day (Shift Groups →
-   weekly rotation, or a one-day change in Date-wise), otherwise the shift their In Time falls in
-   (teDetectShift). A planned shift more than 4 hours away from the In Time is treated as not
-   applying (e.g. a person who swapped shifts) and the detected shift is used.
+   Measured against the employee's SHIFT that day: the shift the day was filled with on Attendance,
+   or (months before db.dayAttFrom) the shift planned then (Shift Groups → weekly rotation, or a
+   one-day change), otherwise the shift their In Time falls in (teDetectShift). A shift more than
+   4 hours away from the In Time is treated as not applying (e.g. a person who swapped shifts) and
+   the detected shift is used.
      Late    = minutes after the shift start (9:00 for General: 9:00 on time, 9:36 → 36 min)
              + minutes left before the shift end (out 4:30 PM on a 5:30 PM shift → 60 min).
      Working = the time inside the shift (coming early does not add; leaving late is OT) less the
@@ -69,8 +72,10 @@ function teGetLeave(dateStr2, code){
      OT      = minutes after the shift end (shift start + 8 hours + 30-minute break).
    Sundays and holidays: no Late; the whole time worked is OT. */
 const TE_BREAK_MIN=30, TE_WORK_MIN=8*60;
-function teShiftWindow(inMin, dateForRow, code){
-  const planned = code && dateForRow && typeof teEmpShift==='function' ? teEmpShift(code, dateForRow) : null;
+function teShiftWindow(inMin, dateForRow, code, entry){
+  const own = entry && entry.shift ? teShiftByKey(entry.shift) : null;
+  const groups = !own && code && dateForRow && !attIsDaily(dateForRow.slice(0,7));
+  const planned = own || (groups && typeof teEmpShift==='function' ? teEmpShift(code, dateForRow) : null);
   if(planned){
     let start=planned.inMin;
     // Second-shift style starts late in the day; an In Time just after midnight belongs to it.
@@ -91,7 +96,7 @@ function teCompute(entry, dateForRow, code){
     const dur = (outMin!==null) ? Math.max(0,outMin-inMin) : 0;
     return {shift:teDetectShift(inMin), late:0, lateIn:0, earlyOut:0, working:0, ot:dur};
   }
-  const w=teShiftWindow(inMin, dateForRow, code);
+  const w=teShiftWindow(inMin, dateForRow, code, entry);
   const shift={name:w.name, standard:w.start};
   const regularEnd = w.start + TE_WORK_MIN + TE_BREAK_MIN; // shift start + 8 hours + 30-minute break
   const lateIn = Math.max(0, inMin - w.start);
@@ -115,7 +120,7 @@ function teMonthDays(code, ym){
     if(emp && !isEmpOnRollOn(emp, ds)) continue;
     const lv=teGetLeave(ds, code); if(lv && lv.type!=='Half Day') continue;
     if(typeof getAttStatus==='function' && getAttStatus(ds, code)==='LossOfPay') continue;
-    out.push({date:ds, c:teHalfDayCap(teCompute(entry, ds, code), !!lv)});
+    out.push({date:ds, c:teDayFigures(entry, ds, code, !!lv)});
   }
   return out;
 }
@@ -123,6 +128,25 @@ function teMonthDays(code, ym){
 // the shift, so coming late or leaving early is the half day itself. OT is kept as worked.
 const TE_HALF_DAY_MIN=4*60;
 function teHalfDayCap(c, half){ return half && c ? {...c, working:Math.min(c.working, TE_HALF_DAY_MIN), late:0, lateIn:0, earlyOut:0} : c; }
+// One day's figures as Payroll counts them: worked out from the times (a Half Day capped), with a
+// Late or OT figure typed for that day (minutes) in place of the worked-out one.
+function teOvSet(v){ return v!==undefined && v!==null && v!=='' && !isNaN(+v); }
+function teDayFigures(entry, ds, code, half){
+  const c=teHalfDayCap(teCompute(entry, ds, code), half);
+  if(!entry || (!teOvSet(entry.lateOv) && !teOvSet(entry.otOv))) return c;
+  const o={...c, calcLate:c.late, calcOt:c.ot};
+  if(teOvSet(entry.lateOv)){ o.late=Math.max(0, Math.round(+entry.lateOv)); o.lateTyped=true; }
+  if(teOvSet(entry.otOv)){ o.ot=Math.max(0, Math.round(+entry.otOv)); o.otTyped=true; }
+  return o;
+}
+// Time helpers for the Attendance screen.
+function teFmtHM(mins){
+  if(mins===null||mins===undefined||isNaN(mins)) return '–';
+  mins=Math.max(0,Math.round(mins));
+  return Math.floor(mins/60)+':'+String(mins%60).padStart(2,'0');
+}
+function teMinToHMAP(min){ min=((min%1440)+1440)%1440; return {h:(Math.floor(min/60)%12)||12, m:min%60, ap:min>=720?'PM':'AM'}; }
+function teMinLabel(min){ const t=teMinToHMAP(min); return t.h+':'+String(t.m).padStart(2,'0')+' '+t.ap; }
 function teMonthTotal(code, ym, key){ return teMonthDays(code, ym).reduce((s,x)=>s+(x.c[key]||0), 0); }
 // Total Late (minutes) in a month. Payroll uses it for the Late Deduction unless a different figure
 // is typed for that month on the Attendance screen.
