@@ -34,67 +34,73 @@ const REPORTS_LIST = [
   {key:'bonus15',    icon:'gift', title:'Bonus Report @ 15%',            desc:'Bonus @ 15% on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.15, category:'yearly'},
   {key:'bonus20',    icon:'gift', title:'Bonus Report @ 20%',            desc:'Statutory maximum bonus on eligible Basic Wages (₹7,000 ceiling) for a date range.', needsMonth:false, needsDateRange:true, bonusRate:0.20, category:'yearly'},
 ];
-const REPORT_CATEGORIES = [
-  {key:'general', icon:'folder',         label:'General Reports'},
-  {key:'monthly', icon:'calendar',       label:'Monthly Reports'},
-  {key:'yearly',  icon:'calendar-range', label:'Yearly Reports'},
+/* ---- The Reports page: 7 reports. Reports that were copies of each other (by unit / by contractor,
+   month / year, three bonus rates, the employee lists) are one card each, with a choice inside the
+   report (REPORT_FAMILIES → variants). Each variant is one of REPORTS_LIST above, unchanged — the
+   same preview, PDF / print and Excel. ---- */
+const REPORT_GROUPS = [
+  {key:'monthly',   icon:'calendar',    label:'Monthly'},
+  {key:'statutory', icon:'landmark',    label:'Statutory'},
+  {key:'employees', icon:'users',       label:'Employees'},
 ];
+const REPORT_FAMILIES = [
+  {key:'salary', group:'monthly', icon:'receipt', title:'Salary Register', asks:'Pick a month',
+    desc:'Every employee\'s pay for a month — by contractor (with each contractor\'s service charge), by unit, or one full list.',
+    label:'Group by', variants:[{key:'contractor',label:'Contractor'},{key:'unit',label:'Unit'},{key:'print',label:'One full list'}]},
+  {key:'acquittance', group:'monthly', icon:'pen-line', title:'Salary Acquittance Register', asks:'Pick a month',
+    desc:'A4 register for employee signatures — by contractor or by unit, with page totals and grand totals.',
+    label:'By', variants:[{key:'acquittanceContractor',label:'Contractor'},{key:'acquittance',label:'Unit'}]},
+  {key:'attendance', group:'monthly', icon:'calendar-days', title:'Attendance & OT Register', asks:'Pick a month',
+    desc:'Per employee: Present, Half Day, LOP, NOPH, Paid Days, OT hours & amount, late minutes & deduction, canteen tokens and advance.',
+    variants:[{key:'attendanceRegister'}]},
+  {key:'pf', group:'statutory', icon:'landmark', title:'PF Report', asks:'Pick a month or a financial year', noVariantList:true,
+    desc:'Employee-wise PF — Employee, Employer and Total PF, for a month or a whole financial year.',
+    label:'Period', variants:[{key:'pfMonthly',label:'Month'},{key:'pf',label:'Financial year'}]},
+  {key:'esi', group:'statutory', icon:'heart-pulse', title:'ESI Report', asks:'Pick a month or a financial year', noVariantList:true,
+    desc:'Employee-wise ESI — Employee, Employer and Total ESI, for a month or a whole financial year.',
+    label:'Period', variants:[{key:'esi',label:'Month'},{key:'esiYearly',label:'Financial year'}]},
+  {key:'bonus', group:'statutory', icon:'gift', title:'Bonus Report', asks:'Pick a date range',
+    desc:'Bonus on eligible Basic Wages (₹7,000 ceiling) for a date range — at 8.33% (statutory minimum), 15% or 20% (maximum).',
+    label:'Rate', variants:[{key:'bonus833',label:'8.33%'},{key:'bonus15',label:'15%'},{key:'bonus20',label:'20%'}]},
+  {key:'employees', group:'employees', icon:'users', title:'Employee List', asks:'Opens straight away',
+    desc:'Active employees, resigned employees, headcount by department, or age & company experience.',
+    label:'Show', variants:[{key:'employee',label:'Active'},{key:'resignedEmp',label:'Resigned'},{key:'department',label:'By department'},{key:'experience',label:'Age & experience'}]},
+];
+function repFamilyOf(key){ return REPORT_FAMILIES.find(f=>f.variants.some(v=>v.key===key)) || null; }
+const repLastVariant={}; // family → the variant chosen last (opening the card again shows it)
 function renderReports(){
   return reportView ? renderReportDetail(reportView) : renderReportsList();
 }
-// Report list: category tabs (All / General / Monthly / Yearly) and a find box over the cards.
-let repCat='all';   // 'all' or a REPORT_CATEGORIES key
-let repFind='';     // text typed in "Find a report"
-// What a report asks for before it shows (a month, a financial year, a date range) — shown on its card.
-function repAsksFor(r){
-  return r.needsMonth?'Month':(r.needsFY||r.needsExpFilters)?'Financial year':r.needsDateRange?'Date range':'Ready';
-}
-function repMatches(r){
-  const q=repFind.trim().toLowerCase();
-  return !q || (r.title+' '+r.desc).toLowerCase().includes(q);
-}
-function repSetCat(k){ repCat=k; render('reports'); }
-// Typing filters the cards in place (no redraw, so the cursor stays in the box).
-function repFindType(v){
-  repFind=v;
-  document.querySelectorAll('.reportCard[data-key]').forEach(c=>{ const r=REPORTS_LIST.find(x=>x.key===c.dataset.key); c.hidden=!(r && repMatches(r)); });
-  let any=false;
-  document.querySelectorAll('.repCatPanel').forEach(pn=>{ const vis=!!pn.querySelector('.reportCard:not([hidden])'); pn.hidden=!vis; any=any||vis; });
-  const nm=document.getElementById('repNoMatch'); if(nm){ nm.hidden=any; const t=nm.querySelector('b'); if(t) t.textContent=v.trim(); }
-}
 function renderReportsList(){
-  const count=k=>REPORTS_LIST.filter(r=>k==='all'||r.category===k).length;
-  const tab=(k,icon,label)=>`<button class="attTab ${repCat===k?'active':''}" onclick="repSetCat('${k}')">${ico(icon)} ${label} <span class="repTabCount">${count(k)}</span></button>`;
-  const cats=REPORT_CATEGORIES.filter(c=>repCat==='all' || c.key===repCat);
-  const anyMatch=cats.some(cat=>REPORTS_LIST.some(r=>r.category===cat.key && repMatches(r)));
-  const esc=v=>String(v).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-  return `
-  <div class="toolbar repListBar">
-    <div class="attTabsInline">${tab('all','grid','All reports')}${REPORT_CATEGORIES.map(c=>tab(c.key,c.icon,c.label.replace(/ Reports$/,''))).join('')}</div>
-    <span class="teDwFindWrap repFind">${ico('search')}<input id="repFind" type="search" placeholder="Find a report" autocomplete="off" aria-label="Find a report" value="${esc(repFind)}" oninput="repFindType(this.value)"></span>
-  </div>
-  ${cats.map(cat=>{
-    const list=REPORTS_LIST.filter(r=>r.category===cat.key);
-    if(!list.length) return '';
+  return REPORT_GROUPS.map(g=>{
+    const list=REPORT_FAMILIES.filter(f=>f.group===g.key);
     return `
-    <div class="panel repCatPanel" ${list.some(repMatches)?'':'hidden'}>
-      <h3>${ico(cat.icon)} ${cat.label} <span class="repCatCount">${list.length}</span></h3>
+    <div class="panel repCatPanel">
+      <h3>${ico(g.icon)} ${g.label}</h3>
       <div class="reportGrid">
-        ${list.map(r=>`
-          <div class="reportCard" data-key="${r.key}" ${repMatches(r)?'':'hidden'} role="button" tabindex="0" title="${esc(r.desc)}" onclick="openReport('${r.key}')" onkeydown="if(event.key==='Enter')openReport('${r.key}')">
-            <div class="reportCardIcon">${ico(r.icon)}</div>
+        ${list.map(f=>`
+          <div class="reportCard" data-family="${f.key}" role="button" tabindex="0" onclick="openReportFamily('${f.key}')" onkeydown="if(event.key==='Enter')openReportFamily('${f.key}')">
+            <div class="reportCardIcon">${ico(f.icon)}</div>
             <div class="reportCardBody">
-              <div class="reportCardTitle">${r.title}</div>
-              <div class="reportCardDesc">${r.desc}</div>
-              <div class="reportCardMeta">${ico(repAsksFor(r)==='Month'?'calendar':repAsksFor(r)==='Ready'?'file-text':'calendar-range')} ${repAsksFor(r)==='Ready'?'Opens straight away':'Pick a '+repAsksFor(r).toLowerCase()}</div>
+              <div class="reportCardTitle">${f.title}</div>
+              <div class="reportCardDesc">${f.desc}</div>
+              <div class="reportCardMeta">${ico(f.asks.startsWith('Opens')?'file-text':f.asks==='Pick a month'?'calendar':'calendar-range')} ${f.asks}${f.variants.length>1&&!f.noVariantList?` · ${f.variants.map(v=>v.label).join(' / ')}`:''}</div>
             </div>
             <div class="reportCardArrow">›</div>
           </div>`).join('')}
       </div>
     </div>`;
-  }).join('')}
-  <div class="empty repNoMatch" id="repNoMatch" ${anyMatch?'hidden':''}>${ico('search-x')} No report matches "<b>${esc(repFind.trim())}</b>".</div>
-  `;
+  }).join('');
+}
+function openReportFamily(fk){
+  const f=REPORT_FAMILIES.find(x=>x.key===fk); if(!f) return;
+  openReport(repLastVariant[fk] || f.variants[0].key);
+}
+// The choice inside a report (Group by / By / Period / Rate / Show).
+function repSetVariant(key){ const f=repFamilyOf(key); if(f) repLastVariant[f.key]=key; reportView=key; render('reports'); }
+function repVariantsHtml(key){
+  const f=repFamilyOf(key); if(!f || f.variants.length<2) return '';
+  return `<div class="repVariants" role="group" aria-label="${f.label}"><span class="repVarLbl">${f.label}</span>${f.variants.map(v=>`<button type="button" class="attTab ${v.key===key?'active':''}" aria-pressed="${v.key===key}" onclick="repSetVariant('${v.key}')">${v.label}</button>`).join('')}</div>`;
 }
 function openReport(key){ reportView=key; render('reports'); }
 function repShiftMonth(d){ payMonth=nextMonthKey(payMonth, d); render('reports'); }
@@ -275,8 +281,8 @@ function renderReportDetail(key){
       <div class="repTopL">
         <button class="btn secondary" onclick="closeReport()" title="Back to the list of reports">${ico('arrow-left')} Reports</button>
         <span class="cbSep"></span>
-        <span class="repTitleIcon">${ico(meta.icon)}</span>
-        <div class="repTitle"><b>${meta.title}</b><small>${meta.desc}</small></div>
+        <span class="repTitleIcon">${ico((repFamilyOf(key)||meta).icon)}</span>
+        <div class="repTitle"><b>${(repFamilyOf(key)||meta).title}</b><small>${meta.desc}</small></div>
       </div>
       <div class="repActions">
       ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('download')} Download PDF</button>` : ''}
@@ -284,6 +290,7 @@ function renderReportDetail(key){
       ${canExport ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportExcel('${key}')">${ico('file-spreadsheet')} Excel</button>` : ''}
       </div>
     </div>
+    ${repVariantsHtml(key)}
     ${filtersHtml.trim()?`<div class="repFilters">${filtersHtml}</div>`:''}
   </div>
   ${hasData && figs.length ? `<div class="teStatRow repStrip">${figs.map(([v,l,k])=>`<div class="teStatBox${k?' repKey':''}"><b>${v}</b><span>${l}</span></div>`).join('')}</div>` : ''}
