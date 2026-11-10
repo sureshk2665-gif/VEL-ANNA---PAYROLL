@@ -16,68 +16,75 @@ function payrollSelText(){
   return [payUnitFilter?unitLabel(payUnitFilter):'', payContractorFilter?(payContractorFilter==='-'?'Contractor not set':contractorName(payContractorFilter)):''].filter(Boolean).join(' · ');
 }
 function payShiftMonth(d){ payMonth=nextMonthKey(payMonth, d); render('payroll'); }
+/* ---- The Payroll page: money only ----
+   Attendance (days, LOP, OT, late) is entered and checked on Attendance; here each employee's month
+   shows as Paid days → Earnings − Deductions = Net pay. Every other figure is on the salary slip
+   (click a row), in Excel and in the Attendance & OT Register report. */
+function paySetUnit(v){ payUnitFilter=v||''; render('payroll'); }
+function paySetContractor(v){ payContractorFilter=v||''; render('payroll'); }
+function payClearFilters(){ payUnitFilter=''; payContractorFilter=''; render('payroll'); }
 function renderPayroll(){
   const generated = payrollGenerated(payMonth);
-  const active=db.employees.filter(e=>isEmpOnRollInMonth(e,payMonth));
+  const onRoll=payrollEmployeesFor(payMonth);
+  const shownEmps=onRoll.filter(e=>payrollFilterMatches(e.code)).length;
   const rows = payrollRowsOnScreen() || [];
   const filtered = !!(payUnitFilter || payContractorFilter);
   const selText = payrollSelText();
   const sum = k => Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
-  const totalNet = sum('netSalary');
-  const totalEarnings = sum('earningsTotal');
-  const totalDeductions = sum('deductionsTotal');
-  const unmarkedTotal = sum('unmarkedDays');
+  const unmarked = sum('unmarkedDays'), unmarkedEmps=rows.filter(r=>+r.unmarkedDays).length;
   const rates = payrollRates(payMonth);
   const canGenerate = hasPerm('payroll','add') || hasPerm('payroll','edit');
-  const unitTab=(code,label)=>`<button type="button" role="tab" class="attUnitTab ${payUnitFilter===code?'active':''}" aria-selected="${payUnitFilter===code}" onclick="payUnitFilter='${code}';render('payroll')">${label}</button>`;
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sel=(on, fn, label, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="${fn}(this.value)" aria-label="${label}">${opts}</select>`;
   return `
-  <div class="attUnitTabs empUnitTabs" role="tablist" aria-label="Working unit">
-    ${unitTab('','All Units')}${getUnits().map(u=>unitTab(u.code, unitTabLabel(u))).join('')}
-  </div>
-  <div class="toolbar payBar">
-    <div class="payBarGrp">
-      <button class="btn secondary payNav" onclick="payShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
-      <input type="month" value="${payMonth}" onchange="payMonth=this.value;render('payroll')" aria-label="Month">
-      <button class="btn secondary payNav" onclick="payShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
-      <select onchange="payContractorFilter=this.value;render('payroll')" title="Filter by contractor" aria-label="Contractor">
-        ${contractorFilterOptionsHtml(payContractorFilter)}
-      </select>
-      <span class="payState ${generated?'on':''}" title="${generated?'Payroll is generated for this month and keeps itself up to date':'Payroll is not generated for this month yet'}">${ico(generated?'circle-check':'circle-dashed')} ${generated?'Generated':'Not generated'}</span>
+  <div class="panel payPanel">
+    <div class="payBar">
+      <div class="payBarGrp">
+        <button class="btn secondary payNav" onclick="payShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
+        <input type="month" value="${payMonth}" onchange="payMonth=this.value;render('payroll')" aria-label="Month">
+        <button class="btn secondary payNav" onclick="payShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
+        <span class="payState ${generated?'on':''}" title="${generated?'Payroll is generated for this month and keeps itself up to date':'Payroll is not generated for this month yet'}">${ico(generated?'circle-check':'circle-dashed')} ${generated?'Generated':'Not generated'}</span>
+      </div>
+      <div class="payBarGrp payBarRight">
+        ${generated && hasPerm('payroll','print') ? `<button class="btn secondary" onclick="openPaySlipDialog()" title="Print pay slips by month, unit, contractor or employee">${ico('printer')} Pay Slips</button>` : ''}
+        ${generated && hasPerm('payroll','export') ? `<button class="btn secondary" ${rows.length?'':'disabled'} onclick="downloadPayrollExcel()" title="Every figure on the salary slip, one row per employee">${ico('file-spreadsheet')} Excel</button>` : ''}
+        ${canGenerate ? `<button class="btn ${generated?'secondary':''}" onclick="generatePayroll()" title="${generated?'Re-apply today\'s rates (PF / ESI / canteen price / late waiver) to this month':'Process this month'}">${ico('settings')} ${generated?'Regenerate':'Generate Payroll'}</button>` : ''}
+      </div>
     </div>
-    <div class="payBarGrp payBarRight">
-      <button class="btn secondary" onclick="render('attendance')">${ico('calendar-days')} Attendance</button>
-      ${hasPerm('payroll','print') ? `<button class="btn secondary" onclick="openPaySlipDialog()" title="Print pay slips by month, unit, contractor or employee">${ico('printer')} Pay Slips…</button>` : ''}
-      ${generated && hasPerm('payroll','export') ? `<button class="btn secondary" ${rows.length?'':'disabled'} onclick="downloadPayrollExcel()" title="Every figure on the salary slip, one row per employee">${ico('file-spreadsheet')} Excel</button>` : ''}
-      ${canGenerate ? `<button class="btn" onclick="generatePayroll()" title="${generated?'Re-apply today\'s rates (PF / ESI / canteen price / late grace) to this month':'Process this month'}">${ico('settings')} ${generated?'Regenerate':'Generate Payroll'}</button>` : ''}
+    <div class="teFiltRow">
+      <span class="teFiltLbl">${ico('filter')} Filter</span>
+      ${sel(payUnitFilter, 'paySetUnit', 'Unit', `<option value="" ${!payUnitFilter?'selected':''}>All Units</option>`+getUnits().map(u=>`<option value="${u.code}" ${payUnitFilter===u.code?'selected':''}>${esc(unitTabLabel(u))}</option>`).join(''))}
+      ${sel(payContractorFilter, 'paySetContractor', 'Contractor', contractorFilterOptionsHtml(payContractorFilter))}
+      <span class="teFiltCount">${filtered?`<b>${shownEmps}</b> of ${onRoll.length} employees`:`${onRoll.length} employees`}</span>
+      ${filtered?`<button type="button" class="teFiltClear" onclick="payClearFilters()">${ico('filter-x')} Clear filters</button>`:''}
     </div>
-  </div>
-  ${generated ? `<div class="teStatRow payStrip">
-    <div class="teStatBox"><b>${rows.length}</b><span>Employees${filtered?' · '+selText:''}</span></div>
-    <div class="teStatBox" title="Total Days − Sundays − Holidays for ${monthLabel(payMonth)}. Holidays are set in Attendance → Holidays."><b>${computeWorkingDays(payMonth)}</b><span>Working days (NOWD)</span></div>
-    <div class="teStatBox" title="Present (Half Day = ½) + NOPH, all employees shown"><b>${sum('daysWorking')}</b><span>Paid days</span></div>
-    <div class="teStatBox" title="Canteen tokens × each unit's token price"><b>${fmt(sum('canteen'))}</b><span>Canteen</span></div>
-    <div class="teStatBox"><b>${fmt(totalEarnings)}</b><span>Total earnings</span></div>
-    <div class="teStatBox"><b>${fmt(totalDeductions)}</b><span>Total deductions</span></div>
-    <div class="teStatBox payNet"><b>${fmt(totalNet)}</b><span>Net salary payable</span></div>
-  </div>` : ''}
-  ${unmarkedTotal?`<div class="payWarn">${ico('alert')} ${unmarkedTotal} working day(s) up to today are not marked in Attendance — they are not paid.</div>`:''}
-  <div class="panel">
-    ${generated ? `<div class="tableScrollWrap payScroll"><table class="payrollTable"><thead><tr>
-      <th>Code</th><th>Name</th><th class="num">NOWD</th><th class="num" title="Sundays this month — the weekly off (not paid)">Week Off</th><th class="num" title="Full days + Half Days × ½">Present</th><th class="num">NOPH</th><th class="num">Half</th><th class="num" title="Loss of Pay days">LOP</th><th class="num" title="Working days up to today with no status in Attendance — not paid">Unmarked</th><th class="num" title="Present (Half Day = ½) + NOPH">Paid Days</th><th class="num">OT Hrs</th><th class="num" title="Late minutes this month (first ${rates.lateGraceMinutes} free)">Late Min</th><th class="num" title="Canteen tokens × the token price of the employee's unit">Canteen</th><th class="num">Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>
-    </tr></thead><tbody>
-      ${rows.map(r=>`<tr onclick="openSlip('${r.code}','${payMonth}')" title="Click to view Salary Slip">
-        <td>${r.code}</td><td class="empNameCell">${r.name}</td><td class="num">${r.nowd}</td><td class="num">${payWeekOff(r, payMonth)}</td><td class="num">${payPresentDays(r)}</td><td class="num">${r.holidayDays}</td><td class="num">${r.halfDayCount}</td><td class="num">${r.lopDays}</td><td class="num" style="${r.unmarkedDays?'color:var(--warn);font-weight:600;':''}">${r.unmarkedDays||0}</td><td class="num">${r.daysWorking}</td><td class="num">${r.otHours}</td><td class="num" title="${r.lateDeduction?`${r.lateChargedMinutes} min × ₹${r.latePerMinute} = ₹${r.lateDeduction} deducted`:'Within the free grace time'}">${r.lateMinutes||0}</td>
-        <td class="num payCanteen" title="${r.canteenTokens||0} token(s) bought × ${fmt(r.canteenTokenPrice||0)} (token price of the employee's unit)">${fmt(r.canteen||0)}</td><td class="num">${fmt(r.earningsTotal)}</td><td class="num">${fmt(r.deductionsTotal)}</td><td class="num"><b>${fmt(r.netSalary)}</b></td>
+    ${generated ? `
+    <div class="teStatRow payStrip">
+      <div class="teStatBox"><b>${rows.length}</b><span>Employees</span></div>
+      <div class="teStatBox" title="Present (Half Day = ½) + paid holidays"><b>${sum('daysWorking')}</b><span>Paid days</span></div>
+      <div class="teStatBox"><b>${fmt(sum('earningsTotal'))}</b><span>Earnings</span></div>
+      <div class="teStatBox"><b>${fmt(sum('deductionsTotal'))}</b><span>Deductions</span></div>
+      <div class="teStatBox payNet"><b>${fmt(sum('netSalary'))}</b><span>Net pay</span></div>
+    </div>
+    ${unmarked?`<div class="payWarn">${ico('alert')} <span>${unmarked} working day${unmarked===1?'':'s'} up to today ${unmarked===1?'is':'are'} not entered in Attendance for ${unmarkedEmps} employee${unmarkedEmps===1?'':'s'} — not paid until entered.</span><button type="button" class="btn secondary" onclick="attTab='summary';attMonth='${payMonth}';render('attendance')">${ico('calendar-days')} See who in Attendance</button></div>`:''}
+    <div class="tableScrollWrap payScroll"><table class="payrollTable">
+      <thead><tr><th>Code</th><th>Employee</th><th>Contractor</th><th class="num" title="Present (Half Day = ½) + paid holidays">Paid days</th><th class="num" title="Basic + HRA + OT + allowance">Earnings</th><th class="num" title="PF, ESI, canteen, late, advance and other deductions">Deductions</th><th class="num">Net pay</th></tr></thead>
+      <tbody>
+      ${rows.map(r=>`<tr onclick="openSlip('${r.code}','${payMonth}')" title="Click to open ${esc(r.name)}'s salary slip">
+        <td>${esc(r.code)}</td><td class="empNameCell">${esc(r.name)}${+r.unmarkedDays?` <button type="button" class="payMiss" title="${r.unmarkedDays} working day(s) not entered in Attendance — not paid. Click to enter them." onclick="event.stopPropagation();openAttDay('${payMonth}-01','${esc(r.code)}')">${r.unmarkedDays} day${+r.unmarkedDays===1?'':'s'} not entered</button>`:''}</td>
+        <td class="payCon">${esc(contractorName(r.contractor)||'—')}</td>
+        <td class="num">${r.daysWorking}</td><td class="num">${fmt(r.earningsTotal)}</td><td class="num">${fmt(r.deductionsTotal)}</td><td class="num"><b>${fmt(r.netSalary)}</b></td>
       </tr>`).join('')}
-      ${!rows.length ? `<tr><td colspan="16"><div class="empty">No employees on the roll${selText?' for '+selText:''} this month.</div></td></tr>` : `
-      <tr class="payTotalRow"><td colspan="4"><b>Total${filtered?' — '+selText:''}</b></td><td class="num"><b>${Math.round(rows.reduce((t,r)=>t+payPresentDays(r),0)*100)/100}</b></td><td class="num"><b>${sum('holidayDays')}</b></td><td class="num"><b>${sum('halfDayCount')}</b></td><td class="num"><b>${sum('lopDays')}</b></td><td class="num"><b>${unmarkedTotal}</b></td><td class="num"><b>${sum('daysWorking')}</b></td><td class="num"><b>${sum('otHours')}</b></td><td class="num"><b>${sum('lateMinutes')}</b></td><td class="num"><b>${fmt(sum('canteen'))}</b></td><td class="num"><b>${fmt(totalEarnings)}</b></td><td class="num"><b>${fmt(totalDeductions)}</b></td><td class="num"><b>${fmt(totalNet)}</b></td></tr>`}
-    </tbody></table></div>` : `<div class="payEmpty">
-      <div class="payEmptyIcon">${ico(active.length?'wallet':'users')}</div>
-      <b>${active.length?`Payroll for ${monthLabel(payMonth)} is not generated yet`:'No employees on the roll this month'}</b>
-      <span>${active.length?`${active.length} employee${active.length>1?'s':''} on the roll. Generate it once — after that it keeps itself up to date as attendance and time entries change.`:'Add employees first.'}</span>
-      ${active.length && canGenerate ? `<button class="btn" onclick="generatePayroll()">${ico('settings')} Generate Payroll</button>` : ''}
+      ${!rows.length ? `<tr><td colspan="7"><div class="empty">No employees on the roll${selText?' for '+esc(selText):''} this month.</div></td></tr>` : `
+      <tr class="payTotalRow"><td colspan="3"><b>Total${filtered?' — '+esc(selText):''}</b></td><td class="num"><b>${sum('daysWorking')}</b></td><td class="num"><b>${fmt(sum('earningsTotal'))}</b></td><td class="num"><b>${fmt(sum('deductionsTotal'))}</b></td><td class="num"><b>${fmt(sum('netSalary'))}</b></td></tr>`}
+      </tbody></table></div>
+    <p class="syncNote">Click an employee for the salary slip (every figure: days, OT, late, PF, ESI, canteen…). Figures follow Attendance by themselves. This month's rates: PF ${+(rates.pfRate*100).toFixed(2)}% of Basic, ESI ${+(rates.esiRate*100).toFixed(2)}% of Earnings, late waiver ${lateGraceMinutes(payMonth)} min — Regenerate applies changed PF / ESI / canteen rates.</p>`
+    : `<div class="payEmpty">
+      <div class="payEmptyIcon">${ico(onRoll.length?'wallet':'users')}</div>
+      <b>${onRoll.length?`Payroll for ${monthLabel(payMonth)} is not generated yet`:'No employees on the roll this month'}</b>
+      <span>${onRoll.length?`${onRoll.length} employee${onRoll.length>1?'s':''} on the roll. Generate it once — after that it keeps itself up to date as attendance changes.`:'Add employees first.'}</span>
+      ${onRoll.length && canGenerate ? `<button class="btn" onclick="generatePayroll()">${ico('settings')} Generate Payroll</button>` : ''}
     </div>`}
-    <p class="syncNote">LOP days, Half Days, Late minutes, OT hours and canteen tokens come from Attendance for ${monthLabel(payMonth)}, and holidays from Attendance → Holidays. ${generated?`Every figure here, on the salary slips and in the reports updates by itself when attendance changes. Rates for this month: PF ${+(rates.pfRate*100).toFixed(2)}% of Basic, ESI ${+(rates.esiRate*100).toFixed(2)}% of Total Earnings, canteen token price by unit (Regenerate to apply changed rates); late waiver ${lateGraceMinutes(payMonth)} min a month (Admin → Late Waiver, applies straight away). Click a row to open the salary slip.`:'Generate payroll once for the month; after that it keeps itself up to date.'}</p>
   </div>`;
 }
 // Payroll register (Excel): every figure on the salary slip, one row per employee — the same
