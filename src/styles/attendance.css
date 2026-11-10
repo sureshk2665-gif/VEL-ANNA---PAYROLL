@@ -116,3 +116,20 @@ table.attGrid tr.attSumRow:hover td{background:var(--hl-soft);}
 .attOk svg{width:13px;height:13px;}
 .attEpMiss{font-style:normal;color:var(--st-lop-text,#c4242a);font-weight:600;}
 @media (max-width:640px){ .attActRow select{max-width:100%;flex:1 1 100%;} }
+
+/* ---- Contractor Paid Leave tab: dates × contractors ---- */
+.teEwWrap table.clvGrid,table.clvGrid{min-width:640px;}
+table.clvGrid th.clvHead{line-height:1.25;}
+table.clvGrid th.clvHead span{display:block;max-width:150px;margin:0 auto;white-space:normal;color:var(--text);}
+table.clvGrid th.clvHead small{display:block;font-weight:500;color:var(--muted);}
+table.clvGrid td.clvCell input{width:17px;height:17px;accent-color:var(--hl);cursor:pointer;}
+table.clvGrid td.clvCell input:disabled{cursor:default;}
+table.clvGrid td.clvCell.on{background:var(--hl-soft) !important;}
+table.clvGrid td.clvAll{border-left:1px solid var(--line);}
+table.clvGrid tr.clvOn td.attDate{box-shadow:inset 3px 0 0 var(--hl);}
+table.clvGrid td.clvOff{text-align:left;color:var(--muted);font-size:12px;}
+table.clvGrid tr.sun td{background:var(--st-sunday-bg);}
+table.clvGrid tr.hol td{background:var(--st-noph-bg);}
+input.clvReason{box-sizing:border-box;width:180px;height:28px;padding:0 8px;border:1px solid var(--control);border-radius:6px;background:var(--surface);color:var(--text);font:inherit;font-size:12.5px;}
+input.clvReason:focus{outline:none;border-color:var(--hl);box-shadow:var(--focus);}
+input.clvReason:disabled{border-color:transparent;background:transparent;color:var(--text);}

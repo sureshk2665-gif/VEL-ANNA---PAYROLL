@@ -91,7 +91,8 @@ function teCompute(entry, dateForRow, code){
   if(inMin===null) return {shift:null,late:0,lateIn:0,earlyOut:0,working:0,ot:0};
   let outMin=outMinRaw;
   if(outMin!==null && outMin<=inMin) outMin+=24*60; // overnight out-time
-  const holidayFullOT = dateForRow ? teIsHolidayDate(dateForRow) : false;
+  // Sundays, holidays and the employee's contractor paid leave: the whole time worked is OT.
+  const holidayFullOT = dateForRow ? (teIsHolidayDate(dateForRow) || !!(code && empPaidLeaveOn(code, dateForRow))) : false;
   if(holidayFullOT){
     const dur = (outMin!==null) ? Math.max(0,outMin-inMin) : 0;
     return {shift:teDetectShift(inMin), late:0, lateIn:0, earlyOut:0, working:0, ot:dur};

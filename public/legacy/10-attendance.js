@@ -13,7 +13,8 @@
    (getAttStatus, teMonthDays): Present = days with an In time, LOP / Half Day = days marked, Paid
    Days = Present + Half Days × ½ + NOPH. A working day up to today with nothing entered is not paid.
    Other tabs: Month Summary (every employee's month, by contractor, read-only — click a row to open
-   that employee) and Holidays (the Holiday Calendar).
+   that employee), Holidays (the Holiday Calendar) and Contractor Paid Leave (paid days off by date
+   for one contractor's employees).
    Data: db.timeEntries / db.timeLeaves (13b-past-days.js), and db.payrollAdjustments[ym][code] for
    canteenTokens, otherAllowanceOneOff and otherDedOneOff. */
 /* ---- Date and holiday helpers (used by Payroll, Reports and the Dashboard) ---- */
@@ -42,13 +43,30 @@ function holidaysInMonth(ym){
 function computeWorkingDays(ym){ return daysInMonth(ym) - sundaysInMonth(ym) - holidaysInMonth(ym); }
 function isSunday(ym, day){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,day).getDay()===0; }
 
+/* ---- Contractor paid leave (the Contractor Paid Leave tab) ----
+   db.contractorLeaves = [{date, contractor, name}]: a paid day off on that date for every employee of
+   that contractor. For them it counts exactly like a paid holiday (NOPH): paid, not a working day,
+   and time worked on it is OT. */
+function contractorLeaveOn(con, ds){
+  const L=db.contractorLeaves;
+  return con && Array.isArray(L) && L.length ? L.find(l=>l.date===ds && l.contractor===con) || null : null;
+}
+function empPaidLeaveOn(code, ds){
+  const L=db.contractorLeaves;
+  if(!Array.isArray(L) || !L.some(l=>l.date===ds)) return null;
+  const e=(db.employees||[]).find(x=>x.code===code);
+  return e ? contractorLeaveOn(e.contractor, ds) : null;
+}
+
 /* ---- One day's status ----
-     1. a Holiday Calendar date counts as 'NOPH' for every employee;
+     1. a Holiday Calendar date counts as 'NOPH' for every employee, and a contractor's paid leave
+        as 'NOPH' for that contractor's employees;
      2. a mark made on the old daily Attendance screen;
      3. otherwise the day entered on this screen (In / Out times, LOP / Half Day) — timeEntryAttStatus(). */
 function getAttStatus(date, code){
   const t=getHolidayType(date);
   if(t) return t;
+  if(empPaidLeaveOn(code, date)) return 'NOPH';
   const s=db.attendance && db.attendance[date] && db.attendance[date][code] || '';
   if(s) return s==='PaidLeave' ? 'LossOfPay' : s; // NOPL (paid leave) was removed — any old NOPL mark counts as Loss Of Pay
   return timeEntryAttStatus(date, code);
@@ -151,11 +169,11 @@ function attHoliday(dt){
   const u=(db.timeHolidays||[]).find(h=>h.date===dt); if(u) return {kind:'unpaid', name:u.remarks||u.name||'Holiday'};
   return null;
 }
-// Working days on the roll: not Sundays, NOPH or holidays without pay.
-function attWorkDays(e, ym){
-  let n=0; const dim=daysInMonth(ym);
-  for(let d=1; d<=dim; d++){ const ds=dateStr(ym,d); if(!isSunday(ym,d) && isEmpOnRollOn(e, ds) && getHolidayType(ds)!=='NOPH' && !isUnpaidHolidayDate(ds)) n++; }
-  return n;
+// The same for one employee, with their contractor's paid leave: {kind:'paid'|'unpaid'|'cleave', name}.
+function attHolidayFor(e, dt){
+  const h=attHoliday(dt); if(h) return h;
+  const c=e && contractorLeaveOn(e.contractor, dt);
+  return c ? {kind:'cleave', name:c.name||''} : null;
 }
 // Working days on the roll up to today with nothing entered (not paid until they are).
 function attMissingDays(e, ym){
@@ -163,7 +181,7 @@ function attMissingDays(e, ym){
   const today=todayStr(); let n=0;
   for(const dt of attMonthDates(ym)){
     if(dt>today) break;
-    if(attDow(dt)===0 || attHoliday(dt) || !isEmpOnRollOn(e, dt)) continue;
+    if(attDow(dt)===0 || attHolidayFor(e, dt) || !isEmpOnRollOn(e, dt)) continue;
     if(!getAttStatus(dt, e.code)) n++;
   }
   return n;
@@ -173,7 +191,7 @@ function attHasTime(en, k){ return !!en && en[k+'H']!=='' && en[k+'H']!==undefin
 function attFmtTime(en, k){ return attHasTime(en,k) ? String(en[k+'H']).padStart(2,'0')+':'+String(en[k+'M']===''||en[k+'M']===undefined?0:en[k+'M']).padStart(2,'0')+' '+(en[k+'AP']||'AM') : ''; }
 // Everything one row shows.
 function attDay(e, dt){
-  const code=e.code, entry=attEntry(dt, code), dow=attDow(dt), hol=attHoliday(dt), onRoll=isEmpOnRollOn(e, dt);
+  const code=e.code, entry=attEntry(dt, code), dow=attDow(dt), hol=attHolidayFor(e, dt), onRoll=isEmpOnRollOn(e, dt);
   const st=onRoll ? getAttStatus(dt, code) : '';
   const lop=st==='LossOfPay', half=st==='HalfDay';
   const hasIn=attHasTime(entry,'in'), hasOut=attHasTime(entry,'out');
@@ -186,8 +204,9 @@ function attDay(e, dt){
 /* ---- Rendering ---- */
 function renderAttendance(){
   const tab=(k, icon, label)=>`<div class="teTab ${attTab===k?'active':''}" role="tab" onclick="attSetTab('${k}')">${ico(icon)} ${label}</div>`;
-  const tabs=`<div class="teTabs attPageTabs" role="tablist">${tab('entry','user','Employee Attendance')}${tab('summary','clipboard','Month Summary')}${tab('holidays','calendar','Holidays')}</div>`;
+  const tabs=`<div class="teTabs attPageTabs" role="tablist">${tab('entry','user','Employee Attendance')}${tab('summary','clipboard','Month Summary')}${tab('holidays','calendar','Holidays')}${tab('cleave','calendar-range','Contractor Paid Leave')}</div>`;
   if(attTab==='holidays'){ teHostPage='attendance'; return tabs+renderTEHolidayTab(); }
+  if(attTab==='cleave'){ teHostPage='attendance'; return tabs+renderAttConLeave(); }
   return tabs+(attTab==='summary' ? renderAttSummary() : renderAttEntry());
 }
 function attSetTab(t){
@@ -232,6 +251,7 @@ function attEditButtonsHtml(withNext){
 function attStatusHtml(x){
   if(!x.onRoll) return `<span class="teEwMuted">Not on roll</span>`;
   const worked=x.hasIn ? ` <small>· worked (OT)</small>` : '';
+  if(x.st==='NOPH' && x.hol && x.hol.kind==='cleave') return `<span class="tag NOPH" title="Paid leave for this contractor's employees (Contractor Paid Leave tab)">Paid leave${x.hol.name?' · '+attEsc(x.hol.name):''}${worked}</span>`;
   if(x.st==='NOPH') return `<span class="tag NOPH">${attEsc(x.hol?x.hol.name:'Paid holiday')} <small>· paid</small>${worked}</span>`;
   if(x.lop) return `<span class="tag LossOfPay">LOP</span>`;
   if(x.half) return `<span class="tag HalfDay">Half Day</span>`;
@@ -360,7 +380,7 @@ function renderAttEntry(){
       <tbody>${days.map((x,i)=>attRowHtml(e, x, i, editable)).join('')}</tbody>
       <tfoot><tr id="attDayFoot">${attFootHtml(r, missing)}</tr></tfoot>
     </table></div>
-    <p class="syncNote">A working day up to today with nothing entered is not paid — every such day shows <b>Needs entry</b>. Late = minutes after the shift start + minutes left before the shift end; OT = time after the shift end (shift start + 8 hours + 30-minute break); on Sundays and holidays the whole time worked is OT. Half Days are paid ½ and have no Late. Payroll, salary slips, reports, the Contractors Bill and the Dashboard all use these days.</p>
+    <p class="syncNote">A working day up to today with nothing entered is not paid — every such day shows <b>Needs entry</b>. Paid holidays and the contractor's paid leave (Contractor Paid Leave tab) are paid without an entry. Late = minutes after the shift start + minutes left before the shift end; OT = time after the shift end (shift start + 8 hours + 30-minute break); on Sundays and holidays the whole time worked is OT. Half Days are paid ½ and have no Late. Payroll, salary slips, reports, the Contractors Bill and the Dashboard all use these days.</p>
   </div>`;
 }
 function attFootHtml(r, missing){
@@ -394,7 +414,7 @@ function attTickDate(ev, dt){ if(attEditable()) attTick(ev, dt); }
 function attTickWorking(){
   if(!attEditable()) return;
   const e=attCurEmp(); if(!e) return;
-  attSel=new Set(attMonthDates(attMonth).filter(dt=>isEmpOnRollOn(e, dt) && attDow(dt)!==0 && !attHoliday(dt)));
+  attSel=new Set(attMonthDates(attMonth).filter(dt=>isEmpOnRollOn(e, dt) && attDow(dt)!==0 && !attHolidayFor(e, dt)));
   attSelAnchor=''; attSelRefresh();
 }
 function attTickNone(){ attSel.clear(); attSelAnchor=''; attSelRefresh(); }
@@ -786,5 +806,71 @@ function renderAttSummary(){
       </tr></thead>
       ${bodies || `<tbody><tr><td colspan="12"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr></tbody>`}
     </table></div>
+  </div>`;
+}
+
+/* ---- Contractor Paid Leave tab: paid days off by date, for one contractor's employees ----
+   Every date of the month is a row and every contractor a column: tick a contractor on a date (or
+   All) and give the day a name. Sundays and Holiday Calendar days are off for everyone already.
+   An Edit session like the Holiday Calendar: Attendance and Payroll use it only after Save. */
+let attClvReason={}; // a name typed on a date before any contractor is ticked
+function attClvCanEdit(){ return hasPerm('attendance','edit'); }
+function attClvList(){ if(!Array.isArray(db.contractorLeaves)) db.contractorLeaves=[]; return db.contractorLeaves; }
+function attClvNameFor(dt){ const h=attClvList().find(l=>l.date===dt && l.name); return h ? h.name : (attClvReason[dt]||''); }
+function attClvSet(dt, con, on){
+  const L=attClvList(), had=L.some(l=>l.date===dt && l.contractor===con);
+  if(had===on) return true;
+  if(had && !hasPerm('attendance','delete')){ alert('You do not have permission to remove a paid leave.'); return false; }
+  const name=attClvNameFor(dt);
+  db.contractorLeaves=L.filter(l=>!(l.date===dt && l.contractor===con));
+  if(on) db.contractorLeaves.push({date:dt, contractor:con, name});
+  db.contractorLeaves.sort((a,b)=>a.date.localeCompare(b.date) || String(a.contractor).localeCompare(String(b.contractor)));
+  return true;
+}
+function attClvToggle(dt, con, on){
+  if(!teEditActive('cleave')) return;
+  attClvSet(dt, con, on);
+  teEditTouch(); render('attendance');
+}
+function attClvAll(dt, on){
+  if(!teEditActive('cleave')) return;
+  getContractors().forEach(c=>attClvSet(dt, c.code, on));
+  teEditTouch(); render('attendance');
+}
+function attClvName(dt, v){
+  if(!teEditActive('cleave')) return;
+  v=String(v||'').trim(); attClvReason[dt]=v;
+  attClvList().forEach(l=>{ if(l.date===dt) l.name=v; });
+  teEditTouch();
+}
+function renderAttConLeave(){
+  const allowed=attClvCanEdit(), on=allowed && teEditActive('cleave');
+  const ym=attMonth, cons=getContractors(), dates=attMonthDates(ym), emps=payrollEmployeesFor(ym);
+  const L=(db.contractorLeaves||[]).filter(l=>String(l.date).startsWith(ym));
+  const head=cons.map(c=>{ const n=L.filter(l=>l.contractor===c.code).length, k=emps.filter(e=>e.contractor===c.code).length;
+    return `<th class="clvHead" title="${attEsc(c.name||c.code)}: ${k} employee${k===1?'':'s'} this month"><span>${attEsc(c.name||c.code)}</span><small>${n?`${n} day${n===1?'':'s'}`:'—'}</small></th>`; }).join('');
+  const rows=dates.map(dt=>{
+    const dow=attDow(dt), hol=attHoliday(dt), off=dow===0 || !!hol;
+    const here=L.filter(l=>l.date===dt), reason=(here.find(l=>l.name)||{}).name || attClvReason[dt] || '';
+    if(off) return `<tr class="${dow===0?'sun':'hol'}"><td class="attDate">${attShortDate(dt)}</td><td class="attDow">${ATT_DOW[dow]}</td>
+      <td colspan="${cons.length+2}" class="clvOff">${dow===0?'Sunday':`${attEsc(hol.name)} · ${hol.kind==='paid'?'paid holiday for everyone':'holiday without pay'}`}</td></tr>`;
+    const all=cons.length>0 && cons.every(c=>here.some(l=>l.contractor===c.code));
+    return `<tr class="${here.length?'clvOn':''}"><td class="attDate">${attShortDate(dt)}</td><td class="attDow">${ATT_DOW[dow]}</td>
+      ${cons.map(c=>{ const has=here.some(l=>l.contractor===c.code);
+        return `<td class="clvCell ${has?'on':''}"><input type="checkbox" ${has?'checked':''} ${on?'':'disabled'} onchange="attClvToggle('${dt}','${attEsc(c.code)}',this.checked)" aria-label="Paid leave for ${attEsc(c.name||c.code)} on ${fmtDate(dt)}"></td>`; }).join('')}
+      <td class="clvCell clvAll"><input type="checkbox" ${all?'checked':''} ${on?'':'disabled'} onchange="attClvAll('${dt}',this.checked)" aria-label="Paid leave for every contractor on ${fmtDate(dt)}"></td>
+      <td><input class="clvReason" value="${attEsc(reason)}" ${on?'':'disabled'} placeholder="${on&&here.length?'Name, e.g. Diwali':''}" maxlength="40" onchange="attClvName('${dt}',this.value)" aria-label="Name of the paid leave on ${fmtDate(dt)}"></td>
+    </tr>`;
+  }).join('');
+  const days=new Set(L.map(l=>l.date)).size;
+  return `<div class="panel attPanel">
+    <div class="teDwTop teBar"><div class="teDwGroup">${attMonthBarHtml()}</div></div>
+    ${teEditBarHtml('cleave', allowed, 'Click Edit to set paid leave dates.', 'Editing — tick a contractor on a date (or All) and name the day, then Save. Attendance and Payroll use it only after Save.')}
+    <p class="attNote">A ticked date is a <b>paid day off for every employee of that contractor</b>: paid like a paid holiday (counted with NOPH in Payroll, salary slips and reports), not a working day, and time worked on it is OT. ${days?`${days} date${days===1?'':'s'} in ${attEsc(attMonthName(ym))}.`:`No paid leave in ${attEsc(attMonthName(ym))} yet.`}</p>
+    ${cons.length?`<div class="tableScrollWrap"><table class="teEwGrid clvGrid">
+      <thead><tr><th>Date</th><th>Day</th>${head}<th class="clvHead"><span>All</span><small>contractors</small></th><th style="text-align:left;">Name</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`:`<div class="empty">No contractors yet — add them in Software Admin.</div>`}
+    <p class="syncNote">Not counted for the contractor's service charge (the Contractors Bill counts Present days only), like paid holidays. Employees whose contractor is not set get no contractor paid leave.</p>
   </div>`;
 }
