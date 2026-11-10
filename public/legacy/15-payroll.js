@@ -78,7 +78,7 @@ function renderPayroll(){
       ${!rows.length ? `<tr><td colspan="7"><div class="empty">No employees on the roll${selText?' for '+esc(selText):''} this month.</div></td></tr>` : `
       <tr class="payTotalRow"><td colspan="3"><b>Total${filtered?' — '+esc(selText):''}</b></td><td class="num"><b>${sum('daysWorking')}</b></td><td class="num"><b>${fmt(sum('earningsTotal'))}</b></td><td class="num"><b>${fmt(sum('deductionsTotal'))}</b></td><td class="num"><b>${fmt(sum('netSalary'))}</b></td></tr>`}
       </tbody></table></div>
-    <p class="syncNote">Click an employee for the salary slip (every figure: days, OT, late, PF, ESI, canteen…). Figures follow Attendance by themselves. This month's rates: PF ${+(rates.pfRate*100).toFixed(2)}% of Basic, ESI ${+(rates.esiRate*100).toFixed(2)}% of Earnings, late waiver ${lateGraceMinutes(payMonth)} min — Regenerate applies changed PF / ESI / canteen rates.</p>`
+    <p class="syncNote">Click an employee for the salary slip (every figure: days, OT, late, PF, ESI, canteen…). Figures follow Attendance by themselves. This month's rates: PF ${+(rates.pfRate*100).toFixed(2)}% of Basic, ESI ${+(rates.esiRate*100).toFixed(2)}% of Earnings, first ${lateGraceMinutes(payMonth)} late minutes free${attIsSimple(payMonth)?' (late beyond them comes off OT hours first)':''} — Regenerate applies changed PF / ESI / canteen rates.</p>`
     : `<div class="payEmpty">
       <div class="payEmptyIcon">${ico(onRoll.length?'wallet':'users')}</div>
       <b>${onRoll.length?`Payroll for ${monthLabel(payMonth)} is not generated yet`:'No employees on the roll this month'}</b>
@@ -97,10 +97,10 @@ function payrollRegisterColumns(){
     {header:'Half Day', key:'halfDayCount', type:'number'}, {header:'LOP', key:'lopDays', type:'number'}, {header:'Not Marked', key:'unmarkedDays', type:'number'},
     {header:'Paid Days', key:'daysWorking', type:'number'}, {header:'Daily Wage', key:'dailyWage', type:'money', noTotal:true},
     {header:'Basic', key:'basicE', type:'money'}, {header:'HRA', key:'hraE', type:'money'},
-    {header:'OT Hrs', key:'otHours', type:'number'}, {header:'OT Rate / hr', key:'otPerHourRate', type:'money', noTotal:true}, {header:'OT Amount', key:'otAmount', type:'money'},
+    {header:'OT Worked Hrs', key:'otHoursWorked', type:'number'}, {header:'OT Hrs (paid)', key:'otHours', type:'number'}, {header:'OT Rate / hr', key:'otPerHourRate', type:'money', noTotal:true}, {header:'OT Amount', key:'otAmount', type:'money'},
     {header:'Other Allowance', key:'otherAllowance', type:'money'}, {header:'GROSS (Basic + OT)', key:'grossSalary', type:'money'}, {header:'Total Earnings', key:'earningsTotal', type:'money'},
     {header:'PF', key:'pf', type:'money'}, {header:'ESI', key:'esi', type:'money'}, {header:'Canteen Tokens', key:'canteenTokens', type:'number'}, {header:'Token Price', key:'canteenTokenPrice', type:'money', noTotal:true}, {header:'Canteen', key:'canteen', type:'money'},
-    {header:'Advance', key:'advance', type:'money'}, {header:'Late Min', key:'lateMinutes', type:'number'}, {header:'Late Charged Min', key:'lateChargedMinutes', type:'number'},
+    {header:'Advance', key:'advance', type:'money'}, {header:'Late Min', key:'lateMinutes', type:'number'}, {header:'Late off OT (min)', key:'lateOtMinutes', type:'number'}, {header:'Late Charged Min', key:'lateChargedMinutes', type:'number'},
     {header:'Late Deduction', key:'lateDeduction', type:'money'}, {header:'Others', key:'othersDed', type:'money'},
     {header:'Total Deductions', key:'deductionsTotal', type:'money'}, {header:'Net Pay', key:'netSalary', type:'money'},
     {header:'PF Wages', key:'pfWages', type:'money'}, {header:'PF (Employer)', key:'pfEmployer', type:'money'},
@@ -113,6 +113,7 @@ function payrollRegisterRow(r){
   const e=db.employees.find(x=>x.code===r.code)||{};
   return {...r, name:e.name||r.name, designation:e.designation||r.designation||'', unitLabel:unitLabel(e.unit||r.unit),
     contractorName:contractorName(e)||'', othersDed:(+r.otherDed||0)+(+r.tax||0), presentPaid:payPresentDays(r), weekOffDays:payWeekOff(r, r.month||payMonth),
+    otHoursWorked:r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours, lateOtMinutes:+r.lateOtMinutes||0,
     pfNo:e.pfNo||r.pfNo||'', uan:e.uan||r.uan||'', esiNo:e.esiNo||r.esiNo||''};
 }
 function downloadPayrollExcel(){

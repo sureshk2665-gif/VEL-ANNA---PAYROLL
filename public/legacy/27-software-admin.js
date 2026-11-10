@@ -296,28 +296,29 @@ function downloadAllEmployeeDetails(){
 }
 
 /* ---- Delete All Attendance Data — Software Admin ----
-   For clearing test entries before the software is handed over. Removes: the monthly attendance
-   figures (LOP days, Half Days, Late minutes, OT hours) and the old day-by-day entries (attendance
-   marks, In / Out times, leave entries, day shift changes). Keeps: employees, holidays, canteen
+   For clearing test entries before the software is handed over. Removes: every day's Present / LOP /
+   Half Day mark with its Late and OT, month-total figures (LOP days, Half Days, Late minutes, OT
+   hours) and the old entries with In / Out times (leave entries, day shift changes). Keeps: employees, holidays, canteen
    tokens, allowances, deductions, salary advances, payroll rates and users. A backup file is
    downloaded first; if that fails nothing is deleted. */
 const ATT_DELETE_KEYS=['lopDays','halfDays','lateMinutes','attEntered'];
 async function deleteAllAttendanceData(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete attendance data.'); return; }
-  const days=[...Object.keys(db.attendance||{}), ...Object.keys(db.timeEntries||{}), ...(db.timeLeaves||[]).map(l=>l.date)];
+  const days=[...Object.keys(db.attendance||{}), ...Object.keys(db.timeEntries||{}), ...Object.keys(db.dayFigs||{}), ...(db.timeLeaves||[]).map(l=>l.date)];
   const months=new Set(days.map(d=>String(d).slice(0,7)));
   Object.entries(db.payrollAdjustments||{}).forEach(([ym, month])=>{
     if(Object.values(month||{}).some(a=>a && (+a.otHours || a.lopOverride!=null || ATT_DELETE_KEYS.some(k=>a[k]!==undefined && a[k]!==false && a[k]!==0)))) months.add(ym);
   });
   if(!months.size){ alert('There is no attendance data to delete.'); return; }
   const typed=prompt(`Delete ALL attendance data (${months.size} month(s))?\n\n`
-    +`Removes: LOP days, Half Days, Late minutes and OT hours, and the old day-by-day entries (attendance, In / Out times, leave entries, day shift changes).\n`
+    +`Removes: every day's Present / LOP / Half Day mark with its Late minutes and OT hours, and the old entries with In / Out times.\n`
     +`Keeps: employees, holidays, tokens, allowances, deductions, advances, rates and users.\n\n`
     +`A backup file is downloaded first. This cannot be undone except by restoring that backup.\n\nType DELETE to continue.`);
   if(typed===null) return;
   if(typed.trim()!=='DELETE'){ alert('Nothing was deleted. Type DELETE in capital letters to confirm.'); return; }
   if(!backupData()){ alert('The backup could not be downloaded, so nothing was deleted.'); return; }
   db.attendance={};
+  db.dayFigs={};
   db.timeEntries={};
   db.timeLeaves=[];
   db.shiftOverrides={};
