@@ -34,7 +34,7 @@ function teEwSetSaveState(s){
    screen with unsaved changes asks to Save or Discard. While a session is open, anything else that
    saves the database writes these stores as they were before Edit (teDraftSafe), so a half-done
    edit never leaks out. */
-const TE_EDIT_KEYS=['timeEntries','timeLeaves','dayFigs','payrollAdjustments','attendance','holidays','timeHolidays','contractorLeaves'];
+const TE_EDIT_KEYS=['timeEntries','timeLeaves','dayFigs','tempAtt','payrollAdjustments','attendance','holidays','timeHolidays','contractorLeaves'];
 let teEdit=null; // {area:'attendance'|'holidays', page, snap:JSON, dirty:boolean}
 function teEditActive(area){ return !!teEdit && (!area || teEdit.area===area); }
 // The page an Edit session belongs to (the Holiday Calendar is a tab of Attendance).
@@ -49,6 +49,7 @@ function teEditTouch(){ if(teEdit){ teEdit.dirty=true; if(typeof teEwSetSaveStat
 // Every screen's Edit flag, closed together when a session ends.
 function teEditEndModes(){
   if(typeof attEditMode!=='undefined') attEditMode=false;
+  if(typeof tmpEditMode!=='undefined') tmpEditMode=false;
 }
 async function teEditSave(){
   if(!teEdit) return true;

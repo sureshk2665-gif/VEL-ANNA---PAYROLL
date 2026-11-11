@@ -18,8 +18,8 @@ function render(page){
     if(fallback && fallback!==page){ render(fallback); return; }
   }
   setActiveNav(page);
-  const titles={dashboard:'Dashboard',employees:'Employees',resigned:'Resigned Employees',departments:'Departments',attendance:'Attendance',payroll:'Payroll',salaryadvance:'Salary Advance',contractorbill:'Contractors Bill',reports:'Reports',settings:'Admin',softwareadmin:'Software Admin'};
-  const subtitles={dashboard:"This month's attendance and payroll",employees:'Search, add and manage your workforce',resigned:'Employees who have resigned — rejoin them to restore full access',departments:'Organize employees into departments',attendance:'Pick an employee, mark each day Present / LOP / Half Day, type Late and OT — everything else is calculated',payroll:'Process salaries and generate payslips',salaryadvance:'Issue employee advances and auto-manage monthly recovery',contractorbill:'What each contractor is paid this month: salary + service charge',reports:'Open a report, then download it as PDF or print it',settings:'Payroll rates, designations, your password and user accounts',softwareadmin:'Company details, automatic backup scheduler and full user rights / admin management — Software Admin only'};
+  const titles={dashboard:'Dashboard',employees:'Employees',resigned:'Resigned Employees',departments:'Departments',attendance:'Attendance',tempattendance:'Temp Attendance',payroll:'Payroll',salaryadvance:'Salary Advance',contractorbill:'Contractors Bill',reports:'Reports',settings:'Admin',softwareadmin:'Software Admin'};
+  const subtitles={dashboard:"This month's attendance and payroll",employees:'Search, add and manage your workforce',resigned:'Employees who have resigned — rejoin them to restore full access',departments:'Organize employees into departments',attendance:'Pick an employee, mark each day Present / LOP / Half Day, type Late and OT — everything else is calculated',tempattendance:'Every employee on one page — type the month\'s Present days, LOP, OT, Late and tokens',payroll:'Process salaries and generate payslips',salaryadvance:'Issue employee advances and auto-manage monthly recovery',contractorbill:'What each contractor is paid this month: salary + service charge',reports:'Open a report, then download it as PDF or print it',settings:'Payroll rates, designations, your password and user accounts',softwareadmin:'Company details, automatic backup scheduler and full user rights / admin management — Software Admin only'};
   document.getElementById('pageTitle').textContent=titles[page];
   const subEl=document.getElementById('pageSubtitle'); if(subEl) subEl.textContent=subtitles[page]||'';
   const mainPanel=document.getElementById('mainPanel');
@@ -34,6 +34,7 @@ function render(page){
   if(page==='resigned') body.innerHTML=renderResigned();
   if(page==='departments') body.innerHTML=renderDepartments();
   if(page==='attendance') body.innerHTML=renderAttendance();
+  if(page==='tempattendance') body.innerHTML=renderTempAttendance();
   if(page==='payroll') body.innerHTML=renderPayroll();
   if(page==='salaryadvance') body.innerHTML=renderSalaryAdvance();
   if(page==='contractorbill') body.innerHTML=renderContractorBill();
@@ -74,7 +75,7 @@ let gsItems=[], gsIndex=0;
 function globalSearchResults(q){
   q=String(q||'').trim().toLowerCase();
   if(!q || !currentUser) return [];
-  const titles={dashboard:'Dashboard',employees:'Employees',resigned:'Resigned Employees',departments:'Departments',attendance:'Attendance',payroll:'Payroll',salaryadvance:'Salary Advance',contractorbill:'Contractors Bill',reports:'Reports',settings:'Admin',softwareadmin:'Software Admin'};
+  const titles={dashboard:'Dashboard',employees:'Employees',resigned:'Resigned Employees',departments:'Departments',attendance:'Attendance',tempattendance:'Temp Attendance',payroll:'Payroll',salaryadvance:'Salary Advance',contractorbill:'Contractors Bill',reports:'Reports',settings:'Admin',softwareadmin:'Software Admin'};
   const apps=Object.keys(titles)
     .filter(k=>(k==='softwareadmin' ? isSoftwareAdmin() : canOpenModule(k)) && titles[k].toLowerCase().includes(q))
     .map(k=>({kind:'app', page:k, label:titles[k], sub:'App'}));
