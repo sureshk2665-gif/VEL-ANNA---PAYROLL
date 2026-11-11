@@ -27,10 +27,13 @@ function adjFor(ym, code){
    LOP or Half Day. Such a month stays as typed until it is switched to day-by-day entry. */
 function attIsMonthly(ym){ return !!ym && !!db && Array.isArray(db.monthlyAttMonths) && db.monthlyAttMonths.includes(ym); }
 function attIsDaily(ym){ return !!ym && !!db && !!db.dayAttFrom && ym>=db.dayAttFrom && !attIsMonthly(ym); }
-// From db.simpleAttFrom on, a day is entered as Present / LOP / Half Day with its Late minutes and OT
-// hours (no shifts, no In / Out times — db.attendance marks and db.dayFigs, 10-attendance.js), and
-// Late beyond the free minutes is taken off the month's OT hours first (lateDeductionFor).
-function attIsSimple(ym){ return !!ym && !!db && !!db.simpleAttFrom && ym>=db.simpleAttFrom && !attIsMonthly(ym); }
+// Every month (but one typed as month totals) is entered the same way: each day Present / LOP / Half
+// Day with its Late minutes and OT hours (no shifts, no In / Out times — db.attendance marks and
+// db.dayFigs, 10-attendance.js; older months were converted to this once — ensureSimpleAttendance).
+function attIsSimple(ym){ return !!ym && !!db && !attIsMonthly(ym); }
+// From db.lateOffOtFrom on (the month the late rule began), Late beyond the free minutes is taken off
+// the month's OT hours first (lateDeductionFor); earlier months keep the rule they were paid with.
+function lateOffOt(ym){ return !!ym && !!db && !!db.lateOffOtFrom && ym>=db.lateOffOtFrom && !attIsMonthly(ym); }
 // A booked "holiday without pay" (Holiday Calendar): not a working day and not paid.
 function isUnpaidHolidayDate(ds){ return (db.timeHolidays||[]).some(h=>h.date===ds); }
 // Canteen tokens for an employee in a month: the month's own figure entered on Attendance (or
@@ -113,7 +116,7 @@ function lateGraceMinutes(ym){
   return w ? Math.max(0, Math.round(+w.minutes||0)) : Math.max(0, payrollRates(ym).lateGraceMinutes);
 }
 // Late Deduction: the first lateGraceMinutes(ym) of Late in the month are free (Admin → Late Waiver).
-// From db.simpleAttFrom on (otHoursAvail given), the minutes beyond are first taken off the month's
+// From db.lateOffOtFrom on (otHoursAvail given), the minutes beyond are first taken off the month's
 // OT hours (fromOt); only what OT cannot cover is deducted from salary. Before that, every minute
 // beyond was deducted. One minute's salary = Daily Wage (Basic + HRA per day) ÷ 8 ÷ 60.
 function lateDeductionFor(e, ym, dailyWage, otHoursAvail){
@@ -217,8 +220,8 @@ function computePayrollForEmployee(e, ym){
   const basicE=Math.round(basicSum);
   const hraE=Math.round(hraSum);
   const otPerHourRate = wage.otRate;
-  // OT hours worked; from db.simpleAttFrom, Late beyond the free minutes comes off them first.
-  const simple=attIsSimple(ym);
+  // OT hours worked; from db.lateOffOtFrom, Late beyond the free minutes comes off them first.
+  const simple=lateOffOt(ym);
   const otWorked = otHoursFor(e, ym);
   const late = lateDeductionFor(e, ym, wage.dailyWage, simple ? otWorked : null);
   const otHours = simple ? Math.max(0, Math.round((otWorked*60 - late.fromOt)/60*100)/100) : otWorked;
