@@ -54,3 +54,15 @@ tr.advSchedRow td{padding-top:0;background:var(--surface) !important;}
 .advInst.now{border-color:var(--hl-stroke,var(--control));font-weight:600;}
 
 }
+
+/* ---- Simplified page: one panel — search, Active / Recovered / All, New advance (a dialog) ---- */
+.panel.advPanel{padding:12px 14px;}
+.advTop{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--rule,var(--border));}
+.advTopL{display:flex;align-items:center;gap:8px 12px;flex-wrap:wrap;}
+.advTop .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
+.advPanel .advStrip{margin:12px 0;}
+.advPanel .advScroll{border:1px solid var(--border);border-radius:var(--radius-card);}
+table.advTable tr.advRow{cursor:pointer;}
+table.advTable tr.advRow:hover td{background:var(--hl-soft,var(--raised));}
+.advFormModal{grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:12px;margin-top:6px;}
+.advFormModal .advEmp,.advFormModal .advRem{grid-column:1 / -1;}
