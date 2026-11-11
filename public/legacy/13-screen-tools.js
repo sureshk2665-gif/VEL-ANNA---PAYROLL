@@ -48,7 +48,6 @@ function teEditBegin(area){
 function teEditTouch(){ if(teEdit){ teEdit.dirty=true; if(typeof teEwSetSaveState==='function') teEwSetSaveState('unsaved'); } }
 // Every screen's Edit flag, closed together when a session ends.
 function teEditEndModes(){
-  if(typeof attEditMode!=='undefined') attEditMode=false;
   if(typeof tmpEditMode!=='undefined') tmpEditMode=false;
 }
 async function teEditSave(){

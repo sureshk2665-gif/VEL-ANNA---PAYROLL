@@ -6,7 +6,6 @@ const PERMISSION_MODULES=[
   {key:'resigned',label:'Resigned Employees'},
   {key:'departments',label:'Departments'},
   {key:'attendance',label:'Attendance'},
-  {key:'tempattendance',label:'Temp Attendance'},
   {key:'payroll',label:'Payroll'},
   {key:'salaryadvance',label:'Salary Advance'},
   {key:'contractorbill',label:'Contractors Bill'},

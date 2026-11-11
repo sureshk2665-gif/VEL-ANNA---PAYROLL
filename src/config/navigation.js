@@ -1,5 +1,5 @@
 import {
-  CalendarDays, ClipboardList, DoorOpen, Folder, Landmark, LayoutDashboard, Receipt, Settings, ShieldCheck,
+  CalendarDays, DoorOpen, Folder, Landmark, LayoutDashboard, Receipt, Settings, ShieldCheck,
   Tag, Users, Wallet,
 } from 'lucide-react';
 
@@ -12,7 +12,6 @@ export const NAV_ITEMS = [
   { page: 'resigned', icon: DoorOpen, label: 'Resigned Employees' },
   { page: 'departments', icon: Tag, label: 'Departments' },
   { page: 'attendance', icon: CalendarDays, label: 'Attendance' },
-  { page: 'tempattendance', icon: ClipboardList, label: 'Temp Attendance' },
   { section: 'Payroll' },
   { page: 'payroll', icon: Wallet, label: 'Payroll' },
   { page: 'salaryadvance', icon: Landmark, label: 'Salary Advance' },

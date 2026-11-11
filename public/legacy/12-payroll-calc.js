@@ -34,8 +34,8 @@ function fmtHrsMin(hours){
 }
 // The same from minutes: 39 → "39m", 125 → "2h 5m".
 function fmtMinHM(min){ return fmtHrsMin((+min||0)/60); }
-/* ---- Temp Attendance (10b-temp-attendance.js) ----
-   The month's figures typed for one employee on the Temp Attendance page: db.tempAtt[ym][code] =
+/* ---- Attendance month totals (10b-temp-attendance.js) ----
+   The month's figures typed for one employee on the Attendance page: db.tempAtt[ym][code] =
    {present, lop, ot (minutes), late (minutes), tokens}. When an employee has any of them for a month,
    Payroll uses only these for that month (a blank box counts 0; a blank Present = working days − LOP)
    instead of the days on Attendance: Paid days = Present + paid holidays. */
@@ -198,7 +198,7 @@ function computePayrollForEmployee(e, ym){
   let present=0, halfDay=0, lop=0, noph=0, unmarked=0, paidDays=0, basicSum=0, hraSum=0;
   // Monthly entry: working days on the roll (not Sundays, NOPH or holidays without pay) count as
   // Present; the LOP and Half Days entered for the month are taken off afterwards.
-  const tmp=tempAttFor(ym, e.code); // typed on Temp Attendance: the month's totals for this employee
+  const tmp=tempAttFor(ym, e.code); // typed on Attendance: the month's totals for this employee
   const monthly=attIsMonthly(ym) || !!tmp;
   let workDays=0, workBasic=0, workHra=0, holBasic=0, holHra=0;
   const segs=[];
@@ -229,7 +229,7 @@ function computePayrollForEmployee(e, ym){
     basicSum-=holBasic; hraSum-=holHra; paidDays-=noph; noph=0;
   }
   if(tmp){
-    // Temp Attendance: Present days as typed (blank = working days − LOP), at most the working days;
+    // Attendance month totals: Present days as typed (blank = working days − LOP), at most the working days;
     // paid at the month's average day rate, like the month-totals entry below.
     lop=Math.min(Math.max(0, +tmp.lop||0), workDays);
     const typed=tempAttSet(tmp.present) ? Math.max(0, +tmp.present||0) : workDays-lop;
