@@ -283,6 +283,16 @@ function attFilterRowHtml(shown, all){
     ${any?`<button type="button" class="teFiltClear" onclick="attClearFilters()">${ico('filter-x')} Clear filters</button>`:''}
   </div>`;
 }
+// The Unit / Contractor filters on the Employee Attendance bar (next to the month).
+function attFilterInlineHtml(shown, all){
+  const sel=(on, fn, label, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="${fn}(this.value)" aria-label="${label}">${opts}</select>`;
+  const any=!!(attUnitFilter||attContractorFilter);
+  return `<span class="attFiltInline">${ico('filter')}
+    ${sel(attUnitFilter, 'attSetUnit', 'Unit', `<option value="" ${!attUnitFilter?'selected':''}>All Units</option>`+getUnits().map(u=>`<option value="${u.code}" ${attUnitFilter===u.code?'selected':''}>${attEsc(unitTabLabel(u))}</option>`).join(''))}
+    ${sel(attContractorFilter, 'attSetContractor', 'Contractor', contractorFilterOptionsHtml(attContractorFilter))}
+    <span class="teFiltCount">${shown===all?`${all} employees`:`<b>${shown}</b> of ${all}`}</span>
+    ${any?`<button type="button" class="teFiltClear" onclick="attClearFilters()" title="Clear filters">${ico('filter-x')}</button>`:''}</span>`;
+}
 function attSetUnit(v){ attUnitFilter=v||''; render('attendance'); }
 function attSetContractor(v){ attContractorFilter=v||''; render('attendance'); }
 function attClearFilters(){ attUnitFilter=''; attContractorFilter=''; render('attendance'); }
@@ -325,12 +335,20 @@ function attStatusHtml(x, editable){
   if(x.future) return `<span class="teEwMuted">–</span>`;
   return `<span class="teEwMissing">Needs entry</span>`;
 }
-function attFigVal(x, k){ return k==='late' ? (x.late ? String(x.late) : '') : (x.ot ? String(attN(x.ot/60)) : ''); }
+// A day's box: Late in minutes; OT as hours:minutes (90 min → "1:30").
+function attFigVal(x, k){ return k==='late' ? (x.late ? String(x.late) : '') : (x.ot ? Math.floor(x.ot/60)+':'+String(x.ot%60).padStart(2,'0') : ''); }
+// Reads a typed OT: "1:30" (hours:minutes), "2" (hours) or "1.5" (hours) → minutes; null if unreadable.
+function attParseOt(raw){
+  const s=String(raw).trim();
+  const hm=s.match(/^(\d{1,2}):(\d{1,2})$/);
+  if(hm){ const m=+hm[2]; return m<60 ? (+hm[1])*60+m : null; }
+  const n=Number(s); return isFinite(n) && n>=0 ? Math.round(n*60) : null;
+}
 function attRowHtml(e, x, i, editable){
   const box=(k, c)=>{
     const on=editable && x.onRoll && !x.lop && !(k==='late' && x.off);
     return `<td><input class="attIn attFig" data-r="${i}" data-c="${c}" data-k="${k}" value="${attFigVal(x,k)}" ${on?'':'disabled'} placeholder="${on?'0':''}"
-      inputmode="decimal" autocomplete="off" spellcheck="false" title="${k==='late'?'Late minutes this day':'OT hours this day'+(x.off?' (worked on a day off)':'')}"
+      inputmode="decimal" autocomplete="off" spellcheck="false" title="${k==='late'?'Late minutes this day':'OT this day as hours:minutes, e.g. 1:30'+(x.off?' (worked on a day off)':'')}"
       aria-label="${k==='late'?'Late minutes':'OT hours'} ${fmtDate(x.dt)}" onfocus="this.select()" onkeydown="attKey(event,this)" onblur="attCommit(this)"></td>`; };
   const sel=attSel.has(x.dt);
   const cls=['attDRow', x.dow===0?'sun':'', x.hol?'hol':'', x.lop?'onLeave':'', x.missing?'missing':'', sel?'sel':'', x.dt===todayStr()?'today':''].filter(Boolean).join(' ');
@@ -341,17 +359,36 @@ function attRowHtml(e, x, i, editable){
     ${box('late',0)}${box('ot',1)}
   </tr>`;
 }
-// The month for the employee as Payroll counts it.
+// The employee's working days in the month: days on the roll, less Sundays, paid holidays (Holiday
+// Calendar NOPH and the contractor's paid leave) and holidays without pay.
+function attNowdParts(e, ym){
+  const dim=daysInMonth(ym); let sun=0, hol=0, unpaid=0, off=0;
+  for(let d=1; d<=dim; d++){
+    const ds=dateStr(ym,d);
+    if(!isEmpOnRollOn(e, ds)){ off++; continue; }
+    if(isSunday(ym,d)){ sun++; continue; }
+    const h=attHolidayFor(e, ds);
+    if(h){ if(h.kind==='unpaid') unpaid++; else hol++; }
+  }
+  return {dim, sun, hol, unpaid, off, nowd:dim-off-sun-hol-unpaid};
+}
+// The month for the employee as Payroll counts it: label, the figure, and how it is worked out.
 function attEmpStatsHtml(e, r, missing){
-  const fromOt=+r.lateOtMinutes||0;
-  return `<div class="teStatBox"><b>${payPresentDays(r)}</b><span>Present days</span></div>
-    <div class="teStatBox"><b>${attN(r.lopMarked)}</b><span>LOP days</span></div>
-    <div class="teStatBox"><b>${attN(r.halfDayCount)}</b><span>Half days</span></div>
-    <div class="teStatBox ${missing?'warn':''}"><b>${missing}</b><span>Days to enter</span></div>
-    <div class="teStatBox"><b>${attN(r.lateMinutes)}</b><span>Late minutes</span></div>
-    <div class="teStatBox" title="${fromOt?`OT worked ${attN(r.otHoursWorked)} h − Late beyond the free ${r.lateGraceMinutes} min (${fromOt} min)`:'OT hours paid'}"><b>${attN(r.otHours)}</b><span>OT hours paid${fromOt?` <small>(${attN(r.otHoursWorked)} − late)</small>`:''}</span></div>
-    <div class="teStatBox"><b>${attN(r.daysWorking)}</b><span>Paid days</span></div>
-    <div class="teStatBox"><b>${fmt(r.netSalary)}</b><span>Net pay</span></div>`;
+  const p=attNowdParts(e, attMonth);
+  const full=attN(r.presentDays), half=attN(r.halfDayCount), lop=attN(r.lopMarked), present=payPresentDays(r), noph=attN(r.noph);
+  const late=attN(r.lateMinutes), grace=+r.lateGraceMinutes||0, over=Math.max(0, late-grace), fromOt=+r.lateOtMinutes||0, cut=+r.lateChargedMinutes||0;
+  const worked=+(r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours)||0, otPaid=+r.otHours||0;
+  const box=(label, val, calc, cls)=>`<div class="attSB ${cls||''}"><span class="attSBl">${label}</span><b class="attSBv">${val}</b><span class="attSBc">${calc}</span></div>`;
+  const nowdCalc=[`${p.dim} days`, `${p.sun} Sun`, p.hol?`${p.hol} hol`:'', p.unpaid?`${p.unpaid} no-pay`:'', p.off?`${p.off} off roll`:''].filter(Boolean).join(' − ');
+  const lateCalc=!late ? 'no late' : late<=grace ? `within ${grace} free min`
+    : `${late} − ${grace} free = ${over}`+(fromOt&&!cut?' → off OT':fromOt&&cut?` → ${fromOt} off OT, ${cut} cut`:` min cut from pay`);
+  return box('NOWD', p.nowd, nowdCalc)
+    + box('LOP', lop, lop?'absent — not paid':'no LOP')
+    + box('Half day', half, half?`${half} × ½ = ${attN(half/2)} day paid`:'no half day')
+    + box('Present days', present, half?`${full} full + ${half} × ½`:`${full} full days`)
+    + box('Late minutes', late, lateCalc)
+    + box('OT hours', fmtHrsMin(otPaid), fromOt?`${fmtHrsMin(worked)} − ${fmtMinHM(fromOt)} late = ${fmtHrsMin(otPaid)}`:worked?'worked':'no OT')
+    + box('Total paid days', attN(r.daysWorking), noph?`${present} present + ${noph} hol`:`${present} present`, 'key');
 }
 const ATT_MONTH_BOXES=[
   {k:'canteenTokens', h:'Canteen tokens', title:'Canteen tokens bought this month — deducted at the token price of the employee\'s unit', whole:true},
@@ -375,8 +412,9 @@ function attActionBarHtml(){
       <button type="button" class="btn attLopBtn" onclick="attMarkDays('LossOfPay')">Mark LOP</button>
       <button type="button" class="btn secondary" onclick="attMarkDays('HalfDay')">Mark Half Day</button>
       <button type="button" class="btn secondary" onclick="attMarkDays('')" title="Back to Needs entry (Late and OT removed too)">${ico('x')} Clear</button>
+      <span class="attActNote ${attActNote?'ok':''}" id="attActNote" title="Tick days (Shift+click ticks a range) and mark them — e.g. Working days → Mark Present. Change one day with its P / LOP / ½ buttons, or press P, L or H in its boxes. Type Late minutes and OT hours on the days they happened (blank = 0).">${attActNote?attEsc(attActNote):`${ico('alert')} How`}</span>
+      <span class="attActSave">${attEditButtonsHtml(true)}</span>
     </div>
-    <p class="attActNote ${attActNote?'ok':''}" id="attActNote">${attActNote?attEsc(attActNote):'Tick days (Shift+click ticks a range) and mark them — e.g. Working days → Mark Present. Change one day with its P / LOP / ½ buttons, or press P, L or H in its boxes. Type Late minutes and OT hours on the days they happened (blank = 0).'}</p>
   </div>`;
 }
 function renderAttEntry(){
@@ -391,39 +429,39 @@ function renderAttEntry(){
         <button class="btn secondary teDwNav" title="Next employee" aria-label="Next employee" onclick="attStepEmp(1)">›</button>
         <span class="teBarSep"></span>
         ${attMonthBarHtml()}
+        <span class="teBarSep"></span>
+        ${attFilterInlineHtml(emps.length, all)}
       </div>
       <div class="teDwGroup">
         <span id="teEwSaveState" class="teEwSave ${typeof teEwSaveState!=='undefined'?teEwSaveState:''}"></span>
-        ${e?attEditButtonsHtml(true):''}
+        ${e && !editable ? attEditButtonsHtml(true) : ''}
       </div>
-    </div>
-    ${attFilterRowHtml(emps.length, all)}`;
+    </div>`;
   if(!e) return `<div class="panel attPanel">${top}<div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></div>`;
   const r=computePayrollForEmployee(e, ym), missing=attMissingDays(e, ym);
-  const head=`<div class="attEmpCard">
-      <div class="attEmpName"><b>${attEsc(e.name)}</b> <span>${attEsc(e.code)}</span></div>
-      <div class="attEmpMeta">${contractorName(e)?attEsc(contractorName(e)):'<span class="empNoCon">Contractor not set</span>'} · ${attEsc(unitLabel(e.unit))}${e.designation?' · '+attEsc(e.designation):''} · Daily wage ${fmt(r.dailyWage)}</div>
+  const head=`<div class="attEmpLine">
+      <div class="attEmpName"><b>${attEsc(e.name)}</b> <span>${attEsc(e.code)}</span>
+        <span class="attEmpMeta">${contractorName(e)?attEsc(contractorName(e)):'<span class="empNoCon">Contractor not set</span>'} · ${attEsc(unitLabel(e.unit))}${e.designation?' · '+attEsc(e.designation):''} · ${fmt(r.dailyWage)}/day · Net pay <b id="attNetPay">${fmt(r.netSalary)}</b></span></div>
+      ${monthly?'':`<div class="attMBoxes">${attMonthBoxesHtml(e, r, editable)}</div>`}
     </div>`;
   if(monthly){
     const a=adjFor(ym, e.code);
     return `<div class="panel attPanel">${top}${head}
       <p class="attNote attNoteOld"><b>${attEsc(attMonthName(ym))}</b> was entered as month totals: LOP ${attN(a.lopDays)} · Half Days ${attN(a.halfDays)} · Late ${attN(a.lateMinutes)} min · OT ${attN(a.otHours)} h. Payroll uses these figures.
         ${attCanEdit()?`<button type="button" class="btn secondary attSwitchBtn" onclick="attMonthToDaily('${ym}')">Enter ${attEsc(attMonthName(ym))} day by day instead</button>`:''}</p>
-      <div class="teStatRow" id="attStats">${attEmpStatsHtml(e, r, 0)}</div>
+      <div class="attBanner" id="attStats">${attEmpStatsHtml(e, r, 0)}</div>
     </div>`;
   }
   const days=attMonthDates(ym).map(dt=>attDay(e, dt));
   setTimeout(()=>{ teFitGridBox('attDayGrid'); }, 0);
-  return `<div class="panel attPanel">${top}${head}
-    <div class="teStatRow" id="attStats">${attEmpStatsHtml(e, r, missing)}</div>
-    <div class="attMBoxes">${attMonthBoxesHtml(e, r, editable)}
-      ${!attCanEdit()||!simple?'':editable?'':`<span class="attLockNote">${ico('pencil')} Click <b>Edit</b> to enter ${attEsc(e.name)}'s attendance.</span>`}</div>
+  return `<div class="panel attPanel attCompact">${top}${head}
+    <div class="attBanner" id="attStats">${attEmpStatsHtml(e, r, missing)}</div>
     ${editable?attActionBarHtml():''}
-    <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attDayGrid" id="attDayGrid" data-emp="${attEsc(e.code)}">
-      <thead><tr>
-        <th class="attChk"><input type="checkbox" tabindex="-1" ${editable?'':'disabled'} ${attSel.size&&days.filter(x=>x.onRoll&&!x.off).every(x=>attSel.has(x.dt))?'checked':''} onclick="this.checked?attTickWorking():attTickNone()" title="Tick every working day" aria-label="Tick every working day"></th>
-        <th>Date</th><th>Day</th><th>Present / LOP / Half Day</th><th>Late (min)</th><th title="On Sundays and holidays, type the hours worked">OT (hrs)</th>
-      </tr></thead>
+    <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attDayGrid attTwoCol" id="attDayGrid" data-emp="${attEsc(e.code)}" style="--attRows:${Math.ceil(days.length/2)}">
+      <thead>${[0,1].map(k=>`<tr class="${k?'attHead2':''}">
+        <th class="attChk">${k?'':`<input type="checkbox" tabindex="-1" ${editable?'':'disabled'} ${attSel.size&&days.filter(x=>x.onRoll&&!x.off).every(x=>attSel.has(x.dt))?'checked':''} onclick="this.checked?attTickWorking():attTickNone()" title="Tick every working day" aria-label="Tick every working day">`}</th>
+        <th>Date</th><th>Day</th><th>Present / LOP / Half Day</th><th>Late (min)</th><th title="Hours:minutes, e.g. 1:30. On Sundays and holidays, type the time worked">OT (h:mm)</th>
+      </tr>`).join('')}</thead>
       <tbody>${days.map((x,i)=>attRowHtml(e, x, i, editable)).join('')}</tbody>
       <tfoot><tr id="attDayFoot">${attFootHtml(r, missing)}</tr></tfoot>
     </table></div>
@@ -433,7 +471,7 @@ function renderAttEntry(){
 function attFootHtml(r, missing){
   const fromOt=+r.lateOtMinutes||0;
   return `<td colspan="4" class="attFootLbl">Month: ${payPresentDays(r)} present · ${attN(r.lopMarked)} LOP · ${attN(r.halfDayCount)} half day${missing?` · <span class="teEwMissing">${missing} to enter</span>`:''}${fromOt?` · <span class="attFootOt">${fromOt} late min taken off OT</span>`:''}</td>
-    <td>${attN(r.lateMinutes)}</td><td>${attN(r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours)}</td>`;
+    <td>${attN(r.lateMinutes)}</td><td>${fmtHrsMin(r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours)}</td>`;
 }
 
 /* ---- Ticking days ---- */
@@ -561,9 +599,15 @@ function attCommit(inp){
   if(raw===attFigVal(x, k)){ inp.classList.remove('bad'); return true; }
   let min=0;
   if(raw!==''){
-    const n=Number(raw);
-    if(!isFinite(n) || n<0){ inp.classList.add('bad'); inp.title='Enter a number (0 or more)'; return false; }
-    min = k==='late' ? Math.round(n) : Math.round(n*60);
+    if(k==='late'){
+      const n=Number(raw);
+      if(!isFinite(n) || n<0){ inp.classList.add('bad'); inp.title='Enter the late minutes (0 or more)'; return false; }
+      min=Math.round(n);
+    } else {
+      const m=attParseOt(raw);
+      if(m===null){ inp.classList.add('bad'); inp.title='Enter OT as hours:minutes, e.g. 1:30 (or 2 for 2 hours)'; return false; }
+      min=m;
+    }
   }
   attSetFig(dt, e.code, k, min);
   // a figure on a working day with nothing marked: the employee was there
@@ -592,6 +636,7 @@ function attRefreshTotals(){
   const e=attCurEmp(); if(!e) return;
   const r=computePayrollForEmployee(e, attMonth), missing=attMissingDays(e, attMonth);
   const st=document.getElementById('attStats'); if(st) st.innerHTML=attEmpStatsHtml(e, r, missing);
+  const np=document.getElementById('attNetPay'); if(np) np.textContent=fmt(r.netSalary);
   const f=document.getElementById('attDayFoot'); if(f) f.innerHTML=attFootHtml(r, missing);
 }
 // Keyboard: Enter / ↓ next day, ↑ back, ← → / Tab between Late and OT; P / L / H mark the day.
@@ -747,7 +792,7 @@ function renderAttSummary(){
     const rows=gr.map(x=>`<tr class="attMRow attSumRow ${x.miss?'notEntered':''}" data-code="${attEsc(x.e.code)}" onclick="attOpenEmp(this.dataset.code)" title="Open ${attEsc(x.e.name)}'s days">
       <td class="num attSl">${++idx}</td><td>${attEsc(x.e.code)}</td><td class="attName">${attEsc(x.e.name)}</td>
       <td class="num">${payPresentDays(x.r)}</td><td class="num">${attN(x.r.lopMarked)||''}</td><td class="num">${attN(x.r.halfDayCount)||''}</td><td class="num attCalc">${attN(x.r.daysWorking)}</td>
-      <td class="num">${attN(x.r.lateMinutes)||''}</td><td class="num">${attN(x.r.otHours)||''}</td><td class="num">${attN(x.r.canteenTokens)||''}</td>
+      <td class="num">${attN(x.r.lateMinutes)||''}</td><td class="num">${+x.r.otHours?fmtHrsMin(x.r.otHours):''}</td><td class="num">${attN(x.r.canteenTokens)||''}</td>
       <td class="num attNet">${fmt(x.r.netSalary)}</td>
       <td>${x.miss?`<span class="teEwMissing">${x.miss} day${x.miss===1?'':'s'}</span>`:`<span class="attOk">${ico('check')} Up to date</span>`}</td>
     </tr>`).join('');
@@ -769,7 +814,7 @@ function renderAttSummary(){
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attGrid" id="attGrid">
       <thead><tr>
         <th class="teDwSlTh"><button type="button" id="attGridFoldAll" class="teDwFoldAll" tabindex="-1" aria-expanded="true" title="Fold every contractor — only the bars stay" onclick="teSecFoldAll('attGrid')">${ico('chevron-down')}</button>Sl</th>
-        <th>Code</th><th style="text-align:left;">Employee</th><th>Present</th><th>LOP</th><th>Half Day</th><th>Paid days</th><th>Late (min)</th><th title="OT hours paid (after Late beyond the free minutes)">OT paid (hrs)</th><th>Tokens</th><th>Net pay</th><th>Days to enter</th>
+        <th>Code</th><th style="text-align:left;">Employee</th><th>Present</th><th>LOP</th><th>Half Day</th><th>Paid days</th><th>Late (min)</th><th title="OT paid (after Late beyond the free minutes), hours and minutes">OT paid</th><th>Tokens</th><th>Net pay</th><th>Days to enter</th>
       </tr></thead>
       ${bodies || `<tbody><tr><td colspan="12"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr></tbody>`}
     </table></div>
