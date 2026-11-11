@@ -26,6 +26,14 @@ function adjFor(ym, code){
    halfDays, lateMinutes, otHours. Every working day on the roll counts as Present unless entered as
    LOP or Half Day. Such a month stays as typed until it is switched to day-by-day entry. */
 function attIsMonthly(ym){ return !!ym && !!db && Array.isArray(db.monthlyAttMonths) && db.monthlyAttMonths.includes(ym); }
+// Hours shown as hours and minutes, never as a fraction: 9.35 → "9h 21m", 0.65 → "39m", 10 → "10h".
+function fmtHrsMin(hours){
+  const m=Math.round((+hours||0)*60), h=Math.floor(m/60), mm=m%60;
+  if(!m) return '0h';
+  return [h?h+'h':'', mm?mm+'m':''].filter(Boolean).join(' ');
+}
+// The same from minutes: 39 → "39m", 125 → "2h 5m".
+function fmtMinHM(min){ return fmtHrsMin((+min||0)/60); }
 function attIsDaily(ym){ return !!ym && !!db && !!db.dayAttFrom && ym>=db.dayAttFrom && !attIsMonthly(ym); }
 // Every month (but one typed as month totals) is entered the same way: each day Present / LOP / Half
 // Day with its Late minutes and OT hours (no shifts, no In / Out times — db.attendance marks and

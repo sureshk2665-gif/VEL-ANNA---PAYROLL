@@ -48,7 +48,7 @@ function openSlip(code, ym){
       <tr>
         <td>${monthLabel(ym)}-NOWD ${r.nowd}</td>
         <td>LOP ${slipLopDays(r)}</td>
-        <td>OT HOURS ${r.otHours}${+r.lateOtMinutes?` <small>(${r.otHoursWorked} − late ${Math.round(r.lateOtMinutes/60*100)/100})</small>`:''}</td>
+        <td>OT HOURS ${fmtHrsMin(r.otHours)}${+r.lateOtMinutes?` <small>(${fmtHrsMin(r.otHoursWorked)} − late ${fmtMinHM(r.lateOtMinutes)})</small>`:''}</td>
       </tr>
       <tr>
         <td>Present Days ${payPresentDays(r)}</td>
@@ -108,7 +108,7 @@ function slipCardHTML(e, r, ym){
     </div>
     <div class="slipEmpLine"><b>EMP.CODE ${e.code}</b> &nbsp;|&nbsp; <b>${e.name}</b> &nbsp;|&nbsp; ${e.designation||'-'} &nbsp;|&nbsp; ${unitLabel(e.unit)}</div>
     <table class="slipMeta">
-      <tr><td>NOWD ${r.nowd}</td><td>LOP ${slipLopDays(r)}</td><td>OT HRS ${r.otHours}${+r.lateOtMinutes?` <small>(${r.otHoursWorked} − late ${Math.round(r.lateOtMinutes/60*100)/100})</small>`:''}</td></tr>
+      <tr><td>NOWD ${r.nowd}</td><td>LOP ${slipLopDays(r)}</td><td>OT HRS ${fmtHrsMin(r.otHours)}${+r.lateOtMinutes?` <small>(${fmtHrsMin(r.otHoursWorked)} − late ${fmtMinHM(r.lateOtMinutes)})</small>`:''}</td></tr>
       <tr><td>Present Days ${payPresentDays(r)}</td><td>NOPH ${r.noph}</td><td>LATE ${r.lateMinutes||0} MIN</td></tr>
       <tr><td>Per Day ${fmt(r.scaleTotal??r.dailyWage??currentDailyWage(e))}</td><td>CANTEEN TKN ${r.canteenTokens||0}</td><td>PF NO : ${slipPfNo(e, r)}</td></tr>
       <tr><td></td><td></td><td>ESI NO : ${e.esiNo||'-'}</td></tr>
