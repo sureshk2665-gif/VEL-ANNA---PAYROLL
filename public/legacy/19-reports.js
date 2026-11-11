@@ -117,7 +117,7 @@ function renderReportDetail(key){
     figs=[[rows.length,'Employees'],[rows.filter(r=>r.Status==='Active').length,'Active'],[rows.filter(r=>r.Status!=='Active').length,'Inactive']]; }
   else if(key==='resignedEmp'){ const rows=resignedReportRows(); previewHtml=tableFromRows(rows); figs=[[rows.length,'Resigned employees']]; }
   else if(key==='department'){ const rows=departmentReportRows(); previewHtml=tableFromRows(rows);
-    figs=[[rows.length,'Departments'],[sumK(rows,'Employees'),'Employees (active)'],[rows.filter(r=>!r.Employees).length,'Empty departments']]; }
+    figs=[[rows.length,'Departments'],[sumK(rows,'Employees'),'Employees (active)']]; }
   else if(key==='experience'){
     const rows=experienceReportRows(expFY, expDept, expDesig, expStatus);
     figs=[[rows.length,'Employees'],[expFY,'Financial year']];
@@ -128,7 +128,7 @@ function renderReportDetail(key){
     if(bonusFromDate>bonusToDate){ previewHtml='<div class="empty">"From Date" cannot be after "To Date".</div>'; hasData=false; }
     else{
       const {rows,months,grandTotal}=bonusReportRows(meta.bonusRate,bonusFromDate,bonusToDate);
-      figs=[[rows.length,'Employees'],[months.filter(payrollGenerated).length+' of '+months.length,'Months with payroll'],[fmt(sumK(rows,'Bonus Eligible Basic Wages')),'Eligible basic wages'],[fmt(grandTotal),'Bonus amount',1]];
+      figs=[[rows.length,'Employees'],[months.filter(payrollGenerated).length+' of '+months.length,'Months with payroll'],[fmt(grandTotal),'Bonus amount',1]];
       if(!rows.length){ previewHtml='<div class="empty">No payroll records found for employees in the selected period.</div>'; hasData=false; }
       else previewHtml=bonusTableHtml(rows,months,grandTotal);
     }
@@ -137,14 +137,14 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
     else{
       const rows=esiReportRows(payMonth);
-      figs=[[rows.length,'Employees'],[fmt(sumK(rows,'ESI Wages')),'ESI wages'],[fmt(sumK(rows,'ESI Employee Contribution')),'Employee share'],[fmt(sumK(rows,'ESI Employer Contribution')),'Employer share'],[fmt(sumK(rows,'Total ESI Contribution')),'Total ESI',1]];
+      figs=[[rows.length,'Employees'],[fmt(sumK(rows,'ESI Employee Contribution')),'Employee share'],[fmt(sumK(rows,'ESI Employer Contribution')),'Employer share'],[fmt(sumK(rows,'Total ESI Contribution')),'Total ESI',1]];
       if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
       else previewHtml=esiReportTableHtml(rows);
     }
   }
   else if(key==='esiYearly'){
     const {rows,months,grandTotal}=esiYearlyReportRows(yearlyFY);
-    figs=[[rows.length,'Employees'],[months.length,'Months processed'],[fmt(grandTotal.employee),'Employee share'],[fmt(grandTotal.employer),'Employer share'],[fmt(grandTotal.all),'Total ESI',1]];
+    figs=[[rows.length,'Employees'],[fmt(grandTotal.employee),'Employee share'],[fmt(grandTotal.employer),'Employer share'],[fmt(grandTotal.all),'Total ESI',1]];
     if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No ESI Contribution Found for Financial Year '+yearlyFY+'.</div>'; hasData=false; }
     else previewHtml=esiYearlyReportTableHtml(rows,months,grandTotal);
   }
@@ -152,7 +152,7 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found — payroll has not been generated for '+monthLabel(payMonth)+' yet.</div>'; hasData=false; }
     else{
       const rows=pfMonthlyReportRows(payMonth);
-      figs=[[rows.length,'Employees'],[fmt(sumK(rows,'PF Wages')),'PF wages'],[fmt(sumK(rows,'PF Employee Contribution')),'Employee share'],[fmt(sumK(rows,'PF Employer Contribution')),'Employer share'],[fmt(sumK(rows,'Total PF Contribution')),'Total PF',1]];
+      figs=[[rows.length,'Employees'],[fmt(sumK(rows,'PF Employee Contribution')),'Employee share'],[fmt(sumK(rows,'PF Employer Contribution')),'Employer share'],[fmt(sumK(rows,'Total PF Contribution')),'Total PF',1]];
       if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found for '+monthLabel(payMonth)+'.</div>'; hasData=false; }
       else previewHtml=pfMonthlyReportTableHtml(rows);
     }
@@ -169,14 +169,14 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">No payroll generated for this month yet.</div>'; hasData=false; }
     else{
       const rows=attendanceRegisterRows(payMonth);
-      figs=[[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'NOPH'),'NOPH days'],[sumK(rows,'LOP'),'LOP days'],[sumK(rows,'PaidDays'),'Paid days',1],[sumK(rows,'OTHrs'),'OT hours'],[sumK(rows,'LateMin'),'Late minutes']];
+      figs=[[rows.length,'Employees'],[sumK(rows,'LOP'),'LOP days'],[sumK(rows,'PaidDays'),'Paid days',1],[fmtHrsMin(sumK(rows,'OTHrs')),'OT'],[sumK(rows,'LateMin'),'Late minutes']];
       if(!rows.length){ previewHtml='<div class="empty">No employees on the roll'+(attRegFilterText()?' for '+attRegFilterText():'')+' this month.</div>'; hasData=false; }
       else previewHtml=tableFromRows(rows,{totals:true});
     }
   }
   else if(key==='pf'){
     const {rows,months,grandTotal}=pfReportRows(yearlyFY);
-    figs=[[rows.length,'Employees'],[months.length,'Months processed'],[fmt(grandTotal.employee),'Employee share'],[fmt(grandTotal.employer),'Employer share'],[fmt(grandTotal.all),'Total PF',1]];
+    figs=[[rows.length,'Employees'],[fmt(grandTotal.employee),'Employee share'],[fmt(grandTotal.employer),'Employer share'],[fmt(grandTotal.all),'Total PF',1]];
     if(!rows.length){ previewHtml='<div class="empty">'+ico('alert')+' No PF Contribution Found — no payroll has been generated for Financial Year '+yearlyFY+' yet.</div>'; hasData=false; }
     else previewHtml=pfReportTableHtml(rows,months,grandTotal);
   }
@@ -184,13 +184,8 @@ function renderReportDetail(key){
     if(!payrollGenerated(payMonth)){ previewHtml='<div class="empty">No payroll generated for this month yet.</div>'; hasData=false; }
     else{
       const rows=payrollReportRows(payMonth);
-      const groups=key==='unit'?new Set(rows.map(r=>r.UnitCode)).size:key==='contractor'?new Set(rows.map(r=>r.ContractorCode||'-')).size:0;
-      figs=[...(groups?[[groups, key==='unit'?'Units':'Contractors']]:[]),[rows.length,'Employees'],[sumK(rows,'Present'),'Present days'],[sumK(rows,'PaidDays'),'Paid days'],[fmt(sumK(rows,'Earnings')),'Earnings'],[fmt(sumK(rows,'Deductions')),'Deductions'],[fmt(sumK(rows,'NetSalary')),'Net pay',1]];
-      if(key==='contractor' && rows.length){
-        const svc=repContractorSummary(payMonth);
-        figs.splice(figs.length-1, 0, [fmt(N(svc.reduce((t,r)=>t+r.ServiceCharge,0))),'Service charge']);
-        aboveHtml=repContractorSummaryHtml(svc);
-      }
+      figs=[[rows.length,'Employees'],[sumK(rows,'PaidDays'),'Paid days'],[fmt(sumK(rows,'Earnings')),'Earnings'],[fmt(sumK(rows,'Deductions')),'Deductions'],[fmt(sumK(rows,'NetSalary')),'Net pay',1]];
+      // (the service charge by contractor is on the Contractors Bill page)
       if(!rows.length){ previewHtml='<div class="empty">No payroll records for this month.</div>'; hasData=false; }
       else previewHtml=tableFromRows(rows,{totals:true});
     }
@@ -285,8 +280,7 @@ function renderReportDetail(key){
         <div class="repTitle"><b>${(repFamilyOf(key)||meta).title}</b><small>${meta.desc}</small></div>
       </div>
       <div class="repActions">
-      ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('download')} Download PDF</button>` : ''}
-      ${canPrint ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')">${ico('printer')} Print</button>` : ''}
+      ${canPrint ? `<button class="btn" ${hasData?'':'disabled'} onclick="downloadReportPDF('${key}')" title="Opens the report ready to print — choose a printer, or Save as PDF">${ico('printer')} Print / PDF</button>` : ''}
       ${canExport ? `<button class="btn secondary" ${hasData?'':'disabled'} onclick="downloadReportExcel('${key}')">${ico('file-spreadsheet')} Excel</button>` : ''}
       </div>
     </div>
@@ -297,6 +291,7 @@ function renderReportDetail(key){
   <div class="panel repPanel">
     ${hasData?aboveHtml:''}
     <div class="reportPreview">${previewHtml}</div>
+    ${repHowHtml(`
     ${meta.needsDateRange ? `<p class="syncNote">Bonus Eligible Basic Wages = actual sum of each month's Earnings → Basic Salary within the selected period (only months with generated payroll are included). For Bonus Amount, each month's Basic Salary is first capped at ${fmt(BONUS_CEILING)} (if Basic ≤ ${fmt(BONUS_CEILING)}, actual is used) and then summed and multiplied by ${(meta.bonusRate*100).toFixed(2).replace(/\.00$/,'')}%.</p>` : ''}
     ${meta.needsExpFilters ? `<p class="syncNote">Age and Company Experience are calculated as on ${fmtDate(fyEndDate(expFY))} (last day of Financial Year ${expFY}). Employees who joined after this date are excluded. Experience is shown in completed Years and Months.</p>` : ''}
     ${key==='acquittanceContractor' ? `<p class="syncNote">Same A4 Landscape register as the unit-wise one, with one section per contractor (each starting on a fresh page, at most ${ACQ_ROWS_PER_PAGE} employees per page, page totals and a contractor grand total). Pick a Working Unit to print only that contractor's employees in that unit.</p>` : ''}
@@ -306,8 +301,11 @@ function renderReportDetail(key){
     ${key==='esiYearly' ? `<p class="syncNote">Yearly consolidated view for Financial Year ${yearlyFY} (Apr ${yearlyFY.split('-')[0]} – Mar ${yearlyFY.split('-')[1]}) — one row per employee, with Total ESI for each processed month plus yearly Employee / Employer / Total ESI, built from the actual ESI figures processed in each month's payroll run. Only employees with an ESI contribution greater than ₹0 in at least one month of the year are listed.</p>` : ''}
     ${key==='pfMonthly' ? `<p class="syncNote">Figures are the actual PF Employee and PF Employer contributions processed in the ${monthLabel(payMonth)} payroll run. Every on-roll employee for the month is listed, including employees for whom PF is currently Exempted/Nil — they show ₹0 and will automatically show real contributions the moment PF is enabled for them.</p>` : ''}
     ${key==='pf' ? `<p class="syncNote">Yearly consolidated view for Financial Year ${yearlyFY} (Apr ${yearlyFY.split('-')[0]} – Mar ${yearlyFY.split('-')[1]}) — one row per employee, with Total PF for each processed month plus yearly Employee / Employer / Total PF, built from the actual PF figures processed in each month's payroll run. Every on-roll employee is listed, including employees for whom PF is currently Exempted/Nil — they show ₹0 and will automatically show real contributions the moment PF is enabled for them.</p>` : ''}
+    `)}
   </div>`;
 }
+// A report's notes, folded away under "How it's worked out".
+function repHowHtml(html){ return String(html||'').trim() ? `<details class="repHow"><summary>${ico('alert')} How it's worked out</summary>${html}</details>` : ''; }
 function downloadReportPDF(key){
   if(!hasPerm('reports','print')){ alert('You do not have permission to print or download reports.'); return; }
   if(key==='employee') return printSimpleReport('Employee Report', employeeReportRows());
