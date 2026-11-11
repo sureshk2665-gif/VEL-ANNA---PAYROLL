@@ -5,8 +5,8 @@ function setSettingsTab(t){
   if(settingsEdit && t!==settingsTab && !confirm('Discard the changes you are making?')) return;
   settingsEdit=''; settingsTab=t; render('settings');
 }
-// Payroll Rates / Canteen Token Prices / Late Waiver: the boxes open only after Edit; Save stores
-// them; Cancel shows the stored values again.
+// Pay Rules tab — PF & ESI / Late free minutes / Canteen token price: each card's boxes open only
+// after its Edit; Save stores them; Cancel shows the stored values again.
 let settingsEdit=''; // 'rates' | 'canteen' | 'late' while that panel is open for changes
 function setEditOpen(k){ if(!isAdmin() && !isSoftwareAdmin()) return; settingsEdit=k; render('settings'); }
 function setEditCancel(){ settingsEdit=''; render('settings'); }
@@ -18,17 +18,14 @@ function setEditButtons(k, saveFn, saveLabel){
 function renderSettings(){
   const canEditSettings = hasPerm('settings','edit');
   const tabs=[
-    (isAdmin()||isSoftwareAdmin()) && {key:'rates', icon:'percent', label:'Payroll Rates'},
-    (isAdmin()||isSoftwareAdmin()) && {key:'canteen', icon:'receipt', label:'Canteen Token Prices'},
-    (isAdmin()||isSoftwareAdmin()) && {key:'late', icon:'clock', label:'Late Waiver'},
+    (isAdmin()||isSoftwareAdmin()) && {key:'pay', icon:'percent', label:'Pay Rules'},
     {key:'designations', icon:'tag', label:'Designations'},
     isAdmin() && {key:'users', icon:'users', label:'Users & Permissions'},
     {key:'account', icon:'lock', label:isAdmin()?'Password & Backup':'Password'},
   ].filter(Boolean);
+  if(['rates','canteen','late'].includes(settingsTab)) settingsTab='pay'; // the three are one tab now
   if(!tabs.some(t=>t.key===settingsTab)) settingsTab=tabs[0].key;
-  const body = settingsTab==='rates' ? renderPayrollRatesPanel()
-    : settingsTab==='canteen' ? renderCanteenPricesPanel()
-    : settingsTab==='late' ? renderLateWaiverPanel()
+  const body = settingsTab==='pay' ? `<div class="setPayGrid">${renderPayrollRatesPanel()}${renderLateWaiverPanel()}${renderCanteenPricesPanel()}</div>`
     : settingsTab==='designations' ? renderDesignationsPanel()
     : settingsTab==='users' ? renderUserRightsPanel()
     : `<div class="setTwo">
@@ -58,8 +55,8 @@ function renderSettings(){
 // left empty uses the default price shown below it.
 function renderCanteenPricesPanel(){
   const s=getSettings(), own=unitTokenPrices(), def=+s.canteenTokenPrice||0;
-  return `<div class="panel"><h3>${ico('receipt')} Canteen Token Prices</h3>
-    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each working unit can have its own price per canteen token. An employee's tokens (entered each month on Attendance) are charged at the price of their unit. A change applies to months generated from now on; to apply it to a month already generated, click Regenerate on the Payroll page for that month.</p>
+  return `<div class="panel setCard setCanteen"><div class="setCardHead"><h3>${ico('receipt')} Canteen token price</h3>${setEditButtons('canteen','saveCanteenPrices','Save')}</div>
+    <p class="setLead">Price per token for each working unit. Tokens × price is deducted from pay.</p>
     <fieldset class="setEditFs" ${settingsEdit==='canteen'?'':'disabled'}>
     <table class="setPriceTable"><thead><tr><th>Unit</th><th>Unit name</th><th class="num">Employees</th><th class="num">Price per token (₹)</th></tr></thead><tbody>
       ${getUnits().map(u=>{ const n=(db.employees||[]).filter(e=>e.status!=='Resigned' && unitCodeOf(e.unit)===u.code).length; const v=tokenPriceValue(own[u.code]);
@@ -70,7 +67,7 @@ function renderCanteenPricesPanel(){
       <div><label>Default price (units with an empty box)</label><input type="number" step="0.01" min="0" id="s_canteenTokenPrice" value="${def}"></div>
     </div>
     </fieldset>
-    <div class="modalActions">${setEditButtons('canteen','saveCanteenPrices','Save Token Prices')}</div>
+    <details class="repHow"><summary>${ico('alert')} When a change applies</summary><p class="syncNote">A changed price applies to months generated from now on. To apply it to a month already generated, click Regenerate on the Payroll page for that month.</p></details>
   </div>`;
 }
 function saveCanteenPrices(){
@@ -89,18 +86,16 @@ function saveCanteenPrices(){
 function renderLateWaiverPanel(){
   const cur=monthKey(todayStr()), now=lateGraceMinutes(cur), active=lateWaiverFor(cur);
   const list=lateWaivers().slice().sort((a,b)=>a.from<b.from?1:-1);
-  const ex=Math.max(0, 120-now);
-  return `<div class="panel"><h3>${ico('clock')} Late Waiver</h3>
-    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Each month, the first minutes of an employee's Late (the month's Late minutes entered on Attendance) are waived; only the minutes beyond the waiver are deducted (one minute = Daily Wage ÷ 8 ÷ 60). Example with a ${now}-minute waiver: an employee with 120 minutes late is charged for ${ex} minutes. A change applies to Payroll <b>straight away</b> — no Regenerate — from the month you choose onwards; earlier months keep their waiver.</p>
-    <div class="teStatRow" style="margin:0 0 14px;"><div class="teStatBox"><b>${now} min</b><span>Waiver in ${monthLabel(cur)}${active?'':' (default)'}</span></div></div>
+  return `<div class="panel setCard"><div class="setCardHead"><h3>${ico('clock')} Late — free minutes</h3>${setEditButtons('late','saveLateWaiver','Save')}</div>
+    <p class="setLead">The first <b>${now} minutes</b> of late in a month are free (${monthLabel(cur)}${active?'':', default'}). Beyond them, late comes off OT first, then is cut from pay.</p>
     <fieldset class="setEditFs" ${settingsEdit==='late'?'':'disabled'}>
     <div class="formGrid setRates">
       <div><label for="lw_minutes">Waiver (minutes per month)</label><input type="number" step="1" min="0" id="lw_minutes" value="${now}" placeholder="60"></div>
       <div><label for="lw_from">Applies from month</label><input type="month" id="lw_from" value="${cur}"></div>
     </div>
     </fieldset>
-    <div class="modalActions">${setEditButtons('late','saveLateWaiver','Save Late Waiver')}</div>
-    ${list.length?`<h4 style="margin:18px 0 8px;">Waiver history</h4>
+    <details class="repHow"><summary>${ico('alert')} How it's worked out</summary><p class="syncNote">Only the minutes beyond the free ones count: they come off the month's OT time first, and what OT cannot cover is cut from pay (one minute = Daily Wage ÷ 8 ÷ 60). Example with ${now} free minutes: 150 minutes late → ${Math.max(0,150-now)} minutes count. A change applies to Payroll straight away, from the month you choose onwards; earlier months keep theirs.</p></details>
+    ${list.length?`<h4 style="margin:14px 0 6px;font-size:13px;">History</h4>
     <table class="setPriceTable"><thead><tr><th>From month</th><th class="num">Waiver</th><th></th></tr></thead><tbody>
       ${list.map(w=>`<tr><td>${monthLabel(w.from)}${active&&active.from===w.from?' <span class="tag Active">In use</span>':''}</td><td class="num">${Math.round(+w.minutes||0)} min</td>
         <td class="rowActions">${settingsEdit==='late'?`<button class="del" onclick="deleteLateWaiver('${w.from}')">${ico('trash')} Remove</button>`:''}</td></tr>`).join('')}
@@ -136,7 +131,7 @@ function renderDesignationsPanel(){
   const list=designationList();
   return `
   <div class="panel"><h3>${ico('tag')} Designations</h3>
-    <p style="font-size:12px;color:var(--muted);">The Designation dropdown in the Employee form and in the Bulk Import Excel template uses this list. Renaming a designation updates every employee who has it.</p>
+    <p class="setLead">The list in the Employee form's Designation box. Renaming one updates every employee who has it.</p>
     ${canEdit ? `<div class="toolbar" style="margin:10px 0 12px;">
       <input id="newDesigInput" placeholder="New designation, e.g. Operator" onkeydown="if(event.key==='Enter')addDesignation()">
       <button class="btn" onclick="addDesignation()">${ico('plus')} Add Designation</button>
@@ -186,21 +181,21 @@ function deleteDesignation(i){
   saveDB(db); render('settings');
 }
 
-// Payroll Rates (Admin and Software Admin only): PF / ESI rates, canteen token price and the
-// monthly late grace, used by every payroll run.
+// PF & ESI (Admin and Software Admin only), shown and typed as percentages; savePayrollConstants
+// (28-user-rights-backup.js) stores them as fractions. The tab also holds Late and Canteen.
 function renderPayrollRatesPanel(){
-  const s=getSettings();
-  return `<div class="panel"><h3>${ico('percent')} Payroll Rates</h3>
-    <p style="font-size:13px;color:var(--muted);margin:-6px 0 14px;">Used by every payroll run. A change applies to months generated from now on; regenerate a month on the Payroll page to apply it there. There is no paid leave: an absent day is Loss Of Pay.</p>
+  const s=getSettings(), pct=v=>Math.round((+v||0)*100*10000)/10000;
+  const box=(id, label, v)=>`<div><label for="${id}">${label}</label><span class="setPct"><input type="number" step="0.01" min="0" id="${id}" value="${pct(v)}">%</span></div>`;
+  return `<div class="panel setCard"><div class="setCardHead"><h3>${ico('percent')} PF &amp; ESI</h3>${setEditButtons('rates','savePayrollConstants','Save')}</div>
+    <p class="setLead">PF is a share of Basic; ESI is a share of Total Earnings.</p>
     <fieldset class="setEditFs" ${settingsEdit==='rates'?'':'disabled'}>
     <div class="formGrid setRates">
-      <div><label>PF rate — employee (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfRate" value="${s.pfRate}"></div>
-      <div><label>PF rate — employer (0.12 = 12%)</label><input type="number" step="0.0001" id="s_pfEmployerRate" value="${s.pfEmployerRate}"></div>
-      <div><label>ESI rate — employee (0.0075 = 0.75% of Total Earnings)</label><input type="number" step="0.0001" id="s_esiRate" value="${s.esiRate}"></div>
-      <div><label>ESI rate — employer (0.0325 = 3.25% of Total Earnings)</label><input type="number" step="0.0001" id="s_esiEmployerRate" value="${s.esiEmployerRate}"></div>
+      ${box('s_pfRate','PF — employee', s.pfRate)}
+      ${box('s_pfEmployerRate','PF — employer', s.pfEmployerRate)}
+      ${box('s_esiRate','ESI — employee', s.esiRate)}
+      ${box('s_esiEmployerRate','ESI — employer', s.esiEmployerRate)}
     </div>
-    <p style="font-size:12px;color:var(--muted);margin-top:12px;"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for each Present day (a Half Day counts ½) and paid holiday. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor; OT hours come from Attendance. <b>Late:</b> one minute = Daily Wage ÷ 8 ÷ 60, after the waived minutes (Admin → Late Waiver). <b>Canteen:</b> tokens (entered on Attendance) × the token price of the employee's unit (Admin → Canteen Token Prices). <b>Working days (NOWD)</b> = days in the month − Sundays − paid holidays (Attendance → Holidays).</p>
     </fieldset>
-    <div class="modalActions">${setEditButtons('rates','savePayrollConstants','Save Payroll Rates')}</div>
+    <details class="repHow"><summary>${ico('alert')} How pay is worked out</summary><p class="syncNote"><b>Wages:</b> Basic = 60% and HRA = 40% of the Daily Wage, paid for each Present day (a Half Day counts ½) and paid holiday. <b>OT</b> per hour = Daily Wage ÷ 8 × the employee's OT Factor. <b>Late:</b> beyond the free minutes, late comes off OT first, then one minute = Daily Wage ÷ 8 ÷ 60. <b>Canteen:</b> tokens × the token price of the employee's unit. <b>NOWD</b> = days in the month − Sundays − paid holidays. A changed PF / ESI rate applies to months generated from now on; Regenerate a month on the Payroll page to apply it there.</p></details>
   </div>`;
 }
