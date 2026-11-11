@@ -79,3 +79,11 @@
 /* The choice inside a report (Group by / By / Period / Rate / Show) — reports that used to be separate cards */
 .repVariants{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid var(--rule,var(--border));}
 .repVarLbl{margin-right:4px;font-size:12.5px;font-weight:600;color:var(--muted);}
+
+/* A report's notes, folded under "How it's worked out" */
+.repHow{margin:10px 0 0;font-size:12.5px;color:var(--muted);}
+.repHow summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font-weight:500;color:var(--muted);list-style:none;}
+.repHow summary::-webkit-details-marker{display:none;}
+.repHow summary svg{width:13px;height:13px;}
+.repHow[open] summary{color:var(--text);margin-bottom:6px;}
+.repHow .syncNote{margin:6px 0 0;}

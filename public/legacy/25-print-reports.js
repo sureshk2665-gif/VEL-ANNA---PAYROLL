@@ -10,8 +10,11 @@ const REPORT_COL_LABELS={WorkingUnit:'Working Unit',WeekOff:'Week Off',UnitCode:
   OtherDed:'Other Ded.',Deductions:'Total Deductions',NetSalary:'Net Pay',NotMarked:'Not Marked',OTAmount:'OT ₹',LateAmount:'Late ₹',
   CanteenTokens:'Canteen Tokens',CanteenAmount:'Canteen ₹',AdvanceAmount:'Advance ₹',DailyWage:'Daily Wage'};
 function reportColLabel(k){ return REPORT_COL_LABELS[k]||k; }
+// OT hours are shown as hours and minutes (9h 21m), never as a fraction (Excel keeps the number).
+const REPORT_HOUR_KEYS=['OTHrs'];
 function reportCellHtml(k, v){
   if(v===undefined || v===null) return '';
+  if(typeof v==='number' && REPORT_HOUR_KEYS.includes(k)) return v ? fmtHrsMin(v) : '0';
   return typeof v==='number' && REPORT_MONEY_KEYS.includes(k) ? fmt(v) : v;
 }
 function reportRound(n){ return Math.round((Number(n)||0)*100)/100; }
@@ -20,7 +23,7 @@ function reportTotalsCells(rows, cols){
   return cols.map(c=>{
     if(REPORT_NO_TOTAL_KEYS.includes(c) || !rows.some(r=>typeof r[c]==='number')) return '';
     const sum=reportRound(rows.reduce((t,r)=>t+(Number(r[c])||0),0));
-    return REPORT_MONEY_KEYS.includes(c) ? fmt(sum) : sum;
+    return REPORT_MONEY_KEYS.includes(c) ? fmt(sum) : REPORT_HOUR_KEYS.includes(c) ? fmtHrsMin(sum) : sum;
   });
 }
 // opts.totals: add a TOTAL row summing the numeric columns.
@@ -133,13 +136,13 @@ function payrollSectionCols(fourth){
 }
 function payrollSectionTableHTML(cols, rows, subtotalLabel){
   const sumOf=k=>reportRound(rows.reduce((t,r)=>t+(Number(r[k])||0),0));
-  const cell=(c,r,i)=>c.sn ? i+1 : c.money ? fmt(Number(r[c.k])||0) : (r[c.k]===undefined||r[c.k]===null||r[c.k]==='' ? '-' : r[c.k]);
+  const cell=(c,r,i)=>c.sn ? i+1 : c.money ? fmt(Number(r[c.k])||0) : (r[c.k]===undefined||r[c.k]===null||r[c.k]==='' ? '-' : reportCellHtml(c.k, r[c.k]));
   const lead=cols.findIndex(c=>c.num||c.money);
   return `<table class="repTable">
       <colgroup>${cols.map(c=>`<col style="width:${c.w}%">`).join('')}</colgroup>
       <thead><tr>${cols.map(c=>`<th>${c.h}</th>`).join('')}</tr></thead>
       <tbody>${rows.map((r,i)=>`<tr>${cols.map(c=>`<td${c.net?' class="netCell"':''}>${cell(c,r,i)}</td>`).join('')}</tr>`).join('')}
-        <tr class="subtotal"><td colspan="${lead}">${subtotalLabel}</td>${cols.slice(lead).map(c=>`<td${c.net?' class="netPayTotal"':''}>${c.money ? fmt(sumOf(c.k)) : c.num ? sumOf(c.k) : ''}</td>`).join('')}</tr>
+        <tr class="subtotal"><td colspan="${lead}">${subtotalLabel}</td>${cols.slice(lead).map(c=>`<td${c.net?' class="netPayTotal"':''}>${c.money ? fmt(sumOf(c.k)) : c.num ? (REPORT_HOUR_KEYS.includes(c.k) ? fmtHrsMin(sumOf(c.k)) : sumOf(c.k)) : ''}</td>`).join('')}</tr>
       </tbody>
     </table>`;
 }
