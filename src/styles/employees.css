@@ -55,3 +55,23 @@ table.empTable.resTable td.rowActions button + button{margin-left:4px;}
 
 /* Employees list: an employee with no contractor yet (every employee must be under one). */
 .empNoCon{color:var(--negative,#c4242a);font-weight:600;}
+
+/* ---- Simplified Employees page: one panel — search + Add, filters, the list ---- */
+.panel.empPanel{padding:12px 14px;overflow:visible;}
+.empTop{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;padding-bottom:10px;border-bottom:1px solid var(--rule,var(--border));}
+.empTop .searchWrap{flex:0 1 360px;width:360px;max-width:100%;}
+.empTop .searchWrap input{box-sizing:border-box;height:var(--control-height);border:1px solid var(--control);border-radius:var(--radius-control);background:var(--surface);color:var(--text);font:inherit;font-size:13px;}
+.empTop .btn{height:var(--control-height);padding-top:0;padding-bottom:0;}
+.empPanel .teFiltRow{margin-top:10px;}
+.empPanel .payWarn{margin:10px 0 0;justify-content:space-between;flex-wrap:wrap;}
+.empPanel .payWarn span{flex:1 1 280px;}
+.empPanel .payWarn .btn{height:30px;padding:0 12px;font-size:12.5px;}
+.empPanel .empScroll{margin-top:10px;border:1px solid var(--border);border-radius:var(--radius-card);}
+.empChip{display:inline-flex;align-items:center;gap:5px;height:30px;padding:0 10px;border:1px solid var(--control);border-radius:999px;background:var(--surface);color:var(--muted);font:inherit;font-size:12.5px;font-weight:500;cursor:pointer;}
+.empChip svg{width:13px;height:13px;}
+.empChip b{color:var(--text);font-weight:600;}
+.empChip.on{border-color:var(--hl);background:var(--hl-soft);color:var(--hl-ink);}
+.empChip.on b{color:var(--hl-ink);}
+table.empTable tr.empRow{cursor:pointer;}
+table.empTable tr.empRow:hover td{background:var(--hl-soft,var(--raised));}
+.empEditIco svg{width:14px;height:14px;color:var(--muted);}

@@ -1,5 +1,11 @@
-/* ================= EMPLOYEES ================= */
-let empFilter={search:'',dept:'',status:'',unit:'',contractor:''};
+/* ================= EMPLOYEES =================
+   The list of employees on the roll (Active and Inactive — resigned employees are on Resigned
+   Employees), kept to the essentials: search, Unit / Contractor / Status filters, and one row per
+   employee with Code, Name, Contractor, Working Unit, Designation, Daily Wage and Status. Click a
+   row to open the employee form. Every employee must be under a contractor: those without one are
+   flagged above the list. Employees are never deleted (history is kept) — mark them Inactive or
+   Resigned instead. */
+let empFilter={search:'',status:'',unit:'',contractor:'',dept:'',missing:false}; // dept: set from the Departments page
 // Search keeps the cursor in the box while the list redraws.
 function empSetSearch(el){ const pos=el.selectionStart; empFilter.search=el.value; render('employees'); const i=document.getElementById('empSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
 // An employee with at least one empty form field (same rule as Software Admin → Download All
@@ -8,67 +14,53 @@ function empHasMissing(e){
   if(typeof employeeDetailIsMissing!=='function') return false;
   return employeeFields().some(f=>employeeDetailIsMissing(f, e, employeeDetailValue(f, e)));
 }
+function empSet(k, v){ empFilter[k]=v; render('employees'); }
+function empClearFilters(){ empFilter={search:'',status:'',unit:'',contractor:'',dept:'',missing:false}; render('employees'); }
+function empOpen(code){ if(hasPerm('employees','edit')) openEmployeeModal(code); }
 function renderEmployees(){
-  const depts=db.departments;
-  // Employee List (Active + Inactive): resigned employees are never shown here — they live
-  // exclusively in the Resigned Employees module until they rejoin. Employees are never
-  // deleted (their history is kept); mark them Inactive or Resigned instead.
-  const activeEmps=db.employees.filter(e=>e.status!=='Resigned');
-  const activeCount=activeEmps.filter(e=>e.status!=='Inactive').length;
-  let list=activeEmps.filter(e=>{
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const onRoll=db.employees.filter(e=>e.status!=='Resigned');
+  const known=new Set(getContractors().map(c=>c.code));
+  const base=onRoll.filter(e=>{
     if(empFilter.status && (e.status||'Active')!==empFilter.status) return false;
     if(empFilter.search && !(`${e.name} ${e.code}`.toLowerCase().includes(empFilter.search.toLowerCase()))) return false;
-    if(empFilter.dept && e.department!==empFilter.dept) return false;
     if(empFilter.unit && unitCodeOf(e.unit)!==empFilter.unit) return false;
     if(empFilter.contractor && (e.contractor||'')!==(empFilter.contractor==='-'?'':empFilter.contractor)) return false;
+    if(empFilter.dept && e.department!==empFilter.dept) return false;
     return true;
   });
-  // Every employee must be under a contractor (Attendance and the Contractors Bill work by contractor).
-  const noCon=list.filter(e=>!getContractors().some(c=>c.code===e.contractor)).length;
-  const missing=list.filter(empHasMissing).length;
-  const unitTab=(code,label)=>`<button type="button" role="tab" class="attUnitTab ${empFilter.unit===code?'active':''}" aria-selected="${empFilter.unit===code}" onclick="empFilter.unit='${code}';render('employees')">${label}</button>`;
+  const missingCount=base.filter(empHasMissing).length;
+  const list=empFilter.missing ? base.filter(empHasMissing) : base;
+  const noCon=onRoll.filter(e=>!known.has(e.contractor)).length;
+  const anyFilter=!!(empFilter.search||empFilter.status||empFilter.unit||empFilter.contractor||empFilter.dept||empFilter.missing);
+  const canEdit=hasPerm('employees','edit');
+  const sel=(on, k, label, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="empSet('${k}',this.value)" aria-label="${label}">${opts}</select>`;
   return `
-  <div class="attUnitTabs empUnitTabs" role="tablist" aria-label="Working unit">
-    ${unitTab('','All Units')}${getUnits().map(u=>unitTab(u.code, unitTabLabel(u))).join('')}
-  </div>
-  <div class="toolbar empBar">
-    <div class="empBarGrp">
-      <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input id="empSearch" placeholder="Search name or code..." aria-label="Search name or code" oninput="empSetSearch(this)" value="${empFilter.search}"></div>
-      <select onchange="empFilter.dept=this.value;render('employees')" aria-label="Department">
-        <option value="">All Departments</option>
-        ${depts.map(d=>`<option ${empFilter.dept===d?'selected':''}>${d}</option>`).join('')}
-      </select>
-      <select onchange="empFilter.contractor=this.value;render('employees')" aria-label="Contractor">
-        <option value="">All Contractors</option>
-        ${getContractors().map(c=>`<option value="${c.code}" ${empFilter.contractor===c.code?'selected':''}>${c.name||c.code}</option>`).join('')}
-        <option value="-" ${empFilter.contractor==='-'?'selected':''}>Contractor not set</option>
-      </select>
-      <select onchange="empFilter.status=this.value;render('employees')" aria-label="Status">
-        <option value="">Active &amp; Inactive</option>
-        ${['Active','Inactive'].map(s=>`<option ${empFilter.status===s?'selected':''}>${s}</option>`).join('')}
-      </select>
-    </div>
-    ${hasPerm('employees','add') ? `<button class="btn" onclick="openEmployeeModal()">${ico('plus')} Add Employee</button>` : ''}
-  </div>
-  <div class="teStatRow empStrip">
-    <div class="teStatBox"><b>${list.length}</b><span>Shown${list.length!==activeEmps.length?' of '+activeEmps.length:''}</span></div>
-    <div class="teStatBox ok"><b>${activeCount}</b><span>Active</span></div>
-    <div class="teStatBox"><b>${activeEmps.length-activeCount}</b><span>Inactive</span></div>
-    <div class="teStatBox ${noCon?'warn':''}" title="Every employee must be under a contractor — choose it in Edit (filter: Contractor not set)"><b>${noCon}</b><span>No contractor</span></div>
-    <div class="teStatBox ${missing?'warn':''}" title="Employees with at least one empty field in the employee form"><b>${missing}</b><span>Details missing</span></div>
-  </div>
   <div class="panel empPanel">
+    <div class="empTop">
+      <div class="searchWrap"><span class="sIcon">${ico('search')}</span><input id="empSearch" placeholder="Search name or code…" aria-label="Search name or code" oninput="empSetSearch(this)" value="${esc(empFilter.search)}"></div>
+      ${hasPerm('employees','add') ? `<button class="btn" onclick="openEmployeeModal()">${ico('plus')} Add Employee</button>` : ''}
+    </div>
+    <div class="teFiltRow">
+      <span class="teFiltLbl">${ico('filter')} Filter</span>
+      ${sel(empFilter.unit, 'unit', 'Unit', `<option value="" ${!empFilter.unit?'selected':''}>All Units</option>`+getUnits().map(u=>`<option value="${u.code}" ${empFilter.unit===u.code?'selected':''}>${esc(unitTabLabel(u))}</option>`).join(''))}
+      ${sel(empFilter.contractor, 'contractor', 'Contractor', contractorFilterOptionsHtml(empFilter.contractor)+`<option value="-" ${empFilter.contractor==='-'?'selected':''}>Contractor not set</option>`)}
+      ${sel(empFilter.status, 'status', 'Status', `<option value="" ${!empFilter.status?'selected':''}>Active &amp; Inactive</option>`+['Active','Inactive'].map(s=>`<option ${empFilter.status===s?'selected':''}>${s}</option>`).join(''))}
+      <button type="button" class="empChip ${empFilter.missing?'on':''}" aria-pressed="${empFilter.missing}" onclick="empSet('missing',${!empFilter.missing})" title="Employees with at least one empty field in the employee form">${ico('alert')} Details missing <b>${missingCount}</b></button>
+      ${empFilter.dept?`<button type="button" class="empChip on" onclick="empSet('dept','')" title="From the Departments page — click to show every department">Department: ${esc(empFilter.dept)} ${ico('x')}</button>`:''}
+      <span class="teFiltCount">${list.length===onRoll.length?`${onRoll.length} employees`:`<b>${list.length}</b> of ${onRoll.length} employees`}</span>
+      ${anyFilter?`<button type="button" class="teFiltClear" onclick="empClearFilters()">${ico('filter-x')} Clear filters</button>`:''}
+    </div>
+    ${noCon && empFilter.contractor!=='-' ? `<div class="payWarn">${ico('alert')} <span>${noCon} employee${noCon===1?' has':'s have'} no contractor — every employee must be under one (Attendance, Payroll and the Contractors Bill work by contractor).</span><button type="button" class="btn secondary" onclick="empSet('contractor','-')">Show them</button></div>` : ''}
     ${list.length? `<div class="tableScrollWrap empScroll"><table class="empTable"><thead><tr>
-      <th>Code</th><th>Name</th><th>Department</th><th>Designation</th><th>Working Unit</th><th>Contractor</th><th class="num">Daily Wage</th><th>Status</th><th></th>
+      <th>Code</th><th>Name</th><th>Contractor</th><th>Working Unit</th><th>Designation</th><th class="num">Daily Wage</th><th>Status</th>${canEdit?'<th></th>':''}
     </tr></thead><tbody>
-      ${list.map(e=>`<tr>
-        <td class="empCode">${e.code}</td><td class="empNameCell"><b>${e.name}</b></td><td>${e.department||'-'}</td><td>${e.designation||'-'}</td>
-        <td>${unitLabel(e.unit)}</td><td>${contractorName(e)||'<span class="empNoCon">Not set</span>'}</td>
+      ${list.map(e=>`<tr ${canEdit?`class="empRow" onclick="empOpen('${esc(e.code)}')" title="Click to open ${esc(e.name)}"`:''}>
+        <td class="empCode">${esc(e.code)}</td><td class="empNameCell"><b>${esc(e.name)}</b></td>
+        <td>${contractorName(e)?esc(contractorName(e)):'<span class="empNoCon">Not set</span>'}</td><td>${esc(unitLabel(e.unit))}</td><td>${esc(e.designation||'-')}</td>
         <td class="num"><b>${fmt(e.dailyWage||0)}</b></td>
         <td>${(e.status||'Active')==='Active' ? '<span class="empActive">Active</span>' : `<span class="tag ${e.status}">${e.status}</span>${e.status==='Inactive'&&e.inactiveFrom?`<span class="empSince">from ${fmtDate(e.inactiveFrom)}</span>`:''}`}</td>
-        <td class="rowActions">
-          ${hasPerm('employees','edit') ? `<button onclick="openEmployeeModal('${e.code}')">${ico('pencil')} Edit</button>` : ''}
-        </td>
+        ${canEdit?`<td class="rowActions"><span class="empEditIco" aria-hidden="true">${ico('pencil')}</span></td>`:''}
       </tr>`).join('')}
     </tbody></table></div>` : '<div class="empty">'+ico('search-x')+' No employees found. Try adjusting your search or filters.</div>'}
   </div>`;
