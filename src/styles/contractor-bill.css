@@ -50,3 +50,11 @@ table.cbTable.cbInner th,table.cbTable.cbInner td{padding:7px 10px;background:va
 .cbSaveBar.dirty{border-color:var(--hl-stroke,var(--control));background:var(--hl-soft,var(--raised));color:var(--text);}
 
 }
+
+/* ---- Simplified page: one panel — month and actions, figures, the bill ---- */
+.panel.cbSimple{padding:12px 14px;}
+.cbSimple .cbBar{padding:0 0 10px;border-bottom:1px solid var(--rule,var(--border));}
+.cbSimple .cbStrip{margin:12px 0;}
+.cbSimple .payWarn{margin:0 0 12px;}
+.cbEditNote{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--hl-ink,var(--text));}
+.cbEditNote svg{width:13px;height:13px;}

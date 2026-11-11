@@ -1,19 +1,15 @@
 /* ================= CONTRACTORS BILL =================
-   Two views for a month, listing every contractor (click a contractor to see its employees):
-   - Contractor Service Charge: MF pays each contractor a fixed amount for every FULL Present day of
-     every employee that contractor supplied. Half Days, holidays (NOPH) and absent days don't count.
-   - Company Payable: what MF pays the contractor for the month = the Net Pay of the employees it
-     supplied + that service charge.
+   What MF pays each contractor for a month (click a contractor to see its employees):
+     Service charge = every FULL Present day of the employees it supplied × that contractor's rate
+                      (Half Days, holidays (NOPH) and absent days don't count);
+     Total payable  = the Net Pay of those employees (Salary) + the service charge.
    Each contractor has its own rate (₹30 per present day to start), set per month from the 1st:
    db.contractorRates[ym] = {contractorCode: rate}. A month without a contractor's rate uses that
    contractor's latest earlier rate, so a new month starts from last month's rates. Only Admin /
    Software Admin can change rates, for any month, at any time. (Older data stored one number per
    month for every contractor; that still reads as that month's rate for all of them.) Salary and
    present days are the live payroll figures (computePayrollForEmployee), so they always match the
-   Payroll screen and the salary slips. Company Payable also shows the NOPH (paid holiday) days next
-   to the present days: Net Pay pays them, so a month with a paid holiday has a salary even when
-   nobody was present; the service charge never counts them. */
-let cbTab='commission';               // 'commission' | 'company'
+   Payroll screen and the salary slips. */
 let cbMonth=monthKey(todayStr());
 let cbOpen={};                        // contractor code -> true when its employee list is expanded
 let cbEditing=false;                  // rate boxes open (Edit) — closed again by Save or Cancel
@@ -61,8 +57,7 @@ function cbCancelRates(){ const b=document.getElementById('cbSaveBar'); if(b && 
 // A changed rate box lights up the Save button until the rates are saved.
 function cbRateTyped(){ const b=document.getElementById('cbSaveBar'); if(b) b.classList.add('dirty'); }
 function cbSet(field, val){
-  if(field==='tab') cbTab=val;
-  else if(field==='month'){ if(!val) return; cbMonth=val; }
+  if(field==='month'){ if(!val) return; cbMonth=val; }
   else if(field==='toggle') cbOpen[val]=!cbOpen[val];
   render('contractorbill');
 }
@@ -85,88 +80,65 @@ function cbContractorRows(ym){
   });
 }
 
+/* The page, kept to the essentials: one bill per contractor for the month —
+   Present days × rate = Service charge; + Salary (the Net Pay of the employees it supplied) =
+   Total payable. Click a contractor for its employees. Rates: Edit rates (Admin). */
 function renderContractorBill(){
   const rows=cbContractorRows(cbMonth);
   const generated=payrollGenerated(cbMonth);
   const allowed=cbCanEditRate(), editable=allowed && cbEditing;
   const sum=k=>Math.round(rows.reduce((s,r)=>s+(+r[k]||0),0)*100)/100;
-  const tab=(k,icon,label)=>`<button class="attTab ${cbTab===k?'active':''}" onclick="cbSet('tab','${k}')">${ico(icon)} ${label}</button>`;
-  const company=cbTab==='company';
-  const cols=company?9:6;
-  // Rate / Day: a box per contractor for an Admin, else the month's rate.
   const rateCell=r=>editable
     ? `<span class="cbRateIn">₹<input id="cb_rate_${r.c.code}" type="number" min="0" step="0.5" value="${r.rate}" oninput="cbRateTyped()" onkeydown="if(event.key==='Enter')cbSaveRates()" aria-label="Service charge per present day for ${cbEsc(r.c.name||r.c.code)}" title="Service charge per full Present day for ${cbEsc(r.c.name||r.c.code)}, ${monthLabel(cbMonth)}"></span>`
     : `₹${r.rate}`;
-  // A contractor row (click to show / hide its employees) and, when open, its employee list.
   const contractorRow=r=>{
     const open=!!cbOpen[r.c.code];
     const head=`<tr class="cbRow${open?' open':''}" onclick="cbSet('toggle','${r.c.code}')" title="Show / hide the employees" aria-expanded="${open}">
-      <td class="cbCaret"><span>›</span></td><td><b>${cbEsc(r.c.name||r.c.code)}</b></td><td class="num">${r.empCount}</td><td class="num">${r.days}</td>${company?`<td class="num">${r.noph}</td>`:''}<td onclick="event.stopPropagation()" class="num cbRateCell">${rateCell(r)}</td>
-      ${company?`<td class="num">${fmt(r.net)}</td>`:''}<td class="num"><b>${fmt(r.commission)}</b></td>${company?`<td class="num"><b>${fmt(r.total)}</b></td>`:''}</tr>`;
+      <td class="cbCaret"><span>›</span></td><td><b>${cbEsc(r.c.name||r.c.code)}</b></td><td class="num">${r.empCount}</td><td class="num">${r.days}</td>
+      <td onclick="event.stopPropagation()" class="num cbRateCell">${rateCell(r)}</td><td class="num">${fmt(r.commission)}</td><td class="num">${fmt(r.net)}</td><td class="num"><b>${fmt(r.total)}</b></td></tr>`;
     if(!open) return head;
     const emp=`<table class="cbTable cbInner">
-      <thead><tr><th class="num">Sl No</th><th>Emp Code</th><th>Name</th><th>Unit</th><th class="num">Present Days</th>${company?'<th class="num" title="Paid holidays (Holiday Calendar) — paid like a Present day">NOPH</th><th class="num">Paid Days</th><th class="num">Total Earnings</th><th class="num">Deductions</th><th class="num">Net Pay</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
-      <tbody>${r.emps.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${x.e.code}</td><td>${cbEsc(x.e.name)}</td><td>${unitLabel(x.e.unit)}</td><td class="num">${x.days}</td>${company?`<td class="num">${x.noph}</td><td class="num">${x.paidDays}</td><td class="num">${fmt(x.earnings)}</td><td class="num">${fmt(x.deductions)}</td><td class="num">${fmt(x.net)}</td>`:''}<td class="num">${fmt(x.commission)}</td>${company?`<td class="num"><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td>`:''}</tr>`).join('') || `<tr><td colspan="12" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
+      <thead><tr><th class="num">Sl</th><th>Code</th><th>Name</th><th class="num">Present days</th><th class="num">Service charge</th><th class="num">Salary (net pay)</th><th class="num">Total payable</th></tr></thead>
+      <tbody>${r.emps.map((x,i)=>`<tr><td class="num">${i+1}</td><td>${cbEsc(x.e.code)}</td><td>${cbEsc(x.e.name)}</td><td class="num">${x.days}</td><td class="num">${fmt(x.commission)}</td><td class="num">${fmt(x.net)}</td><td class="num"><b>${fmt(Math.round((x.net+x.commission)*100)/100)}</b></td></tr>`).join('') || `<tr><td colspan="7" class="empty">No employees from this contractor on the roll in ${monthLabel(cbMonth)}.</td></tr>`}</tbody>
     </table>`;
-    return head+`<tr class="cbDetail"><td colspan="${cols}">${emp}</td></tr>`;
+    return head+`<tr class="cbDetail"><td colspan="8">${emp}</td></tr>`;
   };
-  const mainTable=`<div class="tableScrollWrap cbScroll"><table class="cbTable cbMain">
-    <thead><tr><th style="width:28px;"></th><th>Contractor</th><th class="num">Employees Supplied</th><th class="num">Total Present Days</th>${company?'<th class="num" title="Paid holidays (NOPH) of all the employees supplied — paid in their salary like a Present day, not counted for the service charge">Total NOPH Days</th>':''}<th class="num">Rate / Day</th>${company?'<th class="num">Salary (Net Pay)</th>':''}<th class="num">Service Charge</th>${company?'<th class="num">Total Payable</th>':''}</tr></thead>
-    <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="${cols}" class="empty">No contractors yet.</td></tr>`}
-    ${rows.length?`<tr class="cbTotal"><td></td><td>Total — all contractors</td><td class="num">${sum('empCount')}</td><td class="num">${sum('days')}</td>${company?`<td class="num">${sum('noph')}</td>`:''}<td></td>${company?`<td class="num">${fmt(sum('net'))}</td>`:''}<td class="num">${fmt(sum('commission'))}</td>${company?`<td class="num">${fmt(sum('total'))}</td>`:''}</tr>`:''}
-    </tbody></table></div>`;
-  const allOpen=rows.length && rows.every(r=>cbOpen[r.c.code]);
-  // Under the table: the one Save for every contractor's rate box (Admin), or who can change them.
-  const saveBar=`<div class="cbSaveBar" id="cbSaveBar">
-    <span>${ico('tag')} Rates per present day for <b>${monthLabel(cbMonth)}</b>, from the 1st.${editable?' Change a contractor\'s rate in the table, then Save.':allowed?' Click Edit to change the rates.':' Only an Admin can change the rates.'}</span>
-    ${!allowed?'':editable
-      ?`<span style="display:flex;gap:8px;"><button class="btn secondary" onclick="cbCancelRates()">${ico('x')} Cancel</button><button class="btn" onclick="cbSaveRates()">${ico('save')} Save Service Charges</button></span>`
-      :`<button class="btn btnEditAtt" onclick="cbEditRates()">${ico('pencil')} Edit rates</button>`}
-  </div>`;
   return `
-  <div class="toolbar cbBar">
-    <div class="cbBarGrp">
-      <div class="attTabsInline">${tab('commission','users','Contractor Service Charge')}${tab('company','wallet','Company Payable')}</div>
-      <span class="cbSep"></span>
-      <button class="btn secondary cbNav" ${editable?'disabled':''} onclick="cbShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
-      <input type="month" value="${cbMonth}" ${editable?'disabled title="Save or cancel the rates first"':''} onchange="cbSet('month',this.value)" aria-label="Month">
-      <button class="btn secondary cbNav" ${editable?'disabled':''} onclick="cbShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
+  <div class="panel cbPanel cbSimple">
+    <div class="cbBar">
+      <div class="cbBarGrp">
+        <button class="btn secondary cbNav" ${editable?'disabled':''} onclick="cbShiftMonth(-1)" title="Previous month" aria-label="Previous month">‹</button>
+        <input type="month" value="${cbMonth}" ${editable?'disabled title="Save or cancel the rates first"':''} onchange="cbSet('month',this.value)" aria-label="Month">
+        <button class="btn secondary cbNav" ${editable?'disabled':''} onclick="cbShiftMonth(1)" title="Next month" aria-label="Next month">›</button>
+      </div>
+      <div class="cbBarGrp" id="cbSaveBar">
+        ${editable
+          ? `<span class="cbEditNote">${ico('pencil')} Type each contractor's rate per present day for ${monthLabel(cbMonth)}</span><button class="btn secondary" onclick="cbCancelRates()">${ico('x')} Cancel</button><button class="btn" onclick="cbSaveRates()">${ico('save')} Save rates</button>`
+          : `<button class="btn secondary" onclick="printContractorBill()">${ico('printer')} Print</button>
+             ${hasPerm('contractorbill','export')?`<button class="btn secondary" onclick="downloadContractorBillExcel()">${ico('file-spreadsheet')} Excel</button>`:''}
+             ${allowed?`<button class="btn secondary" onclick="cbEditRates()">${ico('pencil')} Edit rates</button>`:''}`}
+      </div>
     </div>
-    <div class="cbBarGrp">
-      ${rows.length?`<button class="btn secondary" onclick="cbToggleAll(${allOpen?0:1})">${ico('users')} ${allOpen?'Hide':'Show'} all employees</button>`:''}
-      <button class="btn secondary" onclick="printContractorBill()">${ico('printer')} Print</button>
-      ${hasPerm('contractorbill','export')?`<button class="btn secondary" onclick="downloadContractorBillExcel()">${ico('file-spreadsheet')} Excel</button>`:''}
+    <div class="teStatRow cbStrip">
+      <div class="teStatBox"><b>${sum('empCount')}</b><span>Employees supplied</span></div>
+      <div class="teStatBox"><b>${fmt(sum('commission'))}</b><span>Service charge</span></div>
+      <div class="teStatBox"><b>${fmt(sum('net'))}</b><span>Salary (net pay)</span></div>
+      <div class="teStatBox cbKey"><b>${fmt(sum('total'))}</b><span>Total payable</span></div>
     </div>
-  </div>
-  <div class="teStatRow cbStrip">
-    <div class="teStatBox"><b>${rows.length}</b><span>Contractors</span></div>
-    <div class="teStatBox"><b>${sum('empCount')}</b><span>Employees supplied</span></div>
-    <div class="teStatBox"><b>${sum('days')}</b><span>Total present days</span></div>
-    ${company?`<div class="teStatBox" title="Paid holidays from the Holiday Calendar — paid in the salary like a Present day"><b>${sum('noph')}</b><span>NOPH days</span></div>`:''}
-    ${company?`<div class="teStatBox"><b>${fmt(sum('net'))}</b><span>Salary (net pay)</span></div>`:''}
-    <div class="teStatBox ${company?'':'cbKey'}"><b>${fmt(sum('commission'))}</b><span>Service charge</span></div>
-    ${company?`<div class="teStatBox cbKey"><b>${fmt(sum('total'))}</b><span>Total payable</span></div>`:''}
-  </div>
-  ${company && !generated?`<div class="payWarn">${ico('alert')} Payroll for ${monthLabel(cbMonth)} is not generated yet — salary shown is worked out from the current attendance.</div>`:''}
-  <div class="panel cbPanel">
-    ${mainTable}
-    ${saveBar}
-    <p class="syncNote">${company
-      ? `Total Payable = the employees' <b>Net Pay</b> (the same figure as their salary slips) + the contractor's service charge. Net Pay pays Present days and <b>NOPH</b> days (paid holidays in the Holiday Calendar), so it is not ₹0 when a month has a paid holiday even with 0 present days. The service charge counts full Present days only.`
-      : `Service Charge = full <b>Present</b> days of all the employees the contractor supplied × that contractor's rate. Half Days, holidays and absent days are not counted. Present days come from Attendance.`}
-      ${allowed?' Each contractor can have a different rate. Rates are set for the month from the 1st; the next month starts with the same rates until they are changed. An Admin can change the rates of any month at any time.':''} Click a contractor to see its employees.</p>
+    ${!generated?`<div class="payWarn">${ico('alert')} Payroll for ${monthLabel(cbMonth)} is not generated yet — the salary is worked out from the attendance entered so far.</div>`:''}
+    <div class="tableScrollWrap cbScroll"><table class="cbTable cbMain">
+      <thead><tr><th style="width:28px;"></th><th>Contractor</th><th class="num">Employees</th><th class="num" title="Full Present days of the employees supplied (Half Days and holidays not counted)">Present days</th><th class="num">Rate / day</th><th class="num" title="Present days × rate">Service charge</th><th class="num" title="Net Pay of the employees supplied — the same as their salary slips">Salary (net pay)</th><th class="num">Total payable</th></tr></thead>
+      <tbody>${rows.map(contractorRow).join('') || `<tr><td colspan="8" class="empty">No contractors yet — add them in Software Admin.</td></tr>`}
+      ${rows.length?`<tr class="cbTotal"><td></td><td>Total — all contractors</td><td class="num">${sum('empCount')}</td><td class="num">${sum('days')}</td><td></td><td class="num">${fmt(sum('commission'))}</td><td class="num">${fmt(sum('net'))}</td><td class="num">${fmt(sum('total'))}</td></tr>`:''}
+      </tbody></table></div>
+    <p class="syncNote">Total payable = Salary (net pay of the employees supplied) + Service charge. Service charge = full Present days × the contractor's rate — Half Days, holidays and absent days are not counted. Click a contractor to see its employees.${allowed?' Rates are set per month from the 1st; the next month starts with the same rates.':''}</p>
   </div>`;
 }
 
-function cbToggleAll(open){
-  cbOpen={};
-  if(open) getContractors().forEach(c=>{ cbOpen[c.code]=true; });
-  render('contractorbill');
-}
 function cbExcelSheets(){
-  const rows=cbContractorRows(cbMonth), company=cbTab==='company';
-  const summary={ name:company?'Company Payable':'Contractor Service Charge',
-    title:`${db.companyName||''} — ${company?'Company Payable to Contractors':'Contractor Service Charge'} — ${monthLabel(cbMonth)}`,
+  const rows=cbContractorRows(cbMonth), company=true; // the whole bill: salary + service charge
+  const summary={ name:'Contractors Bill',
+    title:`${db.companyName||''} — Contractors Bill — ${monthLabel(cbMonth)}`,
     subtitle:'Service charge per full present day, at each contractor\'s rate',
     columns:[{header:'Contractor', key:'name', width:28},{header:'Employees Supplied', key:'empCount', type:'number'},{header:'Total Present Days', key:'days', type:'number'},
       ...(company?[{header:'Total NOPH Days', key:'noph', type:'number'}]:[]),
@@ -187,7 +159,7 @@ function cbExcelSheets(){
 }
 function downloadContractorBillExcel(){
   if(!hasPerm('contractorbill','export')){ alert('You do not have permission to export.'); return; }
-  window.downloadExcel({ fileName:`${companyFilePrefix()}-${cbTab==='company'?'Company-Payable':'Contractor-Service-Charge'}-${monthLabel(cbMonth)}.xlsx`, sheets:cbExcelSheets() });
+  window.downloadExcel({ fileName:`${companyFilePrefix()}-Contractors-Bill-${monthLabel(cbMonth)}.xlsx`, sheets:cbExcelSheets() });
 }
 function printContractorBill(){
   const sheets=cbExcelSheets();
@@ -199,7 +171,7 @@ function printContractorBill(){
       <tr class="subtotal">${sh.columns.map((c,i)=>`<td>${i===0?'TOTAL':(c.type&&!c.noTotal?(money(c)?fmt(tot(c)):Math.round(tot(c)*100)/100):'')}</td>`).join('')}</tr>
     </tbody></table>`;
   };
-  const html=`<p style="margin:0 0 8px;">${sheets[0].subtitle}. ${cbTab==='company'?'Total Payable = Net Pay of the employees supplied + service charge.':'Service Charge = full present days × rate (half days and holidays not counted).'}</p>
+  const html=`<p style="margin:0 0 8px;">${sheets[0].subtitle}. Total Payable = Net Pay of the employees supplied + service charge (full present days × rate; half days and holidays not counted).</p>
     ${table(sheets[0])}<h3 style="margin:14px 0 6px;font-size:13px;">Employees</h3>${table(sheets[1])}`;
-  openPrintWindow(`${cbTab==='company'?'Company Payable to Contractors':'Contractor Service Charge'} — ${monthLabel(cbMonth)}`, html, {orientation:'landscape'});
+  openPrintWindow(`Contractors Bill — ${monthLabel(cbMonth)}`, html, {orientation:'landscape'});
 }
