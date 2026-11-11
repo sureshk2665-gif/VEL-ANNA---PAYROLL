@@ -200,7 +200,7 @@ function computePayrollForEmployee(e, ym){
   // Present; the LOP and Half Days entered for the month are taken off afterwards.
   const tmp=tempAttFor(ym, e.code); // typed on Temp Attendance: the month's totals for this employee
   const monthly=attIsMonthly(ym) || !!tmp;
-  let workDays=0, workBasic=0, workHra=0;
+  let workDays=0, workBasic=0, workHra=0, holBasic=0, holHra=0;
   const segs=[];
   for(let d=1; d<=dim; d++){
     const ds=dateStr(ym,d);
@@ -216,12 +216,17 @@ function computePayrollForEmployee(e, ym){
     }
     const st=getAttStatus(ds, e.code);
     let paid=0;
-    if(st==='NOPH'){ noph++; paid=1; }
+    if(st==='NOPH'){ noph++; paid=1; const sp=dailyWageSplit(w); holBasic+=sp.basic; holHra+=sp.hra; }
     else if(st==='Present'){ present++; paid=1; }
     else if(st==='HalfDay'){ halfDay++; paid=0.5; }
     else if(st==='LossOfPay') lop++;
     else if(ds<=today) unmarked++;
     if(paid){ const sp=dailyWageSplit(w); basicSum+=sp.basic*paid; hraSum+=sp.hra*paid; paidDays+=paid; }
+  }
+  // Nothing entered for the employee this month (no Present, Half Day or LOP, no Late / OT): nothing
+  // is paid — the paid holidays too. They are paid once the month's attendance is entered.
+  if(!monthly && noph && !(present+halfDay+lop) && !(attIsSimple(ym) && typeof attFigDays==='function' && attFigDays(e.code, ym).length)){
+    basicSum-=holBasic; hraSum-=holHra; paidDays-=noph; noph=0;
   }
   if(tmp){
     // Temp Attendance: Present days as typed (blank = working days − LOP), at most the working days;
