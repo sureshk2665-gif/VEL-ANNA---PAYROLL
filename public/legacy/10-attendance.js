@@ -12,7 +12,7 @@
    (getAttStatus, teMonthDays → attFigDays): Paid Days = Present + Half Days × ½ + paid holidays; a
    working day up to today with nothing marked is not paid. Late beyond the month's free minutes is
    taken off the OT hours first; what OT cannot cover is cut from salary (lateDeductionFor).
-   Months before db.simpleAttFrom were entered with In / Out times; they show read-only.
+   Every month is entered the same way (months entered with In / Out times before were converted).
    Other tabs: Month Summary (every employee's month, by contractor, read-only — click a row to open
    that employee), Holidays (the Holiday Calendar) and Contractor Paid Leave (paid days off by date
    for one contractor's employees).
@@ -116,21 +116,26 @@ function ensureDayAttendance(){
   db.dayAttFrom=from;
   delete db.monthlyAttFrom;
 }
-/* ---- Present / LOP / Half Day with Late and OT per day, from db.simpleAttFrom ----
-   Runs once when this version first loads: the current month becomes the first such month. Days of
-   it already entered with In / Out times keep what they gave: Present (or Half Day), and the Late
-   and OT worked out from the times become that day's figures; LOP / Half Day leave entries become
-   the day's mark. Earlier months stay exactly as they were. */
+/* ---- Present / LOP / Half Day with Late and OT per day, for every month ----
+   Runs when data loads (and after a backup is restored). Every month is entered the same way. Days
+   entered with In / Out times (the former Employee Time Entry, months before this way began) are
+   converted once: Present (or Half Day), with the Late and OT worked out from the times as that
+   day's figures; LOP / Half Day leave entries become the day's mark. Payroll for those months stays
+   the same — the times give the same days, late minutes and OT as before. The late-off-OT rule
+   applies from the month this way began (db.lateOffOtFrom). The converted times are kept in the
+   database untouched for reference (a day's mark and figures come first). */
 function ensureSimpleAttendance(){
-  if(db.simpleAttFrom) return;
-  const from=monthKey(todayStr());
-  attConvertTimes(from, null);
-  db.simpleAttFrom=from;
+  if(!db.simpleAttFrom) db.simpleAttFrom=monthKey(todayStr());
+  if(!db.lateOffOtFrom) db.lateOffOtFrom=db.simpleAttFrom;
+  if(db.attAllConverted) return;
+  attConvertTimes('0000-00', db.simpleAttFrom, true);
+  attConvertTimes(db.simpleAttFrom, null, false);
+  db.attAllConverted=true;
 }
 // Days entered with In / Out times (and LOP / Half Day leave entries) in the months from `from` up to
 // (not including) `to` → Present / LOP / Half Day marks, with the Late and OT worked out from the
-// times as each day's figures.
-function attConvertTimes(from, to){
+// times as each day's figures. keepRaw leaves the times and leave entries in place.
+function attConvertTimes(from, to, keepRaw){
   const inRange=ym=>ym>=from && (!to || ym<to);
   const emps=new Map((db.employees||[]).map(e=>[e.code, e]));
   const mark=(dt, code, st)=>{ if(!db.attendance) db.attendance={}; if(!db.attendance[dt]) db.attendance[dt]={}; if(!db.attendance[dt][code]) db.attendance[dt][code]=st; };
@@ -143,40 +148,16 @@ function attConvertTimes(from, to){
         if(!off) mark(dt, code, half?'HalfDay':'Present');
         const c=teDayFigures(en, dt, code, half), f={};
         if(c.late>0) f.late=Math.round(c.late); if(c.ot>0) f.ot=Math.round(c.ot);
-        if(Object.keys(f).length){ if(!db.dayFigs) db.dayFigs={}; if(!db.dayFigs[dt]) db.dayFigs[dt]={}; db.dayFigs[dt][code]=f; }
+        if(Object.keys(f).length && !(db.dayFigs && db.dayFigs[dt] && db.dayFigs[dt][code])){ if(!db.dayFigs) db.dayFigs={}; if(!db.dayFigs[dt]) db.dayFigs[dt]={}; db.dayFigs[dt][code]=f; }
       }
-      delete db.timeEntries[dt][code];
+      if(!keepRaw) delete db.timeEntries[dt][code];
     });
-    if(!Object.keys(db.timeEntries[dt]).length) delete db.timeEntries[dt];
+    if(!keepRaw && !Object.keys(db.timeEntries[dt]).length) delete db.timeEntries[dt];
   });
   if(Array.isArray(db.timeLeaves)){
     db.timeLeaves.filter(l=>inRange(String(l.date).slice(0,7))).forEach(l=>mark(l.date, l.empCode, l.type==='Half Day'?'HalfDay':'LossOfPay'));
-    db.timeLeaves=db.timeLeaves.filter(l=>!inRange(String(l.date).slice(0,7)));
+    if(!keepRaw) db.timeLeaves=db.timeLeaves.filter(l=>!inRange(String(l.date).slice(0,7)));
   }
-}
-// An earlier month (entered with In / Out times, or not entered yet) → entered here with Present /
-// LOP / Half Day, Late and OT from now on — and every month after it up to the first such month.
-function attSwitchToSimple(ym){
-  if(!attCanEdit()){ alert('You do not have permission to edit attendance.'); return; }
-  if(typeof teEditActive==='function' && teEditActive()){ alert('Save or cancel the open edit first.'); return; }
-  const to=db.simpleAttFrom; if(!to || ym>=to) return;
-  const months=[]; for(let m=ym; m<to; m=nextMonthKey(m,1)) months.push(m);
-  const gen=months.filter(m=>payrollGenerated(m));
-  const span=months.length>1 ? `${attMonthName(ym)} to ${attMonthName(months[months.length-1])}` : attMonthName(ym);
-  if(!confirm(`Enter ${span} here — Present / LOP / Half Day, Late and OT for each day?\n\n`
-    +`Days already entered with In / Out times stay Present (or Half Day), with their worked-out Late and OT as the day's figures. `
-    +`Late beyond the free minutes will then come off OT first.`
-    +(gen.length?`\n\nPayroll for ${gen.map(attMonthName).join(', ')} is already generated — it will show the new figures.`:''))) return;
-  // These months then count only the canteen tokens entered here: keep each employee's usual count.
-  months.filter(m=>!attIsDaily(m) && !attIsMonthly(m)).forEach(m=>payrollEmployeesFor(m).forEach(e=>{
-    const a=adjFor(m, e.code);
-    if((a.canteenTokens===undefined || a.canteenTokens===null) && +e.canteenTokens) getAdj(m, e.code).canteenTokens=+e.canteenTokens;
-  }));
-  attConvertTimes(ym, to);
-  if(!db.dayAttFrom || ym<db.dayAttFrom) db.dayAttFrom=ym;
-  db.simpleAttFrom=ym;
-  saveDB(db);
-  render('attendance');
 }
 function attMonthName(ym){ const [y,m]=ym.split('-').map(Number); return new Date(y,m-1,1).toLocaleString('en-US',{month:'long',year:'numeric'}); }
 // A month typed as month totals → entered day by day from now on (its totals are dropped).
@@ -266,8 +247,7 @@ function attFigDays(code, ym){
   }
   return out;
 }
-// Everything one row shows. Months before db.simpleAttFrom were entered with In / Out times: their
-// Late and OT are worked out from the times (read-only here).
+// Everything one row shows.
 function attDay(e, dt){
   const code=e.code, dow=attDow(dt), hol=attHolidayFor(e, dt), onRoll=isEmpOnRollOn(e, dt);
   const st=onRoll ? getAttStatus(dt, code) : '';
@@ -435,7 +415,6 @@ function renderAttEntry(){
   const days=attMonthDates(ym).map(dt=>attDay(e, dt));
   setTimeout(()=>{ teFitGridBox('attDayGrid'); }, 0);
   return `<div class="panel attPanel">${top}${head}
-    ${simple?'':attOldMonthNoteHtml(ym)}
     <div class="teStatRow" id="attStats">${attEmpStatsHtml(e, r, missing)}</div>
     <div class="attMBoxes">${attMonthBoxesHtml(e, r, editable)}
       ${!attCanEdit()||!simple?'':editable?'':`<span class="attLockNote">${ico('pencil')} Click <b>Edit</b> to enter ${attEsc(e.name)}'s attendance.</span>`}</div>
@@ -450,11 +429,6 @@ function renderAttEntry(){
     </table></div>
     <p class="syncNote">Paid Days = Present + Half Days × ½ + paid holidays. A working day up to today with nothing marked is not paid (<b>Needs entry</b>); paid holidays and the contractor's paid leave are paid without an entry. The first ${r.lateGraceMinutes} Late minutes of the month are free (Admin → Late Waiver); Late beyond them is taken off the month's OT hours, and only what OT cannot cover is cut from salary (Daily Wage ÷ 8 ÷ 60 a minute). Payroll, salary slips, reports, the Contractors Bill and the Dashboard all use these days.</p>
   </div>`;
-}
-// A month before the Present / LOP / Half Day entry began: read-only, with the way to enter it here.
-function attOldMonthNoteHtml(ym){
-  return `<p class="attNote"><b>${attEsc(attMonthName(ym))}</b> is from before this way of entering attendance (it used In / Out times), so it is shown read-only.
-    ${attCanEdit()?`<button type="button" class="btn attSwitchBtn" onclick="attSwitchToSimple('${ym}')">${ico('pencil')} Enter ${attEsc(attMonthName(ym))} here</button>`:''}</p>`;
 }
 function attFootHtml(r, missing){
   const fromOt=+r.lateOtMinutes||0;
@@ -788,7 +762,6 @@ function renderAttSummary(){
   return `<div class="panel attPanel">
     <div class="teDwTop teBar"><div class="teDwGroup">${attMonthBarHtml()}</div></div>
     ${attFilterRowHtml(emps.length, all)}
-    ${!monthly && !attIsSimple(ym) ? attOldMonthNoteHtml(ym) : ''}
     <p class="attNote ${monthly?'attNoteOld':''}">${monthly
       ? `<b>${attEsc(attMonthName(ym))}</b> was entered as month totals — open an employee to see them, or to switch the month to day-by-day entry.`
       : `Every employee's ${attEsc(attMonthName(ym))} as Payroll counts it. <b>Click an employee</b> to open their days. "Days to enter" = working days up to today with nothing entered (not paid until entered).`}</p>

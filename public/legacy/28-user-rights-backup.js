@@ -194,6 +194,9 @@ function restoreData(file){
       ensureDepartments();
       ensureContractors();
       ensureUnits();
+      // …and attendance entered the older ways is converted like initDB() does.
+      if(typeof ensureDayAttendance==='function') ensureDayAttendance();
+      if(typeof ensureSimpleAttendance==='function') ensureSimpleAttendance();
       await saveDB(db);
       applyCompanyBranding();
       alert('Data restored successfully and saved to the database.');
