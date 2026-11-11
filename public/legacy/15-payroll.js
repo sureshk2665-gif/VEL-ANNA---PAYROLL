@@ -66,12 +66,12 @@ function renderPayroll(){
       <div class="teStatBox"><b>${fmt(sum('deductionsTotal'))}</b><span>Deductions</span></div>
       <div class="teStatBox payNet"><b>${fmt(sum('netSalary'))}</b><span>Net pay</span></div>
     </div>
-    ${unmarked?`<div class="payWarn">${ico('alert')} <span>${unmarked} working day${unmarked===1?'':'s'} up to today ${unmarked===1?'is':'are'} not entered in Attendance for ${unmarkedEmps} employee${unmarkedEmps===1?'':'s'} — not paid until entered.</span><button type="button" class="btn secondary" onclick="attTab='summary';attMonth='${payMonth}';render('attendance')">${ico('calendar-days')} See who in Attendance</button></div>`:''}
+    ${unmarked?`<div class="payWarn">${ico('alert')} <span>${unmarkedEmps} employee${unmarkedEmps===1?' has':'s have'} no attendance entered for this month — not paid until entered.</span><button type="button" class="btn secondary" onclick="tmpTab='summary';attMonth='${payMonth}';render('attendance')">${ico('calendar-days')} See who in Attendance</button></div>`:''}
     <div class="tableScrollWrap payScroll"><table class="payrollTable">
       <thead><tr><th>Code</th><th>Employee</th><th>Contractor</th><th class="num" title="Present (Half Day = ½) + paid holidays">Paid days</th><th class="num" title="Basic + HRA + OT + allowance">Earnings</th><th class="num" title="PF, ESI, canteen, late, advance and other deductions">Deductions</th><th class="num">Net pay</th></tr></thead>
       <tbody>
       ${rows.map(r=>`<tr onclick="openSlip('${r.code}','${payMonth}')" title="Click to open ${esc(r.name)}'s salary slip">
-        <td>${esc(r.code)}</td><td class="empNameCell">${esc(r.name)}${+r.unmarkedDays?` <button type="button" class="payMiss" title="${r.unmarkedDays} working day(s) not entered in Attendance — not paid. Click to enter them." onclick="event.stopPropagation();openAttDay('${payMonth}-01','${esc(r.code)}')">${r.unmarkedDays} day${+r.unmarkedDays===1?'':'s'} not entered</button>`:''}</td>
+        <td>${esc(r.code)}</td><td class="empNameCell">${esc(r.name)}${+r.unmarkedDays?` <button type="button" class="payMiss" title="No attendance entered for this month — not paid. Click to enter it." onclick="event.stopPropagation();openAttDay('${payMonth}-01','${esc(r.code)}')">not entered</button>`:''}</td>
         <td class="payCon">${esc(contractorName(r.contractor)||'—')}</td>
         <td class="num">${r.daysWorking}</td><td class="num">${fmt(r.earningsTotal)}</td><td class="num">${fmt(r.deductionsTotal)}</td><td class="num"><b>${fmt(r.netSalary)}</b></td>
       </tr>`).join('')}

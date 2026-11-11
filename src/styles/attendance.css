@@ -239,7 +239,7 @@ table.attDayGrid input.attFig:disabled{border-color:transparent !important;backg
 .attCompact table.attDayGrid .attOffTag,.attCompact table.attDayGrid td.attSt .tag.NOPH{font-size:11.5px;}
 .attCompact table.attDayGrid input.attFig:not(:focus):placeholder-shown{border-color:var(--rule,var(--line));}
 
-/* ---- Temp Attendance: every employee on one page, five boxes each ---- */
+/* ---- Attendance: every employee on one page, the month's boxes in a row ---- */
 .tmpPanel.panel{padding:10px 12px;}
 .tmpPanel .attTop{padding:0 0 8px;}
 .tmpPanel .attNote{margin:8px 0;}
@@ -262,4 +262,9 @@ table.tmpTable tr.on td{background:color-mix(in srgb, var(--hl) 5%, var(--surfac
 table.tmpTable tr.tmpOver td{background:color-mix(in srgb, var(--negative) 7%, var(--surface));}
 table.tmpTable td.tmpCalc{font-weight:600;}
 table.tmpTable td.tmpNet{font-weight:700;}
+.tmpRow.tmpOld input.tmpIn{font-weight:500;color:var(--muted);}
+.tmpWrap table.tmpTable{min-width:900px;}
+table.tmpTable input.tmpIn{width:62px;}
+table.tmpTable td{padding-left:4px;padding-right:4px;}
+table.tmpTable th{padding-left:4px;padding-right:4px;white-space:normal;line-height:1.2;}
 .tmpTag{display:inline-block;padding:0 7px;border-radius:999px;background:var(--hl-soft);color:var(--hl-ink);font-size:11px;font-weight:700;line-height:18px;}

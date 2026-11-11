@@ -1,16 +1,18 @@
-/* ================= TEMP ATTENDANCE — every employee on one page, month totals =================
-   For a quick month: one row per employee on the roll, with five boxes the client fills in —
-     Present days · LOP · OT (hours:minutes) · Late (minutes) · Canteen tokens.
-   Saved to db.tempAtt[ym][code] = {present, lop, ot (minutes), late (minutes), tokens}. Once an
-   employee has any figure here for a month, Payroll uses only these for that month instead of the
-   days on Attendance (tempAttFor, 12-payroll-calc.js): a blank box counts 0, a blank Present counts
-   the working days − LOP, and Paid days = Present + paid holidays (Holiday Calendar and the
-   contractor's paid leave). Late beyond the free minutes comes off OT first, as on Attendance.
-   Clearing all of an employee's boxes goes back to their Attendance days.
-   Same tools as Attendance: month, Unit / Contractor filters, Edit / Save / Cancel (nothing reaches
-   Payroll until Save), Enter / arrows between boxes, a column pasted from Excel fills down. */
-// The month and the Unit / Contractor filters are Attendance's (attMonth, attUnitFilter,
-// attContractorFilter), shared with the Month Summary, Holidays and Contractor Paid Leave tabs here.
+/* ================= ATTENDANCE — every employee on one page, month totals =================
+   One row per employee on the roll, with the boxes the client fills in for the month —
+     Present days · LOP · OT (hours:minutes) · Late (minutes) · Canteen tokens · one-off Allowance ₹ /
+     Deduction ₹.
+   Saved to db.tempAtt[ym][code] = {present, lop, ot (minutes), late (minutes), tokens}; the one-off
+   allowance / deduction go to db.payrollAdjustments[ym][code] (otherAllowanceOneOff / otherDedOneOff).
+   Payroll (tempAttFor, 12-payroll-calc.js): a blank box counts 0, a blank Present counts the working
+   days − LOP, Paid days = Present + paid holidays (Holiday Calendar and the contractor's paid leave),
+   and Late beyond the free minutes comes off OT first. Nothing entered for the month → nothing paid.
+   Months entered day by day before this page: an employee with no month totals shows the figures
+   from those days (what Payroll uses); typing over any of them saves all five as month totals.
+   Month, Unit / Contractor filters, Edit / Save / Cancel (nothing reaches Payroll until Save),
+   Enter / arrows between boxes, a column pasted from Excel fills down. */
+// The month and the Unit / Contractor filters (attMonth, attUnitFilter, attContractorFilter,
+// 10-attendance.js) are shared with the Month Summary, Holidays and Contractor Paid Leave tabs.
 let tmpTab='grid';           // 'grid' | 'summary' | 'holidays' | 'cleave'
 let tmpEditMode=false;
 const TMP_COLS=[
@@ -18,45 +20,68 @@ const TMP_COLS=[
   {k:'lop',     h:'LOP',          title:'Loss of Pay days this month'},
   {k:'ot',      h:'OT (h:mm)',    title:'OT this month as hours:minutes, e.g. 12:30'},
   {k:'late',    h:'Late (min)',   title:'Late minutes this month'},
-  {k:'tokens',  h:'Canteen tokens', title:'Canteen tokens bought this month'}
+  {k:'tokens',  h:'Canteen tokens', title:'Canteen tokens bought this month'},
+  {k:'otherAllowanceOneOff', h:'Allowance ₹', title:'One-off allowance this month (added to Total Earnings)', adj:true},
+  {k:'otherDedOneOff',       h:'Deduction ₹', title:'One-off deduction this month', adj:true}
 ];
-function tmpCanEdit(){ return hasPerm('tempattendance','edit') || hasPerm('tempattendance','add'); }
-function tmpEditable(){ return tmpCanEdit() && tmpEditMode && !attIsMonthly(attMonth); }
+const TMP_FIG_KEYS=['present','lop','ot','late','tokens'];
+function tmpCanEdit(){ return hasPerm('attendance','edit') || hasPerm('attendance','add'); }
+function tmpEditable(){ return tmpCanEdit() && tmpEditMode; }
 function tmpEmployees(){
   return payrollEmployeesFor(attMonth).filter(e=>(!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
 }
 function tmpGet(code){ return (db.tempAtt && db.tempAtt[attMonth] && db.tempAtt[attMonth][code]) || null; }
+// An employee with no month totals here but days entered the old way (or month totals typed on the
+// former monthly screen): the five figures Payroll counts from them, or null. Cached per render.
+let tmpDayCache={};
+function tmpFromDays(e){
+  const key=attMonth+'|'+e.code;
+  if(key in tmpDayCache) return tmpDayCache[key];
+  let out=null;
+  if(!tempAttFor(attMonth, e.code)){
+    const r=computePayrollForEmployee(e, attMonth);
+    if(attIsMonthly(attMonth) || (+r.presentDays||0)+(+r.halfDayCount||0)+(+r.lopMarked||0)>0 || +r.otHoursWorked>0 || +r.lateMinutes>0)
+      out={present:attN(r.presentPlusHalf), lop:attN(r.lopMarked), ot:Math.round((+r.otHoursWorked||0)*60), late:Math.round(+r.lateMinutes||0), tokens:Math.round(+r.canteenTokens||0)};
+  }
+  return tmpDayCache[key]=out;
+}
 // A box's value as shown: OT as h:mm, the rest as numbers; blank when not entered.
 function tmpBoxVal(code, k){
-  const t=tmpGet(code); if(!t || !tempAttSet(t[k])) return '';
+  const c=TMP_COLS.find(x=>x.k===k);
+  if(c && c.adj){ const v=+adjFor(attMonth, code)[k]||0; return v ? String(attN(v)) : ''; }
+  let t=tmpGet(code);
+  if(!tempAttFor(attMonth, code)){ const e=(db.employees||[]).find(x=>x.code===code); t=e && tmpFromDays(e); }
+  if(!t || !tempAttSet(t[k])) return '';
+  if(k!=='present' && !+t[k] && !tmpGet(code)) return ''; // days entered the old way: show only what is there
   return k==='ot' ? Math.floor(t.ot/60)+':'+String(Math.round(t.ot)%60).padStart(2,'0') : String(attN(t[k]));
 }
-function tmpSetMonth(v){ if(!v || v===attMonth) return; tmpCommitActive(); attMonth=v; render('tempattendance'); }
+function tmpSetMonth(v){ if(!v || v===attMonth) return; tmpCommitActive(); attMonth=v; render('attendance'); }
 function tmpStepMonth(k){ tmpSetMonth(nextMonthKey(attMonth, k)); }
-function tmpSetUnit(v){ attUnitFilter=v||''; render('tempattendance'); }
-function tmpSetCon(v){ attContractorFilter=v||''; render('tempattendance'); }
-function tmpClearFilters(){ attUnitFilter=''; attContractorFilter=''; render('tempattendance'); }
+function tmpSetUnit(v){ attUnitFilter=v||''; render('attendance'); }
+function tmpSetCon(v){ attContractorFilter=v||''; render('attendance'); }
+function tmpClearFilters(){ attUnitFilter=''; attContractorFilter=''; render('attendance'); }
 
 /* ---- Rendering ---- */
 function tmpRowHtml(e, i, editable){
-  const r=computePayrollForEmployee(e, attMonth), t=tempAttFor(attMonth, e.code), nowd=attNowdParts(e, attMonth).nowd;
+  const r=computePayrollForEmployee(e, attMonth), t=tempAttFor(attMonth, e.code), old=!t && tmpFromDays(e), nowd=attNowdParts(e, attMonth).nowd;
   const over=t && (tempAttSet(t.present) ? +t.present : 0)+(+t.lop||0) > nowd;
   const boxes=TMP_COLS.map((c,ci)=>`<td><input class="attIn tmpIn" data-r="${i}" data-c="${ci}" data-k="${c.k}" value="${tmpBoxVal(e.code, c.k)}" ${editable?'':'disabled'}
       placeholder="${c.k==='present' && t && !tempAttSet(t.present) ? attN(Math.max(0, nowd-(+t.lop||0))) : ''}" inputmode="decimal" autocomplete="off" spellcheck="false"
       title="${attEsc(c.title)}" aria-label="${attEsc(c.h)} — ${attEsc(e.name)}" onfocus="this.select()" onkeydown="tmpKey(event,this)" onblur="tmpCommit(this)" onpaste="tmpPaste(event,this)"></td>`).join('');
-  return `<tr class="tmpRow ${t?'on':''} ${over?'tmpOver':''}" data-code="${attEsc(e.code)}" data-r="${i}">
+  return `<tr class="tmpRow ${t||old?'on':''} ${old?'tmpOld':''} ${over?'tmpOver':''}" data-code="${attEsc(e.code)}" data-r="${i}" ${old?'title="From the days entered before — type over any box to change them"':''}>
     <td class="num tmpSl">${i+1}</td><td class="tmpCode">${attEsc(e.code)}</td><td class="tmpName">${attEsc(e.name)}</td>
     <td class="num" title="Working days on the roll: not Sundays or holidays">${nowd}</td>
     ${boxes}
-    <td class="num tmpCalc" data-k="paid" title="Paid days = Present + paid holidays">${t?attN(r.daysWorking):'<span class="teEwMuted">–</span>'}</td>
-    <td class="num tmpNet" data-k="net">${t?fmt(r.netSalary):'<span class="teEwMuted">–</span>'}</td>
+    <td class="num tmpCalc" data-k="paid" title="Paid days = Present + paid holidays">${t||old?attN(r.daysWorking):'<span class="teEwMuted">–</span>'}</td>
+    <td class="num tmpNet" data-k="net">${t||old?fmt(r.netSalary):'<span class="teEwMuted">–</span>'}</td>
   </tr>`;
 }
 function tmpStatsHtml(emps){
-  const on=emps.filter(e=>tempAttFor(attMonth, e.code));
-  const sum=k=>on.reduce((s,e)=>s+(+(tmpGet(e.code)||{})[k]||0),0);
+  const on=emps.filter(e=>tempAttFor(attMonth, e.code) || tmpFromDays(e));
+  const fig=e=>tempAttFor(attMonth, e.code) || tmpFromDays(e) || {};
+  const sum=k=>on.reduce((s,e)=>s+(+fig(e)[k]||0),0);
   return `<div class="teStatBox"><b>${emps.length}</b><span>Employees</span></div>
-    <div class="teStatBox ${on.length<emps.length?'warn':''}"><b>${on.length}<small> / ${emps.length}</small></b><span>Entered here</span></div>
+    <div class="teStatBox ${on.length<emps.length?'warn':''}"><b>${on.length}<small> / ${emps.length}</small></b><span>Entered</span></div>
     <div class="teStatBox"><b>${attN(on.reduce((s,e)=>s+computePayrollForEmployee(e, attMonth).presentDays,0))}</b><span>Present days</span></div>
     <div class="teStatBox"><b>${attN(sum('lop'))}</b><span>LOP days</span></div>
     <div class="teStatBox"><b>${fmtMinHM(sum('ot'))}</b><span>OT</span></div>
@@ -66,31 +91,31 @@ function tmpStatsHtml(emps){
 function tmpSetTab(t){
   if(t===tmpTab) return;
   if(typeof teEditConfirmLeave==='function' && !teEditConfirmLeave()) return;
-  tmpTab=t; render('tempattendance');
+  tmpTab=t; render('attendance');
 }
-// From the Month Summary here: that employee's row in the Temp Attendance list.
+// From the Month Summary, the Dashboard or Payroll: that employee's row in the Attendance list.
 function tmpOpenEmp(code){
-  tmpTab='grid'; render('tempattendance');
+  if(tmpTab!=='grid' && typeof teEditConfirmLeave==='function' && !teEditConfirmLeave()) return;
+  tmpTab='grid'; render('attendance');
   setTimeout(()=>{ const tr=document.querySelector(`#tmpGrid tr.tmpRow[data-code="${CSS.escape(code)}"]`); if(!tr) return;
     tr.scrollIntoView({block:'center'}); tr.classList.remove('teDwFlash'); void tr.offsetWidth; tr.classList.add('teDwFlash');
     const i=tr.querySelector('input.tmpIn:not(:disabled)'); if(i){ i.focus(); i.select(); } },0);
 }
 function renderTempAttendance(){
-  teHostPage='tempattendance';
+  teHostPage='attendance'; tmpDayCache={};
   const tab=(k, icon, label)=>`<div class="teTab ${tmpTab===k?'active':''}" role="tab" onclick="tmpSetTab('${k}')">${ico(icon)} ${label}</div>`;
-  const tabs=`<div class="teTabs attPageTabs" role="tablist">${tab('grid','users','Temp Attendance')}${tab('summary','clipboard','Month Summary')}${tab('holidays','calendar','Holidays')}${tab('cleave','calendar-range','Contractor Paid Leave')}</div>`;
+  const tabs=`<div class="teTabs attPageTabs" role="tablist">${tab('grid','users','Attendance')}${tab('summary','clipboard','Month Summary')}${tab('holidays','calendar','Holidays')}${tab('cleave','calendar-range','Contractor Paid Leave')}</div>`;
   if(tmpTab==='summary') return tabs+renderAttSummary();
   if(tmpTab==='holidays') return tabs+renderTEHolidayTab();
   if(tmpTab==='cleave') return tabs+renderAttConLeave();
   return tabs+renderTempGrid();
 }
 function renderTempGrid(){
-  const ym=attMonth, emps=tmpEmployees(), all=payrollEmployeesFor(ym).length, canEdit=tmpCanEdit(), monthly=attIsMonthly(ym);
-  if(tmpEditMode && monthly) tmpEditMode=false;
+  const ym=attMonth, emps=tmpEmployees(), all=payrollEmployeesFor(ym).length, canEdit=tmpCanEdit();
   const editable=tmpEditable(), thisM=monthKey(todayStr());
   const sel=(on, fn, label, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="${fn}(this.value)" aria-label="${label}">${opts}</select>`;
   let i=0;
-  const groups=attGroups(emps).map(g=>`<tr class="tmpGroup"><td colspan="12">${attEsc(g.name)} <span>${g.emps.length} employee${g.emps.length===1?'':'s'}</span></td></tr>${g.emps.map(e=>tmpRowHtml(e, i++, editable)).join('')}`).join('');
+  const groups=attGroups(emps).map(g=>`<tr class="tmpGroup"><td colspan="${6+TMP_COLS.length}">${attEsc(g.name)} <span>${g.emps.length} employee${g.emps.length===1?'':'s'}</span></td></tr>${g.emps.map(e=>tmpRowHtml(e, i++, editable)).join('')}`).join('');
   return `<div class="panel attPanel tmpPanel">
     <div class="teDwTop teBar attTop">
       <div class="teDwGroup">
@@ -108,34 +133,32 @@ function renderTempGrid(){
       </div>
       <div class="teDwGroup">
         <span id="teEwSaveState" class="teEwSave ${typeof teEwSaveState!=='undefined'?teEwSaveState:''}"></span>
-        ${!canEdit||monthly ? '' : tmpEditMode
+        ${!canEdit ? '' : tmpEditMode
           ? `<button class="btn secondary" onclick="tmpCancel()" title="Discard the changes made since Edit">${ico('x')} Cancel</button><button class="btn" onclick="tmpSave()">${ico('save')} Save</button>`
           : `<button class="btn btnEditAtt" onclick="tmpEdit()">${ico('pencil')} Edit</button>`}
       </div>
     </div>
-    <p class="attNote">${monthly
-      ? `<b>${attEsc(attMonthName(ym))}</b> was entered as month totals on Attendance — switch it to day entry there first.`
-      : `Type each employee's month: <b>Present days</b>, <b>LOP</b>, <b>OT</b> (hours:minutes), <b>Late</b> (minutes) and <b>Canteen tokens</b>. After Save, Payroll uses these figures for that employee instead of the Attendance days — Paid days = Present + paid holidays; a blank Present counts the working days − LOP. Clear all of an employee's boxes to go back to Attendance.${editable?' <b>Enter</b> / <b>↓</b> next employee, <b>←</b> <b>→</b> next box; a column copied from Excel pastes down.':''}`}</p>
+    <p class="attNote">Type each employee's month: <b>Present days</b>, <b>LOP</b>, <b>OT</b> (hours:minutes), <b>Late</b> (minutes), <b>Canteen tokens</b>, and any one-off <b>Allowance</b> / <b>Deduction</b>. Paid days = Present + paid holidays; a blank Present counts the working days − LOP. Late beyond the free minutes comes off OT first. Nothing entered = not paid.${editable?' <b>Enter</b> / <b>↓</b> next employee, <b>←</b> <b>→</b> next box; a column copied from Excel pastes down.':''}</p>
     <div class="teStatRow" id="tmpStats">${tmpStatsHtml(emps)}</div>
     <div class="tableScrollWrap tmpWrap"><table class="tmpTable" id="tmpGrid">
       <thead><tr><th>Sl</th><th>Code</th><th style="text-align:left;">Employee</th><th title="Working days on the roll">NOWD</th>
         ${TMP_COLS.map(c=>`<th class="tmpInHead" title="${attEsc(c.title)}">${c.h}</th>`).join('')}
         <th>Paid days</th><th>Net pay</th></tr></thead>
-      <tbody>${groups || `<tr><td colspan="12"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr>`}</tbody>
+      <tbody>${groups || `<tr><td colspan="${6+TMP_COLS.length}"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
 
 /* ---- Edit / Save ---- */
 function tmpEdit(){
-  if(!tmpCanEdit()){ alert('You do not have permission to edit Temp Attendance.'); return; }
-  teHostPage='tempattendance';
+  if(!tmpCanEdit()){ alert('You do not have permission to edit Attendance.'); return; }
+  teHostPage='attendance';
   if(!teEditBegin('tempatt')){ alert('Save or cancel the other edit first.'); return; }
-  tmpEditMode=true; render('tempattendance');
+  tmpEditMode=true; render('attendance');
   setTimeout(()=>{ const i=document.querySelector('#tmpGrid input.tmpIn:not(:disabled)'); if(i){ i.focus(); i.select(); } },0);
 }
-function tmpSave(){ tmpCommitActive(); teEditSave(); tmpEditMode=false; render('tempattendance'); }
-function tmpCancel(){ teEditCancel('tempattendance'); }
+function tmpSave(){ tmpCommitActive(); teEditSave(); tmpEditMode=false; render('attendance'); }
+function tmpCancel(){ teEditCancel('attendance'); }
 
 /* ---- Typing ---- */
 function tmpCommit(inp){
@@ -147,13 +170,22 @@ function tmpCommit(inp){
   if(raw!==''){
     if(k==='ot'){ v=attParseOt(raw); }
     else { const n=Number(raw); v=isFinite(n) && n>=0 ? (k==='late'||k==='tokens' ? Math.round(n) : Math.round(n*100)/100) : null; }
+    if(v!==null && (k==='present'||k==='lop') && v>31) v=null;
     if(v===null){ inp.classList.add('bad'); inp.title=k==='ot'?'Enter OT as hours:minutes, e.g. 12:30':'Enter a number (0 or more)'; return false; }
   }
-  if(!db.tempAtt) db.tempAtt={};
-  if(!db.tempAtt[attMonth]) db.tempAtt[attMonth]={};
-  const t={...(db.tempAtt[attMonth][code]||{})};
-  if(v===null) delete t[k]; else t[k]=v;
-  if(Object.keys(t).length) db.tempAtt[attMonth][code]=t; else delete db.tempAtt[attMonth][code];
+  const col=TMP_COLS.find(c=>c.k===k);
+  if(col.adj){ const a=getAdj(attMonth, code); if(v===null) delete a[k]; else a[k]=v; }
+  else {
+    if(!db.tempAtt) db.tempAtt={};
+    if(!db.tempAtt[attMonth]) db.tempAtt[attMonth]={};
+    // Days entered the old way: the first change saves all five figures as month totals.
+    const e=(db.employees||[]).find(x=>x.code===code), seed=!tmpGet(code) && e && tmpFromDays(e);
+    const t={...(seed||{}), ...(db.tempAtt[attMonth][code]||{})};
+    if(v===null) delete t[k]; else t[k]=v;
+    TMP_FIG_KEYS.forEach(x=>{ if(!tempAttSet(t[x])) delete t[x]; });
+    if(Object.keys(t).length) db.tempAtt[attMonth][code]=t; else delete db.tempAtt[attMonth][code];
+    delete tmpDayCache[attMonth+'|'+code];
+  }
   inp.classList.remove('bad'); inp.title=(TMP_COLS.find(c=>c.k===k)||{}).title||'';
   teEditTouch();
   tmpUpdateRow(tr);

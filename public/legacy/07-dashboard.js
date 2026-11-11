@@ -1,10 +1,10 @@
 /* ================= DASHBOARD =================
    The month at a glance — only what needs a look or an action:
-     1. Four tiles: Employees on the roll, Attendance (how many are up to date), Net pay and the
+     1. Four tiles: Employees on the roll, Attendance (how many are entered), Net pay and the
         Contractors Bill — each opens its page.
      2. Needs attention: days still to enter (this month and last), last month's payroll not
         generated, employees without a contractor — each with its button. Nothing listed = all done.
-     3. By contractor: employees, up to date, net pay and the bill (salary + service charge).
+     3. By contractor: employees, entered, net pay and the bill (salary + service charge).
    Figures come from the same calculation as Attendance, Payroll and the Contractors Bill. Tiles and
    items for pages the signed-in user cannot open are left out. */
 function dashEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -12,7 +12,7 @@ function dashEsc(s){ return String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&a
 function dashMissing(ym){ return payrollEmployeesFor(ym).map(e=>({e, miss:attMissingDays(e, ym)})); }
 // Opens Attendance on a month (and an employee).
 function dashOpenAtt(ym, code){ openAttDay(ym+'-01', code); }
-function dashOpenAttSummary(ym){ attTab='summary'; attMonth=ym; render('attendance'); }
+function dashOpenAttSummary(ym){ tmpTab='summary'; attMonth=ym; render('attendance'); }
 function dashOpenPayroll(ym){ payMonth=ym; render('payroll'); }
 function dashOpenBill(ym){ if(typeof cbMonth!=='undefined') cbMonth=ym; render('contractorbill'); }
 function dashNoContractor(){ empFilter={search:'',status:'',unit:'',contractor:'-',dept:'',missing:false}; render('employees'); }
@@ -42,16 +42,16 @@ function renderDashboard(){
   // 1. Tiles
   const tiles=[];
   if(canEmp) tiles.push(dashTile({icon:'users', label:'Employees', value:roll.length, sub:'on the roll in '+dashEsc(month), click:"render('employees')"}));
-  if(canAtt) tiles.push(dashTile({icon:'calendar-days', label:'Attendance', value:`${upToDate}<small> of ${miss.length}</small>`, sub:todo?`up to date — ${todo} with days to enter`:'everyone up to date', warn:!!todo, click:`dashOpenAtt('${ym}')`}));
+  if(canAtt) tiles.push(dashTile({icon:'calendar-days', label:'Attendance', value:`${upToDate}<small> of ${miss.length}</small>`, sub:todo?`entered — ${todo} not entered yet`:'everyone entered', warn:!!todo, click:`dashOpenAtt('${ym}')`}));
   if(canPay && net!==null) tiles.push(dashTile({icon:'wallet', label:'Net pay', value:fmt(net), sub:gen?'payroll generated — so far this month':'so far — payroll not generated yet', click:`dashOpenPayroll('${ym}')`}));
   if(canBill && total!==null) tiles.push(dashTile({icon:'receipt', label:'Contractors Bill', value:fmt(total), sub:`salary + ${fmt(svc)} service charge`, click:`dashOpenBill('${ym}')`}));
 
   // 2. Needs attention
   const items=[];
-  if(canAtt && todo) items.push({icon:'calendar-days', text:`<b>${todo}</b> employee${todo===1?' has':'s have'} working days up to today not entered in ${dashEsc(month)} — not paid until entered.`, btn:'See who', click:`dashOpenAttSummary('${ym}')`});
+  if(canAtt && todo) items.push({icon:'calendar-days', text:`<b>${todo}</b> employee${todo===1?' has':'s have'} no attendance entered for ${dashEsc(month)} yet — not paid until entered.`, btn:'See who', click:`dashOpenAttSummary('${ym}')`});
   if(canAtt && !payrollGenerated(prevYm)){
     const prevTodo=dashMissing(prevYm).filter(x=>x.miss).length;
-    if(prevTodo) items.push({icon:'calendar-days', text:`<b>${prevTodo}</b> employee${prevTodo===1?' has':'s have'} days not entered in ${dashEsc(attMonthName(prevYm))}.`, btn:'Enter '+dashEsc(attMonthName(prevYm)), click:`dashOpenAtt('${prevYm}')`});
+    if(prevTodo) items.push({icon:'calendar-days', text:`<b>${prevTodo}</b> employee${prevTodo===1?' has':'s have'} no attendance entered for ${dashEsc(attMonthName(prevYm))}.`, btn:'Enter '+dashEsc(attMonthName(prevYm)), click:`dashOpenAtt('${prevYm}')`});
   }
   if(canPay && payrollEmployeesFor(prevYm).length && !payrollGenerated(prevYm)) items.push({icon:'wallet', text:`Payroll for ${dashEsc(attMonthName(prevYm))} is not generated yet.`, btn:'Open Payroll', click:`dashOpenPayroll('${prevYm}')`});
   const known=new Set(getContractors().map(c=>c.code));
@@ -60,7 +60,7 @@ function renderDashboard(){
   const attention=`<section class="panel dashAttn">
     <div class="panelHead"><h3>Needs attention</h3>${items.length?`<span class="dashMeta">${items.length}</span>`:''}</div>
     ${items.length?`<ul>${items.map(it=>`<li><span class="daIco">${ico(it.icon)}</span><span class="daText">${it.text}</span><button type="button" class="btn secondary" onclick="${it.click}">${it.btn}</button></li>`).join('')}</ul>`
-      :`<p class="dashAllDone">${ico('circle-check')} Nothing to do — attendance is up to date and payroll is in order.</p>`}
+      :`<p class="dashAllDone">${ico('circle-check')} Nothing to do — attendance is entered and payroll is in order.</p>`}
   </section>`;
 
   // 3. By contractor
@@ -79,7 +79,7 @@ function renderDashboard(){
     const showMoney=bill && (canPay || canBill);
     byCon=cons.length?`<section class="panel">
       <div class="panelHead"><h3>By contractor</h3><span class="dashMeta">${dashEsc(month)}</span></div>
-      <div class="dashTableWrap"><table class="dashTable"><thead><tr><th>Contractor</th><th class="num">Employees</th>${canAtt?'<th class="num">Up to date</th>':''}${showMoney?'<th class="num">Net pay</th><th class="num" title="Net pay + service charge">Bill</th>':''}</tr></thead>
+      <div class="dashTableWrap"><table class="dashTable"><thead><tr><th>Contractor</th><th class="num">Employees</th>${canAtt?'<th class="num">Entered</th>':''}${showMoney?'<th class="num">Net pay</th><th class="num" title="Net pay + service charge">Bill</th>':''}</tr></thead>
       <tbody>${cons.map(r=>`<tr><td class="${r.unset?'dashNeg':''}">${dashEsc(r.name)}</td><td class="num">${r.emps}</td>${canAtt?`<td class="num ${r.up<r.emps?'dashNeg':''}">${r.up}</td>`:''}${showMoney?`<td class="num">${r.net===null?'—':fmt(r.net)}</td><td class="num"><b>${r.total===null?'—':fmt(r.total)}</b></td>`:''}</tr>`).join('')}</tbody></table></div>
     </section>`:'';
   }
