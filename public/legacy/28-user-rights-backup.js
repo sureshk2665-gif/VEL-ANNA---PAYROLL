@@ -18,12 +18,8 @@ function renderUserRightsPanel(){
     ? ['Admin','Software Admin','HR','Accounts','Viewer']
     : ['HR','Accounts','Viewer'];
   return `
-  <div class="panel"><h3>${ico('user')} User Management</h3>
-    <p style="font-size:12px;color:var(--muted);">
-      ${actorIsSA
-        ? 'As <b>Software Admin</b> — the highest-level software authority — you can create, edit, delete and activate/deactivate every account, including other Admin and Software Admin accounts, and assign any role.'
-        : 'As <b>Admin</b> you can create, edit, delete and activate/deactivate normal user accounts, and assign their module-wise permissions. Other administrator accounts are not shown here.'}
-    </p>
+  <div class="panel"><h3>${ico('user')} Users</h3>
+    <p class="setLead">Who can log in, and their role.</p>
     <table>
       <thead><tr><th>Username</th><th>Name</th><th>Role</th><th>Status</th><th></th></tr></thead>
       <tbody>
@@ -42,22 +38,19 @@ function renderUserRightsPanel(){
         </tr>`).join('') || `<tr><td colspan="5" style="color:var(--muted);">No users to show here yet.</td></tr>`}
       </tbody>
     </table>
-    <h4 style="margin-top:16px;">Add New User</h4>
+    <details class="setAddUser"><summary class="btn secondary">${ico('plus')} Add a user</summary>
     <div class="formGrid">
       <div><label>Full Name</label><input id="u_name" placeholder="e.g. Priya Sharma"></div>
       <div><label>Username</label><input id="u_username" placeholder="e.g. priya.s"></div>
       <div><label>Password</label><input type="password" id="u_password" placeholder="Min. 6 characters"></div>
       <div><label>Role</label><select id="u_role">${roleOptions.map(r=>`<option>${r}</option>`).join('')}</select></div>
     </div>
-    <p style="font-size:12px;color:var(--muted);">
-      ${actorIsSA
-        ? 'New users get sensible default permissions for their role — fine-tune them afterwards with the '+ico('key')+' Permissions button.'
-        : 'Only the roles above are available. New users get sensible default permissions — fine-tune them afterwards with the '+ico('key')+' Permissions button.'}
-    </p>
-    <div class="modalActions"><button class="btn" onclick="addUser()">Add User</button></div>
+    <p class="setLead" style="margin-top:8px;">A new user starts with the usual permissions for the role; change them below.</p>
+    <div class="modalActions" style="justify-content:flex-start;"><button class="btn" onclick="addUser()">${ico('plus')} Add User</button></div>
+    </details>
   </div>
-  <div class="panel"><h3>${ico('key')} User Rights Management</h3>
-    <p style="font-size:12px;color:var(--muted);">Pick a user, tick the permissions they should have for each module, then Save. Users only see and can perform the actions checked here. ${actorIsSA ? '' : 'Administrator settings are not part of these permissions.'}</p>
+  <div class="panel"><h3>${ico('key')} What each user can do</h3>
+    <p class="setLead">Pick a user, tick what they may see and change on each page, then Save.</p>
     ${renderPermissionsMatrix()}
   </div>`;
 }
@@ -314,7 +307,8 @@ function savePayrollConstants(){
   if(!isAdmin() && !isSoftwareAdmin()){ alert('Only an administrator can change payroll rates.'); return; }
   const s=getSettings();
   // A blank box keeps the default; 0 is a valid rate (it used to snap back to the default).
-  const rate=(id,def)=>{ const v=String(document.getElementById(id).value).trim(); return v===''||isNaN(+v) ? def : Math.max(0, +v); };
+  // The boxes are percentages (12 = 12%); stored as fractions (0.12).
+  const rate=(id,def)=>{ const v=String(document.getElementById(id).value).trim(); return v===''||isNaN(+v) ? def : Math.round(Math.max(0, +v)/100*1000000)/1000000; };
   s.esiRate=rate('s_esiRate', 0.0075);
   s.esiEmployerRate=rate('s_esiEmployerRate', 0.0325);
   s.pfRate=rate('s_pfRate', 0.12);

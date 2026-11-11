@@ -46,3 +46,25 @@ fieldset.saEditFs:disabled .rowActions .del{opacity:.45;cursor:not-allowed;}
 .saDanger{border-color:color-mix(in srgb, var(--negative) 35%, var(--border));}
 .saDanger h3{color:var(--negative);}
 }
+@media screen {
+/* ---------- Pay Rules: PF & ESI, late free minutes, canteen price on one tab ---------- */
+.setPayGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(380px,1fr));gap:var(--gap);align-items:start;}
+.setPayGrid > .panel{margin:0;}
+.setPayGrid > .setCanteen{grid-column:1 / -1;}
+.setCardHead{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin-bottom:4px;}
+.setCardHead h3{margin:0;}
+.setCardHead .btn{height:var(--control-height);padding-top:0;padding-bottom:0;display:inline-flex;align-items:center;gap:6px;}
+.setLead{margin:0 0 12px;font-size:13px;color:var(--muted);}
+.setLead b{color:var(--text);}
+.setCard .setRates{grid-template-columns:repeat(2,minmax(150px,1fr));max-width:none;}
+.setPct{display:flex;align-items:center;gap:6px;}
+.setPct input{flex:1;min-width:0;text-align:right;}
+.setCanteen .setPriceTable{min-width:0;}
+@media (max-width:520px){ .setPayGrid{grid-template-columns:1fr;} .setCard .setRates{grid-template-columns:1fr;} }
+}
+@media screen {
+.setAddUser{margin-top:14px;}
+.setAddUser > summary{list-style:none;display:inline-flex;align-items:center;gap:6px;height:var(--control-height);padding-top:0;padding-bottom:0;cursor:pointer;}
+.setAddUser > summary::-webkit-details-marker{display:none;}
+.setAddUser[open] > summary{margin-bottom:12px;}
+}
