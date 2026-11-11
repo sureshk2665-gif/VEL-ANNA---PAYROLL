@@ -38,6 +38,8 @@ function addSalaryAdvance(){
   };
   ensureSalaryAdvances().push(rec);
   saveDB(db);
+  if(typeof closeModal==='function') closeModal();
+  advFilter='active';
   render('salaryadvance');
 }
 function deleteSalaryAdvance(id){
@@ -98,9 +100,32 @@ function advPreview(){
 function advSetFilter(f){ advFilter=f; render('salaryadvance'); }
 function advSetSearch(el){ const pos=el.selectionStart; advSearch=el.value; render('salaryadvance'); const i=document.getElementById('advSearch'); if(i){ i.focus(); i.setSelectionRange(pos,pos); } }
 function advToggle(id){ if(advOpen.has(id)) advOpen.delete(id); else advOpen.add(id); render('salaryadvance'); }
+/* The page, kept to the essentials: one panel — search, Active / Recovered / All and "New advance"
+   (a small dialog) on top; three figures; one row per advance (Employee, Advance, Per month, Period,
+   Balance). Click a row for its month-by-month schedule. */
+function advOpenNew(){
+  if(!hasPerm('salaryadvance','add')){ alert('You do not have permission to add salary advances.'); return; }
+  const onRoll=db.employees.filter(e=>isEmpOnRollOn(e,todayStr())).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
+  const thisMonth=monthKey(todayStr());
+  document.getElementById('modalContent').innerHTML=`
+    <h3>${ico('plus')} New salary advance</h3>
+    <div class="advForm advFormModal">
+      <div class="advEmp"><label for="adv_empFind">Employee</label>
+        <input id="adv_empFind" list="advEmpList" placeholder="Type code or name" autocomplete="off" oninput="advPickEmp(this)" onchange="advPickEmp(this)">
+        <datalist id="advEmpList">${onRoll.map(e=>`<option value="${advEsc(e.code+' — '+e.name)}">${advEsc(contractorName(e)||'')}</option>`).join('')}</datalist>
+        <input type="hidden" id="adv_emp" value=""></div>
+      <div><label for="adv_amount">Advance (₹)</label><input type="number" id="adv_amount" min="0" placeholder="6000" oninput="advPreview()"></div>
+      <div><label for="adv_months">Months to recover</label><input type="number" id="adv_months" min="1" placeholder="3" oninput="advPreview()"></div>
+      <div><label for="adv_start">First deduction</label><input type="month" id="adv_start" value="${thisMonth}" onchange="advPreview()"></div>
+      <div class="advRem"><label for="adv_remarks">Remarks (optional)</label><input type="text" id="adv_remarks" placeholder="Reason / notes"></div>
+    </div>
+    <p class="advPreview" id="advPreview">Monthly deduction = Advance ÷ Months.</p>
+    <div class="modalActions"><button class="btn secondary" onclick="closeModal()">Cancel</button><button class="btn" onclick="addSalaryAdvance()">${ico('plus')} Create advance</button></div>`;
+  showModal();
+  setTimeout(()=>{ const i=document.getElementById('adv_empFind'); if(i) i.focus(); },0);
+}
 function renderSalaryAdvance(){
   const advances=ensureSalaryAdvances();
-  const onRoll=db.employees.filter(e=>isEmpOnRollOn(e,todayStr())).sort((a,b)=>a.code.localeCompare(b.code,undefined,{numeric:true}));
   const canAdd=hasPerm('salaryadvance','add'), canDel=hasPerm('salaryadvance','delete');
   const thisMonth=monthKey(todayStr());
   const info=advances.map(a=>{
@@ -109,66 +134,48 @@ function renderSalaryAdvance(){
     return {a, emp, recovered, balance:Math.max(0, Math.round((a.amount-recovered)*100)/100), status:advanceStatus(a)};
   });
   const active=info.filter(x=>x.status!=='recovered');
-  const outstanding=active.reduce((s,x)=>s+x.balance,0);
-  const dueThisMonth=advances.reduce((s,a)=>s+((a.schedule.find(r=>r.month===thisMonth)||{}).amount||0),0);
-  const recoveredTotal=info.reduce((s,x)=>s+x.recovered,0);
+  const outstanding=Math.round(active.reduce((s,x)=>s+x.balance,0)*100)/100;
+  const dueThisMonth=Math.round(advances.reduce((s,a)=>s+((a.schedule.find(r=>r.month===thisMonth)||{}).amount||0),0)*100)/100;
   const q=advSearch.trim().toLowerCase();
   const list=info.filter(x=>(advFilter==='all' || (advFilter==='active' ? x.status!=='recovered' : x.status==='recovered'))
       && (!q || `${x.a.empCode} ${x.emp?x.emp.name:''} ${x.a.remarks||''}`.toLowerCase().includes(q)))
     .sort((p,r)=>(r.a.createdAt||'').localeCompare(p.a.createdAt||''));
   const rows=list.map(({a,emp,recovered,balance,status})=>{
-    const pct=a.amount ? Math.min(100, Math.round(recovered/a.amount*100)) : 0;
     const open=advOpen.has(a.id);
     const sched=a.schedule.map(r=>{ const done=advanceRowRecovered(r);
       return `<span class="advInst ${done?'done':r.month===thisMonth?'now':''}" title="${done?'Deducted in '+monthLabel(r.month)+' payroll':'Payroll for '+monthLabel(r.month)+' not generated yet'}">${done?ico('check'):''}${monthLabel(r.month)} · ${fmt(r.amount)}</span>`; }).join('');
-    return `<tr class="${open?'advOpenRow':''}">
+    return `<tr class="advRow ${open?'advOpenRow':''}" onclick="advToggle('${a.id}')" title="Click to ${open?'hide':'show'} the month-by-month schedule">
       <td class="advCode">${advEsc(a.empCode)}</td>
       <td><b>${advEsc(emp?emp.name:a.empCode)}</b>${a.remarks?`<span class="advRemark">${advEsc(a.remarks)}</span>`:''}</td>
       <td class="num">${fmt(a.amount)}</td>
       <td class="num">${fmt(a.monthlyDeduction)} × ${a.months}</td>
       <td>${monthLabel(a.startMonth)} → ${monthLabel(nextMonthKey(a.startMonth, a.months-1))}</td>
-      <td class="advProg"><div class="advBar" title="${pct}% recovered"><i style="width:${pct}%"></i></div><span>${fmt(recovered)} recovered</span></td>
-      <td class="num"><b>${fmt(balance)}</b></td>
-      <td>${status==='recovered'?'<span class="tag Present">Recovered</span>':'<span class="advActive">Active</span>'}</td>
-      <td class="rowActions"><button onclick="advToggle('${a.id}')" aria-expanded="${open}">${ico('calendar')} Schedule</button>${canDel?`<button class="del advDel" title="Delete this advance" aria-label="Delete advance of ${advEsc(emp?emp.name:a.empCode)}" onclick="deleteSalaryAdvance('${a.id}')">${ico('trash')}</button>`:''}</td>
-    </tr>${open?`<tr class="advSchedRow"><td></td><td colspan="8"><div class="advSched">${sched}</div></td></tr>`:''}`;
+      <td class="num">${status==='recovered'?'<span class="tag Present">Recovered</span>':`<b>${fmt(balance)}</b>`}</td>
+      <td class="rowActions">${canDel?`<button class="del advDel" title="Delete this advance" aria-label="Delete advance of ${advEsc(emp?emp.name:a.empCode)}" onclick="event.stopPropagation();deleteSalaryAdvance('${a.id}')">${ico('trash')}</button>`:''}</td>
+    </tr>${open?`<tr class="advSchedRow"><td></td><td colspan="6"><div class="advSched">${sched}</div></td></tr>`:''}`;
   }).join('');
   const seg=(k,label,n)=>`<button type="button" class="attUnitTab ${advFilter===k?'active':''}" onclick="advSetFilter('${k}')">${label} <span class="advCount">${n}</span></button>`;
   return `
-  ${canAdd ? `
-  <div class="panel advNew">
-    <h3>${ico('plus')} Issue New Salary Advance</h3>
-    <div class="advForm">
-      <div class="advEmp"><label for="adv_empFind">Employee</label>
-        <input id="adv_empFind" list="advEmpList" placeholder="Type code or name" autocomplete="off" oninput="advPickEmp(this)" onchange="advPickEmp(this)">
-        <datalist id="advEmpList">${onRoll.map(e=>`<option value="${advEsc(e.code+' — '+e.name)}">${advEsc(e.department||'')}</option>`).join('')}</datalist>
-        <input type="hidden" id="adv_emp" value=""></div>
-      <div><label for="adv_amount">Advance (₹)</label><input type="number" id="adv_amount" min="0" placeholder="6000" oninput="advPreview()"></div>
-      <div><label for="adv_months">Months</label><input type="number" id="adv_months" min="1" placeholder="3" oninput="advPreview()"></div>
-      <div><label for="adv_start">First deduction</label><input type="month" id="adv_start" value="${thisMonth}" onchange="advPreview()"></div>
-      <div class="advRem"><label for="adv_remarks">Remarks (optional)</label><input type="text" id="adv_remarks" placeholder="Reason / notes"></div>
-      <div class="advGo"><button class="btn" onclick="addSalaryAdvance()">${ico('plus')} Create Advance</button></div>
+  <div class="panel advPanel">
+    <div class="advTop">
+      <div class="advTopL">
+        <div class="searchWrap advSearchWrap"><span class="sIcon">${ico('search')}</span><input id="advSearch" placeholder="Search employee or remarks" value="${advEsc(advSearch)}" oninput="advSetSearch(this)" aria-label="Search advances"></div>
+        <div class="attUnitTabs advSeg" role="tablist">${seg('active','Active',active.length)}${seg('recovered','Recovered',info.length-active.length)}${seg('all','All',info.length)}</div>
+      </div>
+      ${canAdd?`<button class="btn" onclick="advOpenNew()">${ico('plus')} New advance</button>`:''}
     </div>
-    <p class="advPreview" id="advPreview">Monthly deduction = Advance ÷ Months. The recovery schedule is made when you create the advance.</p>
-  </div>` : ''}
-  <div class="teStatRow advStrip">
-    <div class="teStatBox"><b>${active.length}</b><span>Active advances</span></div>
-    <div class="teStatBox ${outstanding?'warn':''}"><b>${fmt(Math.round(outstanding*100)/100)}</b><span>Still to recover</span></div>
-    <div class="teStatBox"><b>${fmt(Math.round(dueThisMonth*100)/100)}</b><span>Deducted in ${monthLabel(thisMonth)}</span></div>
-    <div class="teStatBox ok"><b>${fmt(Math.round(recoveredTotal*100)/100)}</b><span>Recovered so far</span></div>
-  </div>
-  <div class="panel advList">
-    <div class="advListHead">
-      <div class="attUnitTabs advSeg" role="tablist">${seg('active','Active',active.length)}${seg('recovered','Recovered',info.length-active.length)}${seg('all','All',info.length)}</div>
-      <div class="searchWrap advSearchWrap"><span class="sIcon">${ico('search')}</span><input id="advSearch" placeholder="Search employee or remarks" value="${advEsc(advSearch)}" oninput="advSetSearch(this)" aria-label="Search advances"></div>
+    <div class="teStatRow advStrip">
+      <div class="teStatBox"><b>${active.length}</b><span>Active advances</span></div>
+      <div class="teStatBox ${outstanding?'warn':''}"><b>${fmt(outstanding)}</b><span>Still to recover</span></div>
+      <div class="teStatBox"><b>${fmt(dueThisMonth)}</b><span>Deducted in ${monthLabel(thisMonth)}</span></div>
     </div>
-    ${!advances.length ? '<div class="empty">No salary advances issued yet.</div>' : !list.length ? `<div class="empty">No ${advFilter==='all'?'':advFilter+' '}advances${q?' match your search':''}.</div>` : `
+    ${!advances.length ? `<div class="empty">No salary advances yet.${canAdd?' Click <b>New advance</b> to give one.':''}</div>` : !list.length ? `<div class="empty">No ${advFilter==='all'?'':advFilter+' '}advances${q?' match your search':''}.</div>` : `
     <div class="tableScrollWrap advScroll">
     <table class="advTable">
-      <thead><tr><th>Code</th><th>Employee</th><th class="num">Advance</th><th class="num">Monthly</th><th>Recovery period</th><th>Recovered</th><th class="num">Balance</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Code</th><th>Employee</th><th class="num">Advance</th><th class="num">Per month</th><th>Period</th><th class="num">Balance</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
     </div>`}
-    <p class="syncNote">The monthly deduction is taken automatically in Payroll for each scheduled month and shows on the salary slip. An instalment counts as recovered once that month's payroll is generated; the advance stops on its own when the full amount is recovered.</p>
+    <p class="syncNote">Each month's deduction is taken in Payroll automatically and shows on the salary slip; the advance stops by itself once fully recovered. Click an advance to see its month-by-month schedule.</p>
   </div>`;
 }
