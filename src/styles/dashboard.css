@@ -169,3 +169,27 @@ table.dashTable td:first-child{max-width:220px;overflow:hidden;text-overflow:ell
 } /* @media screen */
 .dashList2 li.dashClick{cursor:pointer;border-radius:6px;}
 .dashList2 li.dashClick:hover{background:var(--hl-soft,var(--raised));}
+
+/* ---------- Simplified dashboard: tiles, needs attention, by contractor ---------- */
+.dashTiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px;}
+.dashTile{display:flex;flex-direction:column;align-items:flex-start;gap:6px;padding:16px 18px;border:1px solid var(--border);border-radius:var(--radius-card,12px);background:var(--surface);color:var(--text);font:inherit;text-align:left;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease;}
+.dashTile:hover{border-color:var(--hl,var(--accent));box-shadow:0 4px 14px rgba(0,0,0,.06);}
+.dashTile:focus-visible{outline:none;box-shadow:var(--focus);}
+.dashTile:disabled{cursor:default;}
+.dashTile .dtLbl{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);}
+.dashTile .dtLbl svg{width:15px;height:15px;}
+.dashTile .dtVal{font-size:26px;font-weight:600;line-height:1.15;font-variant-numeric:tabular-nums;}
+.dashTile .dtVal small{font-size:14px;font-weight:400;color:var(--muted);}
+.dashTile .dtSub{font-size:12.5px;color:var(--muted);}
+.dashTile.warn{border-color:color-mix(in srgb, var(--st-half-text,#b45309) 40%, var(--border));}
+.dashTile.warn .dtSub{color:var(--st-half-text,#b45309);font-weight:500;}
+.dashAttn ul{list-style:none;margin:0;padding:0;}
+.dashAttn li{display:flex;align-items:center;gap:10px;padding:10px 0;}
+.dashAttn li+li{border-top:1px solid var(--rule,var(--line));}
+.dashAttn .daIco{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;border-radius:8px;background:var(--st-half-bg,#fff4e0);color:var(--st-half-text,#b45309);}
+.dashAttn .daIco svg{width:15px;height:15px;}
+.dashAttn .daText{flex:1;font-size:13px;line-height:1.4;}
+.dashAttn .btn{flex:none;height:30px;padding:0 12px;font-size:12.5px;}
+.dashAllDone{display:flex;align-items:center;gap:8px;margin:6px 0;color:var(--st-present-text,#15803d);font-size:13.5px;font-weight:500;}
+.dashAllDone svg{width:16px;height:16px;}
+@media (max-width:640px){ .dashAttn li{flex-wrap:wrap;} .dashAttn .daText{flex:1 1 calc(100% - 40px);} .dashAttn .btn{margin-left:40px;} }
