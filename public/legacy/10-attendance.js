@@ -320,14 +320,16 @@ function attOffText(x){
   if(x.dow===0) return 'Sunday';
   if(!x.hol) return '';
   if(x.hol.kind==='cleave') return 'Paid leave'+(x.hol.name?' · '+x.hol.name:'');
-  return x.hol.name+(x.hol.kind==='paid'?' · paid holiday':' · no pay');
+  const n=x.hol.name||'';
+  if(x.hol.kind==='paid') return /holiday/i.test(n) ? n : (n ? n+' · paid holiday' : 'Paid holiday');
+  return (n||'Holiday')+' · no pay';
 }
 function attStatusHtml(x, editable){
   if(!x.onRoll) return `<span class="teEwMuted">Not on roll</span>`;
   if(x.off) return `<span class="${x.st==='NOPH'?'tag NOPH':'attOffTag'}">${attEsc(attOffText(x))}</span>`;
   if(editable){
     const b=(st, cls, label, title)=>`<button type="button" tabindex="-1" class="attStB ${cls} ${x.st===st?'on':''}" title="${title}${x.st===st?' — click again to clear':''}" onclick="attSetDay('${x.dt}','${st}')">${label}</button>`;
-    return `<span class="attStBtns">${b('Present','p','P','Present')}${b('LossOfPay','l','LOP','Loss of Pay')}${b('HalfDay','h','½','Half Day (paid ½)')}</span>${x.missing?' <span class="teEwMissing">Needs entry</span>':''}`;
+    return `<span class="attStBtns ${x.missing?'missing':''}" title="${x.missing?'Needs entry — not paid until marked':''}">${b('Present','p','Present','Present')}${b('LossOfPay','l','LOP','Loss of Pay — not paid')}${b('HalfDay','h','Half day','Half Day — paid ½')}</span>`;
   }
   if(x.lop) return `<span class="tag LossOfPay">LOP</span>`;
   if(x.half) return `<span class="tag HalfDay">Half Day</span>`;
@@ -347,7 +349,7 @@ function attParseOt(raw){
 function attRowHtml(e, x, i, editable){
   const box=(k, c)=>{
     const on=editable && x.onRoll && !x.lop && !(k==='late' && x.off);
-    return `<td><input class="attIn attFig" data-r="${i}" data-c="${c}" data-k="${k}" value="${attFigVal(x,k)}" ${on?'':'disabled'} placeholder="${on?'0':''}"
+    return `<td class="attFigCell"><input class="attIn attFig" data-r="${i}" data-c="${c}" data-k="${k}" value="${attFigVal(x,k)}" ${on?'':'disabled'} placeholder=""
       inputmode="decimal" autocomplete="off" spellcheck="false" title="${k==='late'?'Late minutes this day':'OT this day as hours:minutes, e.g. 1:30'+(x.off?' (worked on a day off)':'')}"
       aria-label="${k==='late'?'Late minutes':'OT hours'} ${fmtDate(x.dt)}" onfocus="this.select()" onkeydown="attKey(event,this)" onblur="attCommit(this)"></td>`; };
   const sel=attSel.has(x.dt);
@@ -356,7 +358,7 @@ function attRowHtml(e, x, i, editable){
     <td class="attChk"><input type="checkbox" tabindex="-1" ${sel?'checked':''} ${editable&&x.onRoll&&!x.off?'':'disabled'} onclick="attTick(event,'${x.dt}')" aria-label="Tick ${fmtDate(x.dt)}"></td>
     <td class="attDate" onclick="attTickDate(event,'${x.dt}')" title="${fmtDate(x.dt)}">${attShortDate(x.dt)}</td><td class="attDow">${ATT_DOW[x.dow]}</td>
     <td class="attSt" data-k="status">${attStatusHtml(x, editable)}</td>
-    ${box('late',0)}${box('ot',1)}
+    ${box('ot',0)}${box('late',1)}
   </tr>`;
 }
 // The employee's working days in the month: days on the roll, less Sundays, paid holidays (Holiday
@@ -386,8 +388,8 @@ function attEmpStatsHtml(e, r, missing){
     + box('LOP', lop, lop?'absent — not paid':'no LOP')
     + box('Half day', half, half?`${half} × ½ = ${attN(half/2)} day paid`:'no half day')
     + box('Present days', present, half?`${full} full + ${half} × ½`:`${full} full days`)
-    + box('Late minutes', late, lateCalc)
     + box('OT hours', fmtHrsMin(otPaid), fromOt?`${fmtHrsMin(worked)} − ${fmtMinHM(fromOt)} late = ${fmtHrsMin(otPaid)}`:worked?'worked':'no OT')
+    + box('Late minutes', late, lateCalc)
     + box('Total paid days', attN(r.daysWorking), noph?`${present} present + ${noph} hol`:`${present} present`, 'key');
 }
 const ATT_MONTH_BOXES=[
@@ -460,7 +462,7 @@ function renderAttEntry(){
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attDayGrid attTwoCol" id="attDayGrid" data-emp="${attEsc(e.code)}" style="--attRows:${Math.ceil(days.length/2)}">
       <thead>${[0,1].map(k=>`<tr class="${k?'attHead2':''}">
         <th class="attChk">${k?'':`<input type="checkbox" tabindex="-1" ${editable?'':'disabled'} ${attSel.size&&days.filter(x=>x.onRoll&&!x.off).every(x=>attSel.has(x.dt))?'checked':''} onclick="this.checked?attTickWorking():attTickNone()" title="Tick every working day" aria-label="Tick every working day">`}</th>
-        <th>Date</th><th>Day</th><th>Present / LOP / Half Day</th><th>Late (min)</th><th title="Hours:minutes, e.g. 1:30. On Sundays and holidays, type the time worked">OT (h:mm)</th>
+        <th>Date</th><th>Day</th><th>Present / LOP / Half day</th><th title="Hours:minutes, e.g. 1:30. On Sundays and holidays, type the time worked">OT (h:mm)</th><th>Late (min)</th>
       </tr>`).join('')}</thead>
       <tbody>${days.map((x,i)=>attRowHtml(e, x, i, editable)).join('')}</tbody>
       <tfoot><tr id="attDayFoot">${attFootHtml(r, missing)}</tr></tfoot>
@@ -470,8 +472,8 @@ function renderAttEntry(){
 }
 function attFootHtml(r, missing){
   const fromOt=+r.lateOtMinutes||0;
-  return `<td colspan="4" class="attFootLbl">Month: ${payPresentDays(r)} present · ${attN(r.lopMarked)} LOP · ${attN(r.halfDayCount)} half day${missing?` · <span class="teEwMissing">${missing} to enter</span>`:''}${fromOt?` · <span class="attFootOt">${fromOt} late min taken off OT</span>`:''}</td>
-    <td>${attN(r.lateMinutes)}</td><td>${fmtHrsMin(r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours)}</td>`;
+  const otW=r.otHoursWorked!==undefined?r.otHoursWorked:r.otHours;
+  return `<td colspan="6" class="attFootLbl">Month: <b>${payPresentDays(r)}</b> present · <b>${attN(r.lopMarked)}</b> LOP · <b>${attN(r.halfDayCount)}</b> half day · OT <b>${fmtHrsMin(otW)}</b> · Late <b>${attN(r.lateMinutes)}</b> min${fromOt?` · <span class="attFootOt">${fmtMinHM(fromOt)} late taken off OT</span>`:''}${missing?` · <span class="teEwMissing">${missing} day${missing===1?'':'s'} to enter</span>`:''}</td>`;
 }
 
 /* ---- Ticking days ---- */

@@ -210,3 +210,31 @@ table.attDayGrid input.attFig:disabled{border-color:transparent !important;backg
 .attCompact .attStBtns{border-radius:6px;}
 .attCompact .attSBv{font-size:22px;}
 .attCompact .attSB{padding:5px 12px;}
+
+/* ---- Day list, tidied: every column evenly spaced and centred; OT before Late; one clear
+   Present / LOP / Half day switch (the chosen one filled in its colour); empty boxes stay empty ---- */
+.attCompact table.attDayGrid th,.attCompact table.attDayGrid td{text-align:center;}
+.attCompact table.attDayGrid td.attSt{text-align:center;}
+.attCompact table.attDayGrid td.attFigCell{text-align:center;}
+.attCompact table.attDayGrid td.attFootLbl{text-align:left;font-weight:500;}
+.attCompact table.attDayGrid td.attFootLbl b{font-weight:700;}
+@media (min-width:1100px){
+  .attTwoCol tr{grid-template-columns:30px 64px 44px minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr);}
+  .attTwoCol tfoot tr{grid-template-columns:1fr;}
+}
+.attCompact .attStBtns{display:inline-grid;grid-template-columns:repeat(3,minmax(0,1fr));width:216px;max-width:100%;border:1px solid var(--line);border-radius:6px;overflow:hidden;background:var(--surface);vertical-align:middle;}
+.attCompact .attStBtns.missing{border-color:color-mix(in srgb, var(--negative) 55%, var(--line));}
+.attCompact .attStB{min-width:0;height:22px;padding:0 4px;border:0;background:transparent;color:var(--muted);font-size:11.5px;font-weight:600;line-height:22px;}
+.attCompact .attStB + .attStB{border-left:1px solid var(--line);}
+.attCompact .attStB:hover{background:var(--raised);color:var(--text);}
+.attCompact .attStB.p.on{background:#16a34a;color:#fff;}
+.attCompact .attStB.l.on{background:var(--negative,#c4242a);color:#fff;}
+.attCompact .attStB.h.on{background:#d97706;color:#fff;}
+.attCompact table.attDayGrid input.attFig{width:68px;height:22px;border:1px solid var(--line);border-radius:5px;background:var(--surface);font-weight:700;text-align:center;}
+.attCompact table.attDayGrid input.attFig::placeholder{color:color-mix(in srgb, var(--muted) 40%, transparent);font-weight:400;font-size:11px;}
+.attCompact table.attDayGrid input.attFig:disabled{border-color:transparent;background:transparent;}
+.attCompact table.attDayGrid input.attFig:disabled::placeholder{color:transparent;}
+.attCompact table.attDayGrid tr.onLeave td{background:color-mix(in srgb, var(--negative) 5%, var(--surface)) !important;}
+.attCompact table.attDayGrid tr.sun td,.attCompact table.attDayGrid tr.hol td{background:var(--raised);}
+.attCompact table.attDayGrid .attOffTag,.attCompact table.attDayGrid td.attSt .tag.NOPH{font-size:11.5px;}
+.attCompact table.attDayGrid input.attFig:not(:focus):placeholder-shown{border-color:var(--rule,var(--line));}
