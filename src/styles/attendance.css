@@ -263,5 +263,8 @@ table.tmpTable tr.tmpOver td{background:color-mix(in srgb, var(--negative) 7%, v
 table.tmpTable td.tmpCalc{font-weight:600;}
 table.tmpTable td.tmpNet{font-weight:700;}
 .tmpRow.tmpOld input.tmpIn{font-weight:500;color:var(--muted);}
-table.tmpTable input.tmpIn{width:70px;}
+.tmpWrap table.tmpTable{min-width:900px;}
+table.tmpTable input.tmpIn{width:62px;}
+table.tmpTable td{padding-left:4px;padding-right:4px;}
+table.tmpTable th{padding-left:4px;padding-right:4px;white-space:normal;line-height:1.2;}
 .tmpTag{display:inline-block;padding:0 7px;border-radius:999px;background:var(--hl-soft);color:var(--hl-ink);font-size:11px;font-weight:700;line-height:18px;}
