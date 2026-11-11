@@ -221,7 +221,7 @@ function attHolidayFor(e, dt){
 }
 // Working days on the roll up to today with nothing entered (not paid until they are).
 function attMissingDays(e, ym){
-  if(attIsMonthly(ym)) return 0;
+  if(attIsMonthly(ym) || tempAttFor(ym, e.code)) return 0;
   const today=todayStr(); let n=0;
   for(const dt of attMonthDates(ym)){
     if(dt>today) break;
@@ -456,7 +456,9 @@ function renderAttEntry(){
   }
   const days=attMonthDates(ym).map(dt=>attDay(e, dt));
   setTimeout(()=>{ teFitGridBox('attDayGrid'); }, 0);
-  return `<div class="panel attPanel attCompact">${top}${head}
+  const tmp=tempAttFor(ym, e.code);
+  const tmpNote=tmp ? `<p class="attNote attNoteOld">Payroll uses <b>Temp Attendance</b> for ${attEsc(e.name)} in ${attEsc(attMonthName(ym))} — Present ${tempAttSet(tmp.present)?attN(tmp.present):'(working days − LOP)'} · LOP ${attN(tmp.lop)} · OT ${fmtMinHM(tmp.ot)} · Late ${attN(tmp.late)} min · Tokens ${attN(tmp.tokens)}. The days below are not used; clear the figures on Temp Attendance to use them.</p>` : '';
+  return `<div class="panel attPanel attCompact">${top}${head}${tmpNote}
     <div class="attBanner" id="attStats">${attEmpStatsHtml(e, r, missing)}</div>
     ${editable?attActionBarHtml():''}
     <div class="tableScrollWrap teEwWrap"><table class="teEwGrid attDayGrid attTwoCol" id="attDayGrid" data-emp="${attEsc(e.code)}" style="--attRows:${Math.ceil(days.length/2)}">

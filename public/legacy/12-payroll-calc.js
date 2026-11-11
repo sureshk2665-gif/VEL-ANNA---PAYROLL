@@ -34,6 +34,16 @@ function fmtHrsMin(hours){
 }
 // The same from minutes: 39 → "39m", 125 → "2h 5m".
 function fmtMinHM(min){ return fmtHrsMin((+min||0)/60); }
+/* ---- Temp Attendance (10b-temp-attendance.js) ----
+   The month's figures typed for one employee on the Temp Attendance page: db.tempAtt[ym][code] =
+   {present, lop, ot (minutes), late (minutes), tokens}. When an employee has any of them for a month,
+   Payroll uses only these for that month (a blank box counts 0; a blank Present = working days − LOP)
+   instead of the days on Attendance: Paid days = Present + paid holidays. */
+function tempAttFor(ym, code){
+  const t=db && db.tempAtt && db.tempAtt[ym] && db.tempAtt[ym][code];
+  return t && Object.keys(t).some(k=>t[k]!==undefined && t[k]!==null && t[k]!=='') ? t : null;
+}
+function tempAttSet(v){ return v!==undefined && v!==null && v!==''; }
 function attIsDaily(ym){ return !!ym && !!db && !!db.dayAttFrom && ym>=db.dayAttFrom && !attIsMonthly(ym); }
 // Every month (but one typed as month totals) is entered the same way: each day Present / LOP / Half
 // Day with its Late minutes and OT hours (no shifts, no In / Out times — db.attendance marks and
@@ -49,6 +59,7 @@ function isUnpaidHolidayDate(ds){ return (db.timeHolidays||[]).some(h=>h.date===
 // to the employee's usual monthly count stored on the employee record; later months use only the
 // figure entered (none = 0).
 function canteenTokensFor(e, ym){
+  const tmp=tempAttFor(ym, e.code); if(tmp) return Math.max(0, Math.round(+tmp.tokens||0));
   const adj=adjFor(ym, e.code);
   if(adj.canteenTokens!==undefined && adj.canteenTokens!==null) return +adj.canteenTokens||0;
   return attIsMonthly(ym) || attIsDaily(ym) ? 0 : (+e.canteenTokens||0);
@@ -95,6 +106,7 @@ function canteenTokenPrice(ym, unit){
 // Late minutes for the month: the figure typed on the Attendance screen for that month if there
 // is one, otherwise the total Late from Employee Time Entry.
 function lateMinutesFor(e, ym){
+  const tmp=tempAttFor(ym, e.code); if(tmp) return Math.max(0, Math.round(+tmp.late||0));
   const adj=adjFor(ym, e.code);
   if(adj.lateMinutes!==undefined && adj.lateMinutes!==null && adj.lateMinutes!=='') return +adj.lateMinutes||0;
   if(attIsMonthly(ym)) return 0; // monthly entry: only the minutes entered
@@ -105,6 +117,7 @@ function lateMinutesFor(e, ym){
 // OT keep any non-zero figure that was typed then.
 function otTypedFor(adj){ return adj.otTyped===undefined ? (+adj.otHours>0) : !!adj.otTyped; }
 function otHoursFor(e, ym){
+  const tmp=tempAttFor(ym, e.code); if(tmp) return Math.round(Math.max(0, +tmp.ot||0)/60*100)/100;
   const adj=adjFor(ym, e.code);
   if(otTypedFor(adj) || attIsMonthly(ym)) return +adj.otHours||0; // monthly entry: only the hours entered
   return typeof teMonthOTMinutes==='function' ? Math.round(teMonthOTMinutes(e.code, ym)/60*100)/100 : 0;
@@ -185,7 +198,8 @@ function computePayrollForEmployee(e, ym){
   let present=0, halfDay=0, lop=0, noph=0, unmarked=0, paidDays=0, basicSum=0, hraSum=0;
   // Monthly entry: working days on the roll (not Sundays, NOPH or holidays without pay) count as
   // Present; the LOP and Half Days entered for the month are taken off afterwards.
-  const monthly=attIsMonthly(ym);
+  const tmp=tempAttFor(ym, e.code); // typed on Temp Attendance: the month's totals for this employee
+  const monthly=attIsMonthly(ym) || !!tmp;
   let workDays=0, workBasic=0, workHra=0;
   const segs=[];
   for(let d=1; d<=dim; d++){
@@ -209,7 +223,15 @@ function computePayrollForEmployee(e, ym){
     else if(ds<=today) unmarked++;
     if(paid){ const sp=dailyWageSplit(w); basicSum+=sp.basic*paid; hraSum+=sp.hra*paid; paidDays+=paid; }
   }
-  if(monthly){
+  if(tmp){
+    // Temp Attendance: Present days as typed (blank = working days − LOP), at most the working days;
+    // paid at the month's average day rate, like the month-totals entry below.
+    lop=Math.min(Math.max(0, +tmp.lop||0), workDays);
+    const typed=tempAttSet(tmp.present) ? Math.max(0, +tmp.present||0) : workDays-lop;
+    present=Math.min(typed, workDays); halfDay=0;
+    if(workDays){ basicSum+=workBasic/workDays*present; hraSum+=workHra/workDays*present; }
+    paidDays+=present;
+  } else if(monthly){
     // LOP and Half Days entered for the month, at most the working days on the roll. A day off is
     // taken at the month's average day rate (the same as the day's rate unless the wage changed).
     lop=Math.min(Math.max(0, +adj.lopDays||0), workDays);
@@ -275,7 +297,7 @@ function computePayrollForEmployee(e, ym){
     nowd, weekOff:sundaysInMonth(ym), lopDays, lopMarked:lop, daysWorking: Math.round(daysWorking*100)/100,
     presentDays:present, leaveDays:Math.round((lop + halfDay*0.5)*100)/100, holidayDays:noph, halfDayCount:halfDay,
     presentPlusHalf: Math.round((present + halfDay*0.5)*100)/100,
-    unmarkedDays:unmarked, workDays:monthly?workDays:undefined, monthlyAttendance:monthly,
+    unmarkedDays:unmarked, workDays:monthly?workDays:undefined, monthlyAttendance:monthly, tempAttendance:!!tmp,
     noph, otHours, otHoursWorked:otWorked, lateOtMinutes:late.fromOt, otPerHourRate:Math.round(otPerHourRate*100)/100,
     basicE,hraE,otAmount,otherAllowance,
     dailyWage:wage.dailyWage, basicPerDay:wage.basic, hraPerDay:wage.hra, holidaysPaid:noph,

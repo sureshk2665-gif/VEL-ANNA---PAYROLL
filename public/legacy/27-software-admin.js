@@ -306,6 +306,7 @@ async function deleteAllAttendanceData(){
   if(!isSoftwareAdmin()){ alert('Only the Software Admin can delete attendance data.'); return; }
   const days=[...Object.keys(db.attendance||{}), ...Object.keys(db.timeEntries||{}), ...Object.keys(db.dayFigs||{}), ...(db.timeLeaves||[]).map(l=>l.date)];
   const months=new Set(days.map(d=>String(d).slice(0,7)));
+  Object.keys(db.tempAtt||{}).forEach(ym=>{ if(Object.keys(db.tempAtt[ym]||{}).length) months.add(ym); });
   Object.entries(db.payrollAdjustments||{}).forEach(([ym, month])=>{
     if(Object.values(month||{}).some(a=>a && (+a.otHours || a.lopOverride!=null || ATT_DELETE_KEYS.some(k=>a[k]!==undefined && a[k]!==false && a[k]!==0)))) months.add(ym);
   });
@@ -319,6 +320,7 @@ async function deleteAllAttendanceData(){
   if(!backupData()){ alert('The backup could not be downloaded, so nothing was deleted.'); return; }
   db.attendance={};
   db.dayFigs={};
+  db.tempAtt={};
   db.timeEntries={};
   db.timeLeaves=[];
   db.shiftOverrides={};
