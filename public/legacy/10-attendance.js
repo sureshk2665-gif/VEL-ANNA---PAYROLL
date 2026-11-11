@@ -9,7 +9,7 @@
      5. canteen tokens and any one-off allowance / deduction for the month, then Save & next.
    No shifts and no In / Out times: whatever shift was worked, the day is Present.
    Payroll, salary slips, reports, the Contractors Bill and the Dashboard all work from these days
-   (getAttStatus, teMonthDays → attFigDays): Paid Days = Present + Half Days × ½ + paid holidays; a
+   (getAttStatus, teMonthDays → attFigDays): Total paid days = full days + Half Days × ½ + paid holidays; a
    working day up to today with nothing marked is not paid. Late beyond the month's free minutes is
    taken off the OT hours first; what OT cannot cover is cut from salary (lateDeductionFor).
    Every month is entered the same way (months entered with In / Out times before were converted).
@@ -467,8 +467,17 @@ function renderAttEntry(){
       <tbody>${days.map((x,i)=>attRowHtml(e, x, i, editable)).join('')}</tbody>
       <tfoot><tr id="attDayFoot">${attFootHtml(r, missing)}</tr></tfoot>
     </table></div>
-    <p class="syncNote">Paid Days = Present + Half Days × ½ + paid holidays. A working day up to today with nothing marked is not paid (<b>Needs entry</b>); paid holidays and the contractor's paid leave are paid without an entry. The first ${r.lateGraceMinutes} Late minutes of the month are free (Admin → Late Waiver); Late beyond them is taken off the month's OT hours, and only what OT cannot cover is cut from salary (Daily Wage ÷ 8 ÷ 60 a minute). Payroll, salary slips, reports, the Contractors Bill and the Dashboard all use these days.</p>
+    <p class="syncNote">${attNoteHtml(r)}</p>
   </div>`;
+}
+// The note under the days: how they turn into pay, in plain words.
+function attNoteHtml(r){
+  const free=+r.lateGraceMinutes||0, offOt=lateOffOt(attMonth);
+  return `<b>Total paid days</b> = Present days (a half day counts as ½) + paid holidays (the Holiday Calendar and the contractor's paid leave). `
+    + `A working day with nothing marked is not paid until it is marked. `
+    + `<b>Late:</b> the first ${free} minutes in the month are free; `
+    + (offOt ? `after that, late minutes come off the OT time first, and only what OT cannot cover is cut from pay (daily wage ÷ 8 ÷ 60 per minute).`
+             : `after that, every late minute is cut from pay (daily wage ÷ 8 ÷ 60 per minute).`);
 }
 function attFootHtml(r, missing){
   const fromOt=+r.lateOtMinutes||0;
