@@ -293,10 +293,13 @@ function attFilterInlineHtml(shown, all){
     <span class="teFiltCount">${shown===all?`${all} employees`:`<b>${shown}</b> of ${all}`}</span>
     ${any?`<button type="button" class="teFiltClear" onclick="attClearFilters()" title="Clear filters">${ico('filter-x')}</button>`:''}</span>`;
 }
-function attSetUnit(v){ attUnitFilter=v||''; render('attendance'); }
-function attSetContractor(v){ attContractorFilter=v||''; render('attendance'); }
-function attClearFilters(){ attUnitFilter=''; attContractorFilter=''; render('attendance'); }
-function attSetMonth(v){ if(!v || v===attMonth) return; attCommitActive(); attMonth=v; attSel.clear(); attActNote=''; render('attendance'); }
+// The page showing these tabs: Attendance, or Temp Attendance (which shares Month Summary, Holidays
+// and Contractor Paid Leave, the month and the filters).
+function attPage(){ return typeof lastRenderedPage!=='undefined' && lastRenderedPage==='tempattendance' ? 'tempattendance' : 'attendance'; }
+function attSetUnit(v){ attUnitFilter=v||''; render(attPage()); }
+function attSetContractor(v){ attContractorFilter=v||''; render(attPage()); }
+function attClearFilters(){ attUnitFilter=''; attContractorFilter=''; render(attPage()); }
+function attSetMonth(v){ if(!v || v===attMonth) return; attCommitActive(); attMonth=v; attSel.clear(); attActNote=''; render(attPage()); }
 function attStepMonth(k){ attSetMonth(nextMonthKey(attMonth, k)); }
 // Opens a date's month (the Dashboard's links), optionally on one employee.
 function openAttDay(date, code){ attTab='entry'; attMonth=monthKey(date); if(code) attEmp=code; attSel.clear(); render('attendance'); }
@@ -773,6 +776,7 @@ function attStepEmp(dir){
 }
 // Opens one employee's days (from the Month Summary or the Dashboard).
 function attOpenEmp(code){
+  if(attPage()==='tempattendance'){ tmpOpenEmp(code); return; } // on Temp Attendance: that employee's row there
   if(typeof teEditConfirmLeave==='function' && attTab!=='entry' && !teEditConfirmLeave()) return;
   attTab='entry'; attEmp=code; attSel.clear(); attActNote=''; render('attendance');
 }
@@ -855,12 +859,12 @@ function attClvSet(dt, con, on){
 function attClvToggle(dt, con, on){
   if(!teEditActive('cleave')) return;
   attClvSet(dt, con, on);
-  teEditTouch(); render('attendance');
+  teEditTouch(); render(attPage());
 }
 function attClvAll(dt, on){
   if(!teEditActive('cleave')) return;
   getContractors().forEach(c=>attClvSet(dt, c.code, on));
-  teEditTouch(); render('attendance');
+  teEditTouch(); render(attPage());
 }
 function attClvName(dt, v){
   if(!teEditActive('cleave')) return;

@@ -9,8 +9,9 @@
    Clearing all of an employee's boxes goes back to their Attendance days.
    Same tools as Attendance: month, Unit / Contractor filters, Edit / Save / Cancel (nothing reaches
    Payroll until Save), Enter / arrows between boxes, a column pasted from Excel fills down. */
-let tmpMonth=monthKey(todayStr());
-let tmpUnit='', tmpCon='';
+// The month and the Unit / Contractor filters are Attendance's (attMonth, attUnitFilter,
+// attContractorFilter), shared with the Month Summary, Holidays and Contractor Paid Leave tabs here.
+let tmpTab='grid';           // 'grid' | 'summary' | 'holidays' | 'cleave'
 let tmpEditMode=false;
 const TMP_COLS=[
   {k:'present', h:'Present days', title:'Present days this month (half days as .5) — blank = working days − LOP'},
@@ -20,25 +21,25 @@ const TMP_COLS=[
   {k:'tokens',  h:'Canteen tokens', title:'Canteen tokens bought this month'}
 ];
 function tmpCanEdit(){ return hasPerm('tempattendance','edit') || hasPerm('tempattendance','add'); }
-function tmpEditable(){ return tmpCanEdit() && tmpEditMode && !attIsMonthly(tmpMonth); }
+function tmpEditable(){ return tmpCanEdit() && tmpEditMode && !attIsMonthly(attMonth); }
 function tmpEmployees(){
-  return payrollEmployeesFor(tmpMonth).filter(e=>(!tmpUnit || unitCodeOf(e.unit)===tmpUnit) && contractorFilterMatches(e, tmpCon));
+  return payrollEmployeesFor(attMonth).filter(e=>(!attUnitFilter || unitCodeOf(e.unit)===attUnitFilter) && contractorFilterMatches(e, attContractorFilter));
 }
-function tmpGet(code){ return (db.tempAtt && db.tempAtt[tmpMonth] && db.tempAtt[tmpMonth][code]) || null; }
+function tmpGet(code){ return (db.tempAtt && db.tempAtt[attMonth] && db.tempAtt[attMonth][code]) || null; }
 // A box's value as shown: OT as h:mm, the rest as numbers; blank when not entered.
 function tmpBoxVal(code, k){
   const t=tmpGet(code); if(!t || !tempAttSet(t[k])) return '';
   return k==='ot' ? Math.floor(t.ot/60)+':'+String(Math.round(t.ot)%60).padStart(2,'0') : String(attN(t[k]));
 }
-function tmpSetMonth(v){ if(!v || v===tmpMonth) return; tmpCommitActive(); tmpMonth=v; render('tempattendance'); }
-function tmpStepMonth(k){ tmpSetMonth(nextMonthKey(tmpMonth, k)); }
-function tmpSetUnit(v){ tmpUnit=v||''; render('tempattendance'); }
-function tmpSetCon(v){ tmpCon=v||''; render('tempattendance'); }
-function tmpClearFilters(){ tmpUnit=''; tmpCon=''; render('tempattendance'); }
+function tmpSetMonth(v){ if(!v || v===attMonth) return; tmpCommitActive(); attMonth=v; render('tempattendance'); }
+function tmpStepMonth(k){ tmpSetMonth(nextMonthKey(attMonth, k)); }
+function tmpSetUnit(v){ attUnitFilter=v||''; render('tempattendance'); }
+function tmpSetCon(v){ attContractorFilter=v||''; render('tempattendance'); }
+function tmpClearFilters(){ attUnitFilter=''; attContractorFilter=''; render('tempattendance'); }
 
 /* ---- Rendering ---- */
 function tmpRowHtml(e, i, editable){
-  const r=computePayrollForEmployee(e, tmpMonth), t=tempAttFor(tmpMonth, e.code), nowd=attNowdParts(e, tmpMonth).nowd;
+  const r=computePayrollForEmployee(e, attMonth), t=tempAttFor(attMonth, e.code), nowd=attNowdParts(e, attMonth).nowd;
   const over=t && (tempAttSet(t.present) ? +t.present : 0)+(+t.lop||0) > nowd;
   const boxes=TMP_COLS.map((c,ci)=>`<td><input class="attIn tmpIn" data-r="${i}" data-c="${ci}" data-k="${c.k}" value="${tmpBoxVal(e.code, c.k)}" ${editable?'':'disabled'}
       placeholder="${c.k==='present' && t && !tempAttSet(t.present) ? attN(Math.max(0, nowd-(+t.lop||0))) : ''}" inputmode="decimal" autocomplete="off" spellcheck="false"
@@ -47,30 +48,49 @@ function tmpRowHtml(e, i, editable){
     <td class="num tmpSl">${i+1}</td><td class="tmpCode">${attEsc(e.code)}</td><td class="tmpName">${attEsc(e.name)}</td>
     <td class="num" title="Working days on the roll: not Sundays or holidays">${nowd}</td>
     ${boxes}
-    <td class="num tmpCalc" data-k="paid" title="Paid days = Present + paid holidays">${attN(r.daysWorking)}</td>
-    <td class="num tmpNet" data-k="net">${fmt(r.netSalary)}</td>
-    <td class="tmpFrom" data-k="from">${t?'<span class="tmpTag">Temp</span>':'<span class="teEwMuted" title="No figures here — Payroll uses the Attendance days">Attendance</span>'}</td>
+    <td class="num tmpCalc" data-k="paid" title="Paid days = Present + paid holidays">${t?attN(r.daysWorking):'<span class="teEwMuted">–</span>'}</td>
+    <td class="num tmpNet" data-k="net">${t?fmt(r.netSalary):'<span class="teEwMuted">–</span>'}</td>
   </tr>`;
 }
 function tmpStatsHtml(emps){
-  const on=emps.filter(e=>tempAttFor(tmpMonth, e.code));
+  const on=emps.filter(e=>tempAttFor(attMonth, e.code));
   const sum=k=>on.reduce((s,e)=>s+(+(tmpGet(e.code)||{})[k]||0),0);
   return `<div class="teStatBox"><b>${emps.length}</b><span>Employees</span></div>
     <div class="teStatBox ${on.length<emps.length?'warn':''}"><b>${on.length}<small> / ${emps.length}</small></b><span>Entered here</span></div>
-    <div class="teStatBox"><b>${attN(on.reduce((s,e)=>s+computePayrollForEmployee(e, tmpMonth).presentDays,0))}</b><span>Present days</span></div>
+    <div class="teStatBox"><b>${attN(on.reduce((s,e)=>s+computePayrollForEmployee(e, attMonth).presentDays,0))}</b><span>Present days</span></div>
     <div class="teStatBox"><b>${attN(sum('lop'))}</b><span>LOP days</span></div>
     <div class="teStatBox"><b>${fmtMinHM(sum('ot'))}</b><span>OT</span></div>
     <div class="teStatBox"><b>${attN(sum('late'))}</b><span>Late minutes</span></div>
     <div class="teStatBox"><b>${attN(sum('tokens'))}</b><span>Canteen tokens</span></div>`;
 }
+function tmpSetTab(t){
+  if(t===tmpTab) return;
+  if(typeof teEditConfirmLeave==='function' && !teEditConfirmLeave()) return;
+  tmpTab=t; render('tempattendance');
+}
+// From the Month Summary here: that employee's row in the Temp Attendance list.
+function tmpOpenEmp(code){
+  tmpTab='grid'; render('tempattendance');
+  setTimeout(()=>{ const tr=document.querySelector(`#tmpGrid tr.tmpRow[data-code="${CSS.escape(code)}"]`); if(!tr) return;
+    tr.scrollIntoView({block:'center'}); tr.classList.remove('teDwFlash'); void tr.offsetWidth; tr.classList.add('teDwFlash');
+    const i=tr.querySelector('input.tmpIn:not(:disabled)'); if(i){ i.focus(); i.select(); } },0);
+}
 function renderTempAttendance(){
   teHostPage='tempattendance';
-  const ym=tmpMonth, emps=tmpEmployees(), all=payrollEmployeesFor(ym).length, canEdit=tmpCanEdit(), monthly=attIsMonthly(ym);
+  const tab=(k, icon, label)=>`<div class="teTab ${tmpTab===k?'active':''}" role="tab" onclick="tmpSetTab('${k}')">${ico(icon)} ${label}</div>`;
+  const tabs=`<div class="teTabs attPageTabs" role="tablist">${tab('grid','users','Temp Attendance')}${tab('summary','clipboard','Month Summary')}${tab('holidays','calendar','Holidays')}${tab('cleave','calendar-range','Contractor Paid Leave')}</div>`;
+  if(tmpTab==='summary') return tabs+renderAttSummary();
+  if(tmpTab==='holidays') return tabs+renderTEHolidayTab();
+  if(tmpTab==='cleave') return tabs+renderAttConLeave();
+  return tabs+renderTempGrid();
+}
+function renderTempGrid(){
+  const ym=attMonth, emps=tmpEmployees(), all=payrollEmployeesFor(ym).length, canEdit=tmpCanEdit(), monthly=attIsMonthly(ym);
   if(tmpEditMode && monthly) tmpEditMode=false;
   const editable=tmpEditable(), thisM=monthKey(todayStr());
   const sel=(on, fn, label, opts)=>`<select class="teFiltSel ${on?'on':''}" onchange="${fn}(this.value)" aria-label="${label}">${opts}</select>`;
   let i=0;
-  const groups=attGroups(emps).map(g=>`<tr class="tmpGroup"><td colspan="13">${attEsc(g.name)} <span>${g.emps.length} employee${g.emps.length===1?'':'s'}</span></td></tr>${g.emps.map(e=>tmpRowHtml(e, i++, editable)).join('')}`).join('');
+  const groups=attGroups(emps).map(g=>`<tr class="tmpGroup"><td colspan="12">${attEsc(g.name)} <span>${g.emps.length} employee${g.emps.length===1?'':'s'}</span></td></tr>${g.emps.map(e=>tmpRowHtml(e, i++, editable)).join('')}`).join('');
   return `<div class="panel attPanel tmpPanel">
     <div class="teDwTop teBar attTop">
       <div class="teDwGroup">
@@ -81,10 +101,10 @@ function renderTempAttendance(){
         ${ym!==thisM?`<button class="btn secondary" onclick="tmpSetMonth('${thisM}')">This month</button>`:''}
         <span class="teBarSep"></span>
         <span class="attFiltInline">${ico('filter')}
-          ${sel(tmpUnit, 'tmpSetUnit', 'Unit', `<option value="" ${!tmpUnit?'selected':''}>All Units</option>`+getUnits().map(u=>`<option value="${u.code}" ${tmpUnit===u.code?'selected':''}>${attEsc(unitTabLabel(u))}</option>`).join(''))}
-          ${sel(tmpCon, 'tmpSetCon', 'Contractor', contractorFilterOptionsHtml(tmpCon))}
+          ${sel(attUnitFilter, 'tmpSetUnit', 'Unit', `<option value="" ${!attUnitFilter?'selected':''}>All Units</option>`+getUnits().map(u=>`<option value="${u.code}" ${attUnitFilter===u.code?'selected':''}>${attEsc(unitTabLabel(u))}</option>`).join(''))}
+          ${sel(attContractorFilter, 'tmpSetCon', 'Contractor', contractorFilterOptionsHtml(attContractorFilter))}
           <span class="teFiltCount">${emps.length===all?`${all} employees`:`<b>${emps.length}</b> of ${all}`}</span>
-          ${tmpUnit||tmpCon?`<button type="button" class="teFiltClear" onclick="tmpClearFilters()" title="Clear filters">${ico('filter-x')}</button>`:''}</span>
+          ${attUnitFilter||attContractorFilter?`<button type="button" class="teFiltClear" onclick="tmpClearFilters()" title="Clear filters">${ico('filter-x')}</button>`:''}</span>
       </div>
       <div class="teDwGroup">
         <span id="teEwSaveState" class="teEwSave ${typeof teEwSaveState!=='undefined'?teEwSaveState:''}"></span>
@@ -100,8 +120,8 @@ function renderTempAttendance(){
     <div class="tableScrollWrap tmpWrap"><table class="tmpTable" id="tmpGrid">
       <thead><tr><th>Sl</th><th>Code</th><th style="text-align:left;">Employee</th><th title="Working days on the roll">NOWD</th>
         ${TMP_COLS.map(c=>`<th class="tmpInHead" title="${attEsc(c.title)}">${c.h}</th>`).join('')}
-        <th>Paid days</th><th>Net pay</th><th>From</th></tr></thead>
-      <tbody>${groups || `<tr><td colspan="13"><div class="empty">${tmpUnit||tmpCon?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr>`}</tbody>
+        <th>Paid days</th><th>Net pay</th></tr></thead>
+      <tbody>${groups || `<tr><td colspan="12"><div class="empty">${attUnitFilter||attContractorFilter?'No employees match these filters.':'No employees on the roll in '+attEsc(attMonthName(ym))+'.'}</div></td></tr>`}</tbody>
     </table></div>
   </div>`;
 }
@@ -130,10 +150,10 @@ function tmpCommit(inp){
     if(v===null){ inp.classList.add('bad'); inp.title=k==='ot'?'Enter OT as hours:minutes, e.g. 12:30':'Enter a number (0 or more)'; return false; }
   }
   if(!db.tempAtt) db.tempAtt={};
-  if(!db.tempAtt[tmpMonth]) db.tempAtt[tmpMonth]={};
-  const t={...(db.tempAtt[tmpMonth][code]||{})};
+  if(!db.tempAtt[attMonth]) db.tempAtt[attMonth]={};
+  const t={...(db.tempAtt[attMonth][code]||{})};
   if(v===null) delete t[k]; else t[k]=v;
-  if(Object.keys(t).length) db.tempAtt[tmpMonth][code]=t; else delete db.tempAtt[tmpMonth][code];
+  if(Object.keys(t).length) db.tempAtt[attMonth][code]=t; else delete db.tempAtt[attMonth][code];
   inp.classList.remove('bad'); inp.title=(TMP_COLS.find(c=>c.k===k)||{}).title||'';
   teEditTouch();
   tmpUpdateRow(tr);
@@ -147,7 +167,7 @@ function tmpUpdateRow(tr){
   const tmp=document.createElement('tbody'); tmp.innerHTML=tmpRowHtml(e, +tr.dataset.r, tmpEditable());
   const nr=tmp.firstElementChild;
   tr.className=nr.className;
-  ['paid','net','from'].forEach(k=>{ tr.querySelector(`[data-k="${k}"]`).innerHTML=nr.querySelector(`[data-k="${k}"]`).innerHTML; });
+  ['paid','net'].forEach(k=>{ tr.querySelector(`[data-k="${k}"]`).innerHTML=nr.querySelector(`[data-k="${k}"]`).innerHTML; });
   tr.querySelectorAll('input.tmpIn').forEach(inp=>{ const n=nr.querySelector(`input[data-c="${inp.dataset.c}"]`); if(n){ inp.value=n.value; inp.placeholder=n.placeholder; } });
 }
 function tmpCell(r, c){ return document.querySelector(`#tmpGrid input.tmpIn[data-r="${r}"][data-c="${c}"]`); }
